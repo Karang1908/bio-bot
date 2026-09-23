@@ -1,0 +1,32 @@
+# Data and outputs (MaleCNS tables are 1.1 GB+; results hold checkpoints and logs)
+data/
+results/
+*.feather
+*.ckpt
+*.npz
+*.safetensors
+
+# Secrets
+.env
+.env.*
+kaggle.json
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Logs
+runs/
+wandb/
+*.log
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
