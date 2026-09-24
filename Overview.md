@@ -72,7 +72,7 @@ If this works, you connect a new robot and it learns to use itself. You install 
 We teach the brain three bodies, one at a time:
 - a **drone**, which is fast, flies, and sees a lot from above, but can't pick things up
 - a **humanoid**, which is slow and walks, but can pick things up and carry them
-- a **small fly-shaped walker**, which is tiny and can get into gaps the others can't
+- a **fly** (a real fruit-fly model enlarged 100 times), which is small and can get into gaps the others can't
 
 Then we connect **all three to the same brain at once** and say: ***"Find the apple and bring it to the table."***
 
@@ -177,7 +177,7 @@ We searched the research carefully but not exhaustively, so these claims will be
 
 - **Learning to walk from scratch is hard.** Humanoid walking is the hardest skill here, so it comes last, and it may need the copy-a-simple-controller head start.
 - **The fly's wiring may not help** on bodies it didn't evolve for. That is still a valid research result.
-- **Size mismatch.** A real fruit fly is 2.5 mm long, which is useless next to a human-sized robot in the same room. In the shared world we use a fly-*shaped* walker at robot size, and keep the true fly body for solo demos.
+- **Size mismatch.** A real fruit fly is 2.5 mm long, which is useless next to a human-sized robot in the same room. So in the shared world the fly model is enlarged 100 times, with its weight, strength and timing all scaled together so its physics stays consistent: a 25 cm fly that weighs about 1 kg.
 - **Real-world learning is slow.** A real house gives the brain a few examples an hour, not millions. That's why childhood happens in simulation first.
 - **Teaching itself the wrong thing.** Once the teachers are gone, the brain judges its own success. On very unusual bodies that judgement may drift, so we measure it and can bring a teacher back briefly.
 
@@ -186,10 +186,10 @@ We searched the research carefully but not exhaustively, so these claims will be
 ## Part 10: The plan in stages
 
 1. **Build the brain** from the fly's wiring map, and make sure it runs stably.
-2. **A simple 2D world** with three simple bodies. Test both research questions here first, because it's quick and cheap.
+2. **The 3D worlds** (built: Bio-Bot Studio). A sandbox for testing one body at a time, and a small open world with a house, roads and sidewalks, a downtown block, stairs, a park, a lake and hills. There are five realistic bodies, including a go-kart you can drive. You can inspect each body and control it by hand, and give commands in a command box. Both research questions are tested here first.
 3. **Swap in the fly wiring** and compare it with ordinary AI designs.
 4. **Add self-learning:** the dopamine-style learning, the self-map, damage tests, and removing the teachers.
-5. **Real 3D bodies:** drone, four-legged robot, fly-shaped walker, and finally a humanoid.
+5. **Harder bodies and more of them:** the drone, dog and fly first, many generated practice bodies, and finally the humanoid.
 6. **Language:** voice commands and the brain's own vocabulary.
 7. **Beyond robots:** smart-home devices and computers, inside a safety fence.
 

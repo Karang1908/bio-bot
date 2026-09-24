@@ -1,6 +1,6 @@
 # One Brain, Many Bodies: Technical Design
 
-_Technical design · 23 September 2026 · Status: planning, no code yet_
+_Technical design · 23 September 2026 · Status: Bio-Bot Studio (sandbox + open world, body inspector, navigation) built; Stage 0 brain built and running (untrained)_
 
 Companion docs: [README](README.md) (summary) · [Overview](Overview.md) (non-technical) · [Requirements](Requirements.md) (infrastructure) · [LegacyIdea](LegacyIdea.md) (original concept)
 
@@ -64,7 +64,7 @@ Every experiment is repeated with the core swapped: **MaleCNS** vs **degree-pres
  motor   sensor          motor   sensor          motor   sensor   ← per-episode shuffled,
  readout tokens          readout tokens          readout tokens     unnamed channels
     ▼      │                ▼      │                ▼      │
-  BODY 1 (drone)          BODY 2 (humanoid)       BODY 3 (fly-shaped walker)
+  BODY 1 (drone)          BODY 2 (humanoid)       BODY 3 (fly ×100)
 
 TRAINING ONLY (stripped before deployment): meaning code per word · privileged critic ·
 simulator ground truth · demonstrations from free teachers · LLM
@@ -111,6 +111,15 @@ Synapse-level tables (6.8–12.7 GB) are not needed.
 τ[T(i)] · dv_i/dt = −v_i + Σ_j w_ij · r_j + b[T(i)] + u_i(t)      r = relu(v)
 Euler step Δt; K ticks (K≈2–4) per control step
 ```
+
+**Built (Stage 0, untrained):** `brain/graph.py` caches the signed graph (166,700 neurons, 25,582,938 connections, 124M synapses; 12 s build). `brain/runtime.py` runs it on the Mac GPU (MLX) as
+
+```
+x_i ← (1 − a) x_i + a · tanh(relu(gain · Σ_j s_j n_ji x_j / Σ_j n_ji + u_i − θ − f_i))
+f_i ← f_i + b (adapt · x_i − f_i)          gain 8, θ 0.1, a 0.5, adapt 3.0, b 0.08
+```
+
+The fatigue term `f` (spike-frequency adaptation) is required. Without it the connectome's excitatory loops locked into a self-sustaining state (≈9% of neurons active forever after the input stopped). With it, activity spreads from the senses to every group while driven and fades to ≈0.2% within ~4 s after. The studio runs it at 20 Hz beside the physics (≈14 ms per step; physics stays ≈1× real time). The bodies' joint velocities, each normalised by its own running RMS, drive 24 randomly assigned body-sense neurons per channel. Photoreceptors get nothing yet (no camera). The brain does not move the bodies.
 
 - **Learned, per cell type:** time constant `τ`, bias `b`, and pair gain `γ`. The parameter count is independent of neuron count, and the wiring stays fixed.
 - **Optional ablation:** a per-neuron descriptor `η_i ∈ R^D` (the FlyGM design).
@@ -250,7 +259,7 @@ For non-simulated bodies:
 |---|---|---|---|---|
 | Flyer (drone) | fast | wide | no | no |
 | Grabber (humanoid) | slow | narrow | yes | no |
-| Crawler (fly-shaped) | slow | short | no | yes |
+| Crawler (fly ×100) | slow | short | no | yes |
 
 | Task | Requires |
 |---|---|
@@ -333,17 +342,17 @@ Learning uses local plasticity only, driven by internal reward and prediction er
 
 | Body | Implementation | Phase |
 |---|---|---|
-| 2D world with flyer / grabber / crawler | custom JAX; analytic "vision" (bearing, distance, unlabeled object features); gaps and occluders | 1 |
-| Procedural 2D/3D bodies | random limb count and length, actuator count, sensor sets (incl. novel senses), dynamics randomisation | 1–4 |
-| Drone | custom JAX rigid-body quadrotor, or MuJoCo Crazyflie model in MJX | 4 |
-| Quadruped | Unitree Go1 (MuJoCo Playground) | 4 |
-| Fly-shaped walker | hexapod built from the flybody leg morphology, scaled to robot size | 4 |
-| Humanoid | Unitree G1 / H1 or Berkeley Humanoid (MuJoCo Playground) | 4 (last) |
-| Real fly | flybody (MuJoCo), solo demo only | stretch |
+| Worlds (Bio-Bot Studio) | **built.** One MuJoCo model per map and lineup, rebuilt when either changes (`world/free_world.py`, `world/maps.py`). **Sandbox:** an empty stage with an apple; any subset of bodies stands in a row. **Open world:** an 80 × 80 m heightfield (161² samples) with a furnished 8 × 6 m house (a cabinet with a 0.14 m gap only the fly fits under), a 5 m road loop with 2 m sidewalks and 16 street lamps (solid poles), a downtown block of six solid buildings (7–30 m) on flat ground, stairs and a ramp to a 1.2 m platform, a park, crates, 16 trees, hills that fade to flat at the map edge, and a lake. Roads, sidewalks and tree crowns are visual only. The lake is visual; buoyancy, drag and rotational damping are applied per body in `world/water.py`. Global fluid drag is off (it cost ≈1 ms per step on the fly). 1 ms step. Measured headroom: open world with all five bodies 1.1–1.4× real time (varies with machine load), sandbox 2.35×. The web view uses a logarithmic depth buffer: layers centimetres apart (road, sidewalk, rug) z-fought beyond ~40 m with a normal one. | 1 |
+| Humanoid | **in the world.** Unitree G1 (MuJoCo Menagerie), 29 position actuators | 1 |
+| Dog | **in the world.** Unitree Go2 (Menagerie), 12 torque motors (PD hold) | 1 |
+| Drone | **in the world.** Skydio X2 (Menagerie), 4 rotors; geometric hover / go-to controller | 1 |
+| Car | **in the world.** Go-kart built for this project (`world/vehicles.py`): 170 kg, rear-wheel motors (±70 N·m), position-servo front steering (±0.55 rad); a pure-pursuit controller drives it to places. Measured: 8.6 m in 3 s from rest | 1 |
+| Fly | **in the world.** flybody (Menagerie) enlarged 100× by dimensional scaling of every length, mass, force, stiffness, damping and time constant (`world/scale.py`); ≈1 kg; 78 actuators | 1 |
+| Procedural 3D bodies | random limb count and length, actuator count, sensor sets (incl. novel senses), dynamics randomisation | 1–4 |
 | Homelab | Mac / Linux / Pi metrics as sensors, whitelisted jobs as actions; simulated queueing twin for training | 6 |
 | Smart home | Home Assistant entities → channels, services → actions, behind the fence | 6 |
 
-A real fruit fly is about 2.5 mm long and walks about 3 cm/s. It cannot share a room-scale world with robots, and in a shared scene it would force the whole simulation onto its fine physics timestep. Hence the scaled fly-shaped walker.
+A real fruit fly is about 2.5 mm long and walks about 3 cm/s, and flybody needs a 0.1 ms physics step. Enlarging it 100× with time scaled by √100 keeps gravity consistent and relaxes its step to ≈1 ms, which the whole world now uses (a 2 ms step made the fly collapse). Built-in controllers per body (off / hold / babble, `world/controllers.py`) are placeholders and free teachers, not the brain.
 
 ---
 
@@ -379,11 +388,11 @@ A real fruit fly is about 2.5 mm long and walks about 3 cm/s. It cannot share a 
 
 | Phase | Build | Gate (don't move on until) |
 |---|---|---|
-| P0 | Signed graph, four variants, null models, dynamics | every variant stable 10k steps; step time measured on Mac and Kaggle T4 |
-| P1 | 2D world, three bodies, channel interface, **GRU core**; solo discovery + merge | GRU learns held-out bodies with in-lifetime improvement; E6 run once at toy scale (validates both RQs before the connectome is involved) |
+| P0 | Signed graph, four variants, null models, dynamics | **full-size graph + dynamics built** (stable, bounded, fades without input; tested). Still to do: the smaller variants, null models, T4 step time |
+| P1 | 3D free world (**built**: Bio-Bot Studio, four bodies); channel interface, **GRU core**; solo discovery + merge | GRU learns held-out bodies with in-lifetime improvement; E6 run once at toy scale (validates both RQs before the connectome is involved) |
 | P2 | Swap in connectome cores + all baselines | E1 and E6 headline plots across cores |
 | P3 | Plasticity, DAN reward, prediction head, self-map, strip, damage | E3 / E4: plasticity beats frozen after strip |
-| P4 | 3D: drone, Go1, fly-shaped walker; 3D merge; humanoid last | E1 / E6–E9 in 3D |
+| P4 | Scale up: procedural 3D bodies and Kaggle training; merge with all four bodies; humanoid last | E1 / E6–E9 in 3D |
 | P5 | Intent layer: speech, LLM parse, grounding, vocabulary | E11 |
 | P6 | Real systems: Home Assistant + homelab behind the fence | E13 |
 | Stretch | humanoid in the merged team; optic-lobe vision for cameras; E10 self-recognition study; real fly solo demo | — |
@@ -415,7 +424,7 @@ Sensor-only bodies (cameras) and actuator-only bodies (smart plugs) are ordinary
 | All nerve-cord copies issue identical commands | body-slot gate + AN feedback (§5.1); resolved at the P1 gate |
 | Internal reward misgeneralises after strip | E4c monitoring; optional brief teacher return |
 | Sim-to-real and real-world data are slow | childhood in simulation; real systems only in-context and behind the fence |
-| Scale mismatch (fly vs robots) | scaled fly-shaped walker in shared scenes |
+| Scale mismatch (fly vs robots) | fly enlarged 100× with dimensional scaling (done); 1 ms world step |
 | Kaggle 12 h session limit | checkpoint every 15–30 min; chained sessions |
 
 ## 14. Considered and rejected
@@ -451,7 +460,7 @@ Sensor-only bodies (cameras) and actuator-only bodies (smart plugs) are ordinary
 | [DADS (ICLR 2020)](https://arxiv.org/abs/1907.01657) | self-discovered skills + planning |
 | Eureka (Ma et al. 2024) | LLM-written reward code |
 | [Capability-aware heterogeneous teams (arXiv 2401.13127)](https://arxiv.org/html/2401.13127) | heterogeneous team policies with *given* capabilities (ours discovers them) |
-| [VMAS](https://github.com/proroklab/VectorizedMultiAgentSimulator) | vectorised multi-robot scenarios (reference for 2D tasks) |
+| [VMAS](https://github.com/proroklab/VectorizedMultiAgentSimulator) | vectorised multi-robot scenarios (reference for coordination task design) |
 | [MuJoCo Playground](https://github.com/google-deepmind/mujoco_playground); [flybody](https://www.nature.com/articles/s41586-025-09029-4) | bodies |
 | Salimans et al. 2017; rliable (Agarwal et al. 2021) | evolution strategies; statistics |
 

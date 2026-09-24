@@ -16,7 +16,7 @@ Today every robot, smart-home system and piece of software has to be set up by h
 
 ### 2. Coordination: one brain, many bodies (the "weirdly agentic" part)
 
-Teach the brain three bodies separately (a drone, a humanoid, a fly-shaped walker), then connect all three at once and say *"find the apple."* The drone searches from above. The moment it sees the apple, the humanoid is already walking there. No message passes between the bodies, because they share one mind. This is neither a single robot nor a team of robots: it is one agent spread across several bodies.
+Teach the brain three bodies separately (a drone, a humanoid, a fly enlarged 100×), then connect all three at once and say *"find the apple."* The drone searches from above. The moment it sees the apple, the humanoid is already walking there. No message passes between the bodies, because they share one mind. This is neither a single robot nor a team of robots: it is one agent spread across several bodies.
 
 > *Does a single shared brain coordinate different bodies better than separate brains that have to communicate, and what kind of agency emerges when one mind lives in several bodies?*
 
@@ -77,11 +77,26 @@ Safety principle for all real-world use: **configure the fence, not the function
 | [Overview.md](Overview.md) | The whole idea in plain words: no jargon, with analogies, applications and the demo | anyone |
 | [TechnicalDesign.md](TechnicalDesign.md) | Architecture, training, experiments, baselines, risks, related work | building or reviewing it |
 | [Requirements.md](Requirements.md) | Hardware, software, data, compute budget and workflow for running and training | setting it up |
+| [DESIGN.md](DESIGN.md) · [PRODUCT.md](PRODUCT.md) | The studio's visual system and product record | changing the studio's interface |
 | [LegacyIdea.md](LegacyIdea.md) | The original concept document (17 Sep 2026), kept for reference | curious how it started |
 
 ## Status
 
-Planning. No code yet. Everything runs on free resources: a MacBook Air M3 for development and Kaggle's free GPUs for training.
+**Bio-Bot Studio is running:** two 3D worlds in MuJoCo. The **Sandbox** is an empty stage for testing bodies one at a time, then two, then all. The **Open world** is an 80 × 80 m map with a furnished house, a road loop with sidewalks and street lamps, a small downtown of six buildings, stairs and a ramp, a park, a lake you can float in, and hills. It has five bodies: Unitree G1 humanoid, Unitree Go2 dog, Skydio X2 drone, the flybody fruit fly enlarged 100×, and a go-kart. Click any body to inspect it: every motor and sensor is live, and in **Take control** you move each joint yourself, drive the car or fly the drone with the arrow keys. A clickable map, camera buttons and keyboard shortcuts (press `?`) make getting around easy. Each body can also be switched off (limp), held (standing / hovering / braking) or set to explore. The drone and the car already reach named places with their built-in controllers.
+
+**The brain (Stage 0) is built and running, untrained:** the full MaleCNS connectome (166,700 neurons, 25.58M connections) runs live on the Mac GPU. The bodies' joint movements feed its sense neurons, and the studio's **Brain** tab shows every neuron in 3D lighting up as the signal spreads, with activity bars for seven plain-language groups (Senses, Vision, Central brain, Brain → body, Body → brain, Nerve cord, Muscles). It only listens: training (Stage 1) comes next.
+
+Everything runs on free resources: a MacBook Air M3 for development and Kaggle's free GPUs for training.
+
+## Run it
+
+```bash
+scripts/studio.sh          # fetches models + sky, builds the web app, serves http://localhost:8765
+.venv/bin/python scripts/fetch_assets.py --connectome   # once: MaleCNS tables (~1.1 GB) + brain graph
+.venv/bin/python -m pytest # world, controllers, command parser, API
+```
+
+Needs Python 3.12 (via `uv`), Node 22, and git. First run downloads ~210 MB of models into `third_party/` (git-ignored). The brain needs the `--connectome` step; without it the studio runs and the Brain tab explains what's missing.
 
 ## Data credit
 
