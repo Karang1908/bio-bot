@@ -26,6 +26,7 @@ Applications this setup is meant to reach:
 
 | Work | Machine | Why |
 |---|---|---|
+| Bio-Bot Studio: sandbox + open world, body inspector, command box | MacBook Air M3 | open world with all five bodies has 1.24× real-time headroom, the sandbox 2.35×; the browser renders at 60 fps (measured) |
 | Writing code, debugging, unit tests | MacBook Air M3 | always available; JAX on CPU is fine at tiny scale |
 | Coarse-scale experiments (~2k-unit brain), quick checks | MacBook Air M3 | minutes per run (measured, §3.1) |
 | Main training runs (mesoscale and larger, 3D bodies, many seeds) | **Kaggle free GPUs** | GPU-parallel physics (MJX) + brain |
@@ -101,7 +102,7 @@ Rules of use:
 
 | Package | Purpose |
 |---|---|
-| Python | **use the same minor version as Kaggle's image** (check with `python --version` in a Kaggle notebook); on the Mac, create a matching venv, since Homebrew's default is 3.14 |
+| Python | the project `.venv` uses **3.12** (created with `uv`); confirm it matches Kaggle's image (`python --version` in a Kaggle notebook) before the first Kaggle job |
 | `jax` | CPU build on the Mac, CUDA build on Kaggle |
 | `flax`, `optax` | network modules and optimisers |
 | `brax` | PPO training (what MuJoCo Playground uses) |
@@ -113,7 +114,18 @@ Rules of use:
 | `rliable` | statistics (interquartile mean, bootstrap confidence intervals) |
 | `matplotlib`, `tensorboard` | plots and training curves (logs saved to job output) |
 
-Optional on the Mac: `mlx`, already installed and used for the benchmarks above.
+On the Mac: `mlx` runs the Stage 0 brain on the GPU (installed; also used for the benchmarks above). `pandas` + `pyarrow` read the MaleCNS tables.
+
+### 4.1b Studio (installed and in use)
+
+| Package / asset | Purpose |
+|---|---|
+| `fastapi`, `uvicorn[standard]` | studio server: REST commands, WebSocket pose stream, brain activity stream (`studio/server`) |
+| `lucide-react` | the studio's icons |
+| `pytest`, `httpx` | tests (`tests/`) |
+| Vite 8, React 19, TypeScript 5.9 | studio web app (`studio/web`) |
+| `three` 0.186, `@react-three/fiber` 9, `@react-three/drei` 10 | 3D rendering of the MuJoCo world |
+| Poly Haven sky HDRI (CC0), fetched by `scripts/fetch_assets.py` | lighting and background |
 
 ### 4.2 Intent layer (all local, free)
 
@@ -134,7 +146,7 @@ Optional on the Mac: `mlx`, already installed and used for the benchmarks above.
 
 ### 4.4 Tooling
 
-`git`; `uv` or `venv`; Kaggle CLI (`pip install kaggle`).
+`git`; `uv` or `venv`; Kaggle CLI 2.2 (`uv pip install -e '.[train]'`, then sign in once with `kaggle auth login`).
 
 ---
 
@@ -191,14 +203,20 @@ Field names are from Kaggle's API docs (`kernels_metadata.md`).
 
 ---
 
-## 7. Repository layout (proposed)
+## 7. Repository layout
+
+Built so far: `world/` (free world, fly scaling, built-in controllers), `studio/server` and `studio/web` (Bio-Bot Studio), `scripts/` (`fetch_assets.py`, `studio.sh`), `tests/`. The rest is planned.
 
 ```
 deep-learning/
-├── README.md  Overview.md  TechnicalDesign.md  Requirements.md  LegacyIdea.md
+├── README.md  Overview.md  TechnicalDesign.md  Requirements.md  LegacyIdea.md  PRODUCT.md  DESIGN.md
+├── world/          free world, unit scaling, built-in controllers           (built)
+├── studio/         server/ (FastAPI) + web/ (React + three.js)               (built)
+├── scripts/        fetch_assets.py, studio.sh                                (built)
+├── tests/          world, controllers, parser, API                           (built)
 ├── brain/          graph building, four size variants, baseline graphs, dynamics, plasticity
 ├── interface/      sensor tokens, motor readout, per-episode channel randomisation
-├── bodies/         2D world, drone, procedural bodies, Playground wrappers, digital bodies
+├── bodies/         procedural bodies, digital bodies
 ├── coordination/   nerve-cord slots, shared world memory, merge / hot-plug
 ├── intent/         meaning code (one file per verb), speech, command parsing, vocabulary
 ├── training/       PPO, evolution strategies, childhood / joint / strip pipelines
@@ -209,13 +227,13 @@ deep-learning/
 └── results/        (git-ignored) checkpoints, logs, plots
 ```
 
-This folder is currently **untracked inside a git repository rooted at `~/Desktop`**. Make it its own repository (`git init`) before adding code or data.
+This folder is its own git repository (github.com/Karang1908/bio-bot). `third_party/`, `data/`, `results/`, the HDRI and build output are git-ignored.
 
 ---
 
 ## 8. Secrets and safety
 
-- **Kaggle token:** `~/.kaggle/kaggle.json` with `chmod 600`. Never committed, never inside a job folder.
+- **Kaggle credentials:** from `kaggle auth login` (or a legacy `~/.kaggle/kaggle.json` with `chmod 600`). Never committed, never inside a job folder.
 - **Home Assistant token:** in an environment variable or the macOS Keychain, never in the repo.
 - **`.gitignore`:** `data/`, `results/`, `*.ckpt`, `.env`, `kaggle.json`.
 - **Real systems only run behind the fence:**
