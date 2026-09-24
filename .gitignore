@@ -30,3 +30,19 @@ wandb/
 .DS_Store
 .idea/
 .vscode/
+
+# Third-party assets (fetched by scripts/fetch_assets.py)
+third_party/
+studio/web/public/hdri/
+
+# Frontend
+node_modules/
+studio/web/dist/
+
+# Design-skill scratch (reference images, decision payloads)
+.impeccable/*.png
+.impeccable/*.webp
+.impeccable/*.json
+
+# MuJoCo runtime warnings log
+MUJOCO_LOG.TXT
