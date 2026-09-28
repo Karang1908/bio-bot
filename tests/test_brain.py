@@ -51,3 +51,21 @@ def test_activity_fades_after_input_stops(graph):
     for _ in range(120):
         b.step()
     assert (b.activity() > 0.1).mean() < 0.01              # fatigue stops it locking on
+
+
+def test_trainable_core_keeps_the_sensorimotor_loop():
+    """Stage 1 core (brain/core.py): body senses in, motor neurons out, real wiring between."""
+    from brain.core import ROLES, load_core
+    c = load_core()
+    role, sign, pre, post = c["role"], c["sign"], c["pre"], c["post"]
+    count = {name: int((role == i).sum()) for i, name in enumerate(ROLES)}
+    assert len(role) == 2500 and count["sense"] > 150 and count["motor"] > 150
+    assert (sign[role == 0] > 0).mean() > 0.9                     # mechanosensory neurons are excitatory
+    assert (c["synapses"] >= 10).all() and (pre != post).all()
+    live = sign[pre] != 0                                         # a signless unit's outputs carry nothing
+    reach = role == 0
+    for _ in range(2):
+        nxt = reach.copy()
+        nxt[post[live & reach[pre]]] = True
+        reach = nxt
+    assert reach[role == 1].mean() > 0.95                         # senses reach motor neurons within 2 steps
