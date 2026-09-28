@@ -151,26 +151,33 @@ BUILDINGS = [("bldg_brick_0", -5.0, 28.5, 3.5, 4.0, 10.0), ("bldg_glass_1", 2.5,
              ("bldg_glass_4", 9.5, 34.5, 3.0, 2.5, 30.0), ("bldg_concrete_5", -5.0, 35.5, 3.5, 2.2, 7.0)]
 
 
+HILL_SCALE = 0.8    # keeps every slope walkable: steepest 28 degrees, 99% of the land under 23
+BLEND = 12.0        # m over which hills rise out of the flat areas and fade out at the map edge
+
+
+def _smooth(t: np.ndarray) -> np.ndarray:
+    return t * t * (3 - 2 * t)
+
+
 def terrain_height(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """Ground height (m). Flat at 0 across the house, road and park."""
-    h = np.zeros(np.broadcast(x, y).shape)
+    """Ground height (m). Flat at 0 across the house, road, park and downtown."""
+    hills = np.zeros(np.broadcast(x, y).shape)
     # hills, north-west
     for hx, hy, amp, r in ((-29, 27, 4.5, 7.5), (-20, 33, 2.6, 5.5), (-33, 12, 1.8, 5.0), (-12, 36, 1.2, 4.0)):
-        h += amp * np.exp(-((x - hx) ** 2 + (y - hy) ** 2) / (2 * r * r))
+        hills += HILL_SCALE * amp * np.exp(-((x - hx) ** 2 + (y - hy) ** 2) / (2 * r * r))
     # gentle rolls in the south-east
-    h += 0.35 * np.exp(-((x - 20) ** 2 + (y + 28) ** 2) / 60) + 0.25 * np.exp(-((x - 30) ** 2 + (y + 20) ** 2) / 40)
-    # lake basin, east: smooth bowl with beaches
-    d = np.sqrt(((x - LAKE.cx) / (LAKE.rx + 3)) ** 2 + ((y - LAKE.cy) / (LAKE.ry + 3)) ** 2)
-    h -= 1.7 * np.clip(1.0 - d, 0, 1) ** 0.8
-    # keep the built-up centre and downtown perfectly flat
-    centre = np.clip((np.maximum(np.abs(x), np.abs(y)) - 23.0) / 3.0, 0, 1)
+    hills += 0.35 * np.exp(-((x - 20) ** 2 + (y + 28) ** 2) / 60) + 0.25 * np.exp(-((x - 30) ** 2 + (y + 20) ** 2) / 40)
+    # Hills rise gradually out of the flat centre and downtown. (A 3 m blend used to cut them
+    # into 60-degree cliffs that no legged body could climb.)
+    ring = np.maximum(np.abs(x), np.abs(y))
     x0, y0, x1, y1 = CITY
     outside = np.maximum(np.maximum(x0 - x, x - x1), np.maximum(y0 - y, y - y1))   # > 0 outside the block
-    city = np.clip(outside / 3.0, 0, 1)
-    # fade to 0 at the map edge so the terrain meets the plain around it without a cliff
-    edge = np.clip((HALF - np.maximum(np.abs(x), np.abs(y))) / 6.0, 0, 1)
-    edge = edge * edge * (3 - 2 * edge)
-    return h * np.minimum(centre, city) * edge
+    hills *= np.minimum(_smooth(np.clip((ring - 23.0) / BLEND, 0, 1)), _smooth(np.clip(outside / BLEND, 0, 1)))
+    # lake basin, east: smooth bowl with beaches, starting just outside the road
+    d = np.sqrt(((x - LAKE.cx) / (LAKE.rx + 3)) ** 2 + ((y - LAKE.cy) / (LAKE.ry + 3)) ** 2)
+    lake = -1.7 * np.clip(1.0 - d, 0, 1) ** 0.8 * np.clip((ring - 23.0) / 3.0, 0, 1)
+    # everything fades to 0 at the map edge, so the terrain meets the plain around it without a cliff
+    return (hills + lake) * _smooth(np.clip((HALF - ring) / BLEND, 0, 1))
 
 
 def build_open(spec: mujoco.MjSpec) -> MapInfo:
