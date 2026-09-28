@@ -170,11 +170,28 @@ Storage:
 
 ### 6.1 Loop
 
-1. Write and test on the Mac at tiny scale.
-2. `kaggle kernels push -p jobs/<run>` sends the job to Kaggle.
-3. `kaggle kernels status <user>/<run>` checks on it.
-4. `kaggle kernels output <user>/<run> -p results/<run>` pulls back checkpoints and logs.
-5. The next job lists the previous run in `kernel_sources` and resumes from its checkpoint.
+1. Write and test on the Mac at tiny scale (`python train/<run>.py --steps 20000 --envs 16`).
+2. `scripts/kaggle_job.py push <run>` writes the job's settings into the script and sends it to Kaggle.
+3. `scripts/kaggle_job.py wait <run>` polls until it finishes.
+4. `scripts/kaggle_job.py fetch <run>` pulls the log, training curve, evaluation and policy into `results/<run>/`.
+5. A trained result that passes its checks is promoted into the repo, and `pytest` re-checks it in the studio's physics.
+
+Measured (2× T4, jax 0.7.2, MJX, Brax 0.14.2, 8192 envs, MLP policy): Go2 physics with feet-only contacts runs 200M
+control steps (50 Hz, 4 ms physics) in 38 min on flat ground and 61 min on a heightfield, plus ~3.5 min of install and
+compilation; a run costs ~1 of the 30 weekly GPU hours. MJX's JAX backend needs zero contact margin against heightfields,
+and a rare solver blow-up on terrain turns a whole run to NaN unless the environment ends such episodes and zeroes their
+observations (Playground's auto-reset keeps `info`, so that must be cleaned too).
+The Kaggle CLI's OAuth login (`kaggle auth login`) expired within ~3 h in use; re-run it with `--force` before fetching.
+
+Gotchas measured on 27–28 Sep 2026:
+- `kaggle kernels output` skips any file that already exists locally with the same size, unless it is given `-o`. Two
+  trained brains of the same shape silently kept the previous run's file. `fetch` now always passes `-o`.
+- A free account runs at most 2 batch GPU jobs at once ("Maximum batch GPU session count of 2 reached"). A cancelled or
+  replaced job can hold a slot for a while. `push --job <name>` runs one script as separate jobs side by side, and
+  `push --machine NvidiaTeslaP100` uses the P100 queue instead of the default 2× T4.
+- Kaggle keeps a job's log to itself until the job ends, so a long job cannot be checked mid-run. The baby curriculum
+  (`train/baby_dog.py`) therefore runs as short stages, each ending with its own verdict. Brains move between stages
+  through the private dataset `bio-bot-brains` (`upload`, then `push --dataset bio-bot-brains`).
 
 ### 6.2 Job metadata (`jobs/<run>/kernel-metadata.json`)
 
