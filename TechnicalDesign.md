@@ -123,7 +123,7 @@ The fatigue term `f` (spike-frequency adaptation) is required. Without it the co
 
 - **Learned, per cell type:** time constant `τ`, bias `b`, and pair gain `γ`. The parameter count is independent of neuron count, and the wiring stays fixed.
 - **Optional ablation:** a per-neuron descriptor `η_i ∈ R^D` (the FlyGM design).
-- **Stability:** normalise to a target spectral radius at initialisation, clip `v`, and require 10k-step stability under random input for every graph variant.
+- **Stability and signal flow:** make each neuron's input the synapse-weighted *average* of its inputs (`Z_i` = total input synapses), with a learned global gain starting near 2, bounded rates and neuron fatigue. Don't normalise the whole matrix to a target spectral radius. On the 2,500-unit core the radius is 64.7, set by a few intensely recurrent loops, so scaling it to 0.9 shrank every ordinary connection about 70×. Signals then died within one hop, and a goal injected into the central brain never reached the motor neurons: measured as exactly zero change in commands, over 200M steps of training. Goals now also enter the descending (command) neurons, one to two hops from the motor neurons. Every training job first checks that a held goal changes the commands, and stops if it doesn't.
 
 ### 3.4 Graph variants (same code, different sizes)
 
@@ -132,7 +132,7 @@ The fatigue term `f` (spike-frequency adaptation) is required. Without it the co
 | Full | ≈166.7k | all annotated neurons | running / demos |
 | Pruned | ≈70k | drop optic lobes unless the body has a camera (optic lobes ≈95k of 166.7k by one count) | fine-tuning |
 | Mesoscale | ≈5–10k | keep **individual** neurons in the central complex (column structure carries heading and goal), MBONs, DANs, DNs and ANs; subsample Kenyon cells; collapse large repetitive populations to cell type | main experiments |
-| Coarse | ≈2k | cell-type-level collapse | fast iteration, many seeds |
+| Coarse | ≈2k | cell-type-level collapse. **Built** as the *sensorimotor core* (`brain/core.py`): 2,500 type units without the optic lobes — every body-sense (188), motor (187), descending (482) and ascending (564) type plus the 1,079 nerve-cord and central types that exchange the most synapses with them; 167,630 type-to-type connections of ≥ 10 synapses (15.5M synapses); senses reach 185 of 187 motor units within two steps | fast iteration, many seeds; Stage 1 training |
 
 Null models are built **at each scale**:
 - **Directed degree-preserving rewiring:** each neuron keeps its in/out degree and sign, and the synapse-count distribution is preserved.
@@ -308,11 +308,40 @@ For non-simulated bodies:
   - prediction loss
   - DAN reward-prediction loss (proper scoring rule)
   - curiosity bonus
-  - optional behaviour cloning from free teachers
-- **Free teachers:**
-  - classical controllers: PID/LQR hover for the drone, rhythmic gait generators for legged bodies
-  - RL experts trained per body where needed
-  - the imitation-then-PPO recipe is the one FlyGM used to make a connectome controller trainable
+- **Taught like a child, by an AI teacher layer (decided 27 Sep 2026; replaces "semantics only" of 25 Sep).** The brain
+  gets anonymous channels plus the goal and learns each body itself; it is never told which line is which. On top of it
+  sits a teacher that knows what the concepts mean and teaches the way a parent does:
+  - *show*: it moves the body's joints through a demonstration (for the dog, a trot it first finds by practising on
+    the body), so the brain feels the movement on its own lines, and corrects the brain's line commands toward it
+    (an imitation loss);
+  - *assist*: it holds the trunk up with a harness force, so trying costs no falls;
+  - *let go*: hands on the legs first, then the harness and the corrections, each only once the brain keeps up with
+    less help, and all of it by 70% of training. What stays is the meaning-code reward.
+
+  Why: four runs with outcome-only reward (up to 200M steps) learned to stay up but never walked; they never produced
+  one example of forward travel to learn from. The teacher is written by an AI agent between runs (it reads the
+  metrics, footfall diagrams and films, and revises the lesson). A trained brain must run with zero help. A per-body
+  controller is never the thing that moves the body (a per-body PPO expert for the dog was built and removed on
+  25 Sep); the studio's hold / hover / drive controllers stay as manual and placeholder modes only.
+- **The baby curriculum (decided 27 Sep 2026; working on the Go2 as of 28 Sep).** One brain learns one body from scratch
+  over one "childhood". The wiring is one fixed random draw, the same in every life (it replaces the per-life reshuffle,
+  which the brain could not learn through). The brain is never told which line is which. Stages, each a short job that
+  ends with its own real test (`train/baby_dog.py`):
+  1. *babble*: the joints twitch while the trunk is held, and the brain learns to predict what each twitch does;
+  2. *name*: "move <leg> <joint>";
+  3. *act*: lift, swing and put down single legs and diagonal pairs;
+  4. *walk* ("walk" with the teacher counting the steps and then fading out), *start/stop*, and the other gaits:
+     turn left and right, back;
+  5. *the parent leaves*: the harness fades out;
+  6. *practice*: reward practice with shoves, the teacher kept as a light guide;
+  7. *poses*: sit, lie down, stand back up;
+  8. *practice round 3*: everything together, all four feet stepping.
+
+  Two rules came out of it:
+  - Anything the brain learned with stays at test and at runtime (for example its motor wobble).
+  - Every lesson rehearses everything it already knows; one lesson that left the gaits out erased walking.
+
+  The full record, with every run's numbers, is in `LOGBOOK.md`.
 - **Optimisers:**
   - *Slow parameters* (interface, per-type τ, b, γ): PPO (JAX / Brax, as used by MuJoCo Playground) with an **asymmetric critic** that sees privileged simulator state, and truncated BPTT.
   - *Plasticity coefficients:* evolution strategies (evosax: OpenAI-ES / SNES) in an outer loop. Fitness = improvement within a lifetime, averaged over sampled bodies, which directly optimises *learning to learn*.
@@ -388,7 +417,7 @@ A real fruit fly is about 2.5 mm long and walks about 3 cm/s, and flybody needs 
 
 | Phase | Build | Gate (don't move on until) |
 |---|---|---|
-| P0 | Signed graph, four variants, null models, dynamics | **full-size graph + dynamics built** (stable, bounded, fades without input; tested). Still to do: the smaller variants, null models, T4 step time |
+| P0 | Signed graph, four variants, null models, dynamics | **full-size graph + dynamics built** (stable, bounded, fades without input; tested). Coarse sensorimotor core built (`brain/core.py`). Still to do: pruned and mesoscale variants, null models |
 | P1 | 3D free world (**built**: Bio-Bot Studio, four bodies); channel interface, **GRU core**; solo discovery + merge | GRU learns held-out bodies with in-lifetime improvement; E6 run once at toy scale (validates both RQs before the connectome is involved) |
 | P2 | Swap in connectome cores + all baselines | E1 and E6 headline plots across cores |
 | P3 | Plasticity, DAN reward, prediction head, self-map, strip, damage | E3 / E4: plasticity beats frozen after strip |
