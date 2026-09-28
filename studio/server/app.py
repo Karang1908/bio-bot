@@ -189,7 +189,7 @@ def get_status():
 def set_mode(key: str, body: ModeIn):
     if body.mode not in MODES:
         raise HTTPException(422, f"mode must be one of {list(MODES)}")
-    sim().set_mode(_body(key), body.mode)
+    _run(lambda: sim().set_mode(_body(key), body.mode))
     return sim().status()["bodies"][key]
 
 
@@ -299,7 +299,8 @@ def brain():
     stages = [{"id": i, "name": n, "detail": d,
                "status": ("done" if i == "0" else "next" if i == "1" else "locked") if built
                else ("next" if i == "0" else "locked")} for i, n, d in STAGES]
-    kaggle_ready = (Path.home() / ".kaggle" / "kaggle.json").exists() or (Path.home() / ".kaggle" / "access_token").exists()
+    # `kaggle auth login` (CLI 2.x) saves credentials.json; older setups use an API-token file.
+    kaggle_ready = any((Path.home() / ".kaggle" / f).exists() for f in ("credentials.json", "kaggle.json", "access_token"))
     return {**svc.info(), "built": built, "trained": False, "stages": stages, "kaggle": kaggle_ready}
 
 
