@@ -55,6 +55,13 @@ POSE_REWARD = 1.0        # practice: reward per second for holding the asked res
 GUIDE_REST = 5.0         # practice: the teacher's guide counts this much for rest poses (new words are learned fast)
 STYLE_REWARD = 1.0       # real-dog practice: reward per second for a pose close to some real-dog pose of that behaviour
 BANK = 800               # real-dog practice: frames kept per behaviour for motion matching
+# letting go (practice --let_go): each word's teacher help (its guide, the real dog's style pull, the four-feet rule)
+# fades as the dog manages that word alone, and is gone by HELP_GONE of the lesson whatever its progress; what stays
+# for good is what each word achieves, plus the body's own cost of moving
+HELP_GONE = 0.7          # share of the lesson by which every word's help is zero
+HELP_CHECKS = 50         # times per lesson each word's help is reconsidered
+ENERGY_COST = 0.01       # reward lost per second per W/kg of mechanical power (the dog gets tired)
+JUMP_REWARD = 1.0        # reward per second with all four feet off the ground when told "jump"
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
@@ -724,6 +731,31 @@ def walk(args, bd, out: Path) -> dict:
     return lesson(args, bd, out, "walk", [walk_instr], [i for i in earlier if not i["held"]], walk_skill=True)
 
 
+def next_help(help_, best, reward, seconds, deadline):
+    """Letting go, per word: reward and seconds summed since the last look (no teacher terms in the reward). Help
+    drops 20% when the dog did the word at least 90% as well as its best so far, comes back (x1.25, up to 1) below
+    70%, and never exceeds the deadline (1 -> 0 over the lesson). Returns the new help and best."""
+    import numpy as np
+    seen_ = seconds > 0
+    got = reward / np.maximum(seconds, 1e-9)
+    best = np.where(seen_, np.maximum(best, got), best)
+    ok = seen_ & (got >= best - 0.1 * np.abs(best))
+    lost = seen_ & (got < best - 0.3 * np.abs(best))
+    help_ = np.where(ok, 0.8 * help_, np.where(lost, np.minimum(1.0, 1.25 * help_), help_))
+    return np.minimum(help_, max(0.0, deadline)).astype(np.float32), best
+
+
+def feet_together(air) -> dict:
+    """air [T, 4] (FL, FR, RL, RR off the ground): while a front foot is up, how often its partner is up too: the
+    diagonal rear foot (a trot), the same-side rear foot (a pace) or the other front foot (a bound or gallop)."""
+    import numpy as np
+    a = np.asarray(air, np.float32)
+    lifted = max(float(a[:, 0].sum() + a[:, 1].sum()), 1.0)
+    both = lambda i, j: float((a[:, i] * a[:, j]).sum())
+    return {"diagonal": (both(0, 3) + both(1, 2)) / lifted, "same_side": (both(0, 2) + both(1, 3)) / lifted,
+            "pair": 2.0 * both(0, 1) / lifted}
+
+
 def make_scripted(bd, model, body, weights, init_state, bstep, teacher, walk_g, n: int) -> dict:
     """Scripted lives for checking and filming, exactly as the brain is taught (wobble, harness): step by step
     walk[t] ("walk" said, else "stand"), count[t] (the teacher counts the steps aloud), hands[t] (share of the
@@ -802,11 +834,12 @@ def make_scripted(bd, model, body, weights, init_state, bstep, teacher, walk_g, 
         or helps. teacher=True: the teacher's own trot instead, as the yardstick."""
         h_ = 1.0 if teacher else 0.0
         w, c, h = script([(2, False, False, h_), (8, True, False, h_), (3, False, False, h_)])
-        _, _, vf, fell, wz, _, _, _, air, _, jts = (np.asarray(x) for x in run(bp, jax.random.PRNGKey(11) if key is None else key, w, c,
-                                                                       h, 0.0 if teacher else WOBBLE, support, word_of(gait),
-                                                                       jp.array(GAITS[gait])))
+        _, fz, vf, fell, wz, _, _, _, air, _, jts = (np.asarray(x) for x in run(bp, jax.random.PRNGKey(11) if key is None else key, w, c,
+                                                                        h, 0.0 if teacher else WOBBLE, support, word_of(gait),
+                                                                        jp.array(GAITS[gait])))
         return {"walks_from_rest": float(vf[sec(4):sec(10)].mean()), "turn_rate": float(wz[sec(4):sec(10)].mean()),
                 "feet_air": [round(float(x), 2) for x in air[sec(4):sec(10)].mean(0)],
+                "feet_together": feet_together(fz[sec(4):sec(10)] > bd.FOOT_UP),
                 **({"_joints": jts[sec(4):sec(10)]} if with_joints else {}),
                 "moves_after_stand": float(np.abs(vf[sec(11):sec(13)]).mean()),
                 "moves_before_walk": float(np.abs(vf[sec(0.5):sec(2)]).mean()), "falls": float(fell.sum() / n)}
@@ -996,7 +1029,11 @@ def practice(args, bd, out: Path) -> dict:
     FALL_COST) with random shoves now and then, like a toddler in a real room. The teacher's corrections stay on
     as a light guide (GUIDE) and the brain's wobble is its exploration, exactly as it learned with. Recurrent PPO
     with an asymmetric critic; the critic first learns alone for 10% of the practice so it cannot mislead the
-    brain. Every checkpoint runs the real test of every gait with no harness."""
+    brain. Every checkpoint runs the real test of every gait with no harness.
+    let_go: the parent lets go of everything. Each word's teacher help (its guide, the real dog's style pull, the
+    four-feet rule) fades as the dog manages that word alone and is zero by HELP_GONE of the lesson; what stays is
+    what each word achieves (speed, turning, stillness, the trunk of a sit or a lie-down, a jump's flight), not
+    falling, and the cost of moving (ENERGY_COST), so the dog finds its own way of doing each word."""
     import jax
     import jax.numpy as jp
     import numpy as np
@@ -1061,6 +1098,7 @@ def practice(args, bd, out: Path) -> dict:
     goal_height = jp.array([pose_goal[w]["height"] if w in pose_goal else 0.0 for w in said], jp.float32)
     choose = jp.array([0.2] + [0.5 / len(gaits)] * len(gaits) + [0.3 / len(rests)] * len(rests))
     base = model.body("base").id
+    mass = float(model.body_subtreemass[base])
     if args.dog:                                     # motion-matching banks, one row per word ("back": none)
         has_style = jp.array([w in bank for w in said])
         M = BANK
@@ -1099,7 +1137,7 @@ def practice(args, bd, out: Path) -> dict:
     def logprob(a, mean):                        # the wobble is its exploration: a ~ N(tanh(mu), WOBBLE)
         return jp.sum(-0.5 * ((a - mean) / WOBBLE) ** 2 - np.log(WOBBLE), -1)
 
-    def rollout(params, env, s, ins, air_ema, key):
+    def rollout(params, env, s, ins, air_ema, key, help_):
         bp = params["brain"]
         W = weights(bp)
 
@@ -1132,10 +1170,11 @@ def practice(args, bd, out: Path) -> dict:
                 guide = jp.where(has_style[ins][:, None], v_lines(env, dog_next), guide)
             env, r, done, st = v_act(env, a, jax.random.split(k_act, B), 0.0)
             r = r - (FALL_COST - 0.2) * st["fell"]                                          # the body's own 0.2 plus this
-            # all four feet stepping while it moves (a real dog does not drag its hind legs)
+            hp = help_[ins]                              # the teacher's share for this word (always 1 unless letting go)
+            # all four feet stepping while it moves (a real dog does not drag its hind legs): a teacher's rule
             air_now = (env["d"].geom_xpos[:, body["feet"], 2] > bd.FOOT_UP).astype(jp.float32)
             air_ema = jp.where(done[:, None], 0.0, 0.97 * air_ema + 0.03 * air_now)
-            r = r + moving * STEP_REWARD * jp.min(jp.minimum(air_ema, FEET_AIR) / FEET_AIR, -1) * bd.CTRL_DT   # the laziest foot
+            teach = moving * STEP_REWARD * jp.min(jp.minimum(air_ema, FEET_AIR) / FEET_AIR, -1) * bd.CTRL_DT   # the laziest foot
             # rest poses: the trunk where the pose puts it (the body's "keep the trunk up and level" does not apply)
             R = env["d"].xmat[:, base]
             up, pitch = R[:, 2, 2], jp.arcsin(jp.clip(R[:, 2, 0], -1.0, 1.0))
@@ -1146,13 +1185,23 @@ def practice(args, bd, out: Path) -> dict:
             held = jp.exp(-(pitch - goal_pitch[ins]) ** 2 / 0.02 - (height - goal_height[ins]) ** 2 / 0.005)
             if args.dog:                                 # style: how close to some real-dog pose of this behaviour
                 _, pose_d = nearest(env["d"].qpos[:, 7:19], env["d"].qvel[:, 6:18], ins)
-                r = r + has_style[ins] * STYLE_REWARD * jp.exp(-pose_d / 0.05) * bd.CTRL_DT
-                held = jp.zeros_like(held)               # the pose comes from the dog, not the teacher's search
+                teach = teach + has_style[ins] * STYLE_REWARD * jp.exp(-pose_d / 0.05) * bd.CTRL_DT
+                if not args.let_go:                      # letting go: the trunk where a sitting / lying dog's is stays
+                    held = jp.zeros_like(held)           # the pose comes from the dog, not the teacher's search
             r = r + resting * (POSE_REWARD * held + 2.0 * (1.0 - up) + 10.0 * sag) * bd.CTRL_DT
-            gw = jp.where(is_rest[ins], GUIDE_REST, GUIDE)
+            power = jp.sum(jp.abs(env["d"].actuator_force * env["d"].qvel[:, 6:18]), -1) / mass   # W/kg
+            if args.let_go:                              # what stays for good: outcomes and the cost of moving
+                r = r - ENERGY_COST * power * bd.CTRL_DT
+                if "jump" in said:                       # a jump is all four feet off the ground at once
+                    flying = jp.all(env["d"].geom_xpos[:, body["feet"], 2] > bd.FOOT_UP, -1)
+                    r = r + (ins == said.index("jump")) * JUMP_REWARD * flying * bd.CTRL_DT
+            r_out = r                                    # what the dog achieved, with no teacher in it
+            r = r + hp * teach
+            gw = jp.where(is_rest[ins], GUIDE_REST, GUIDE) * hp
             gw = jp.where(env["info"]["down"], 0.0, gw)           # the teacher cannot show how to get up
             return (env, s, ins, air_ema), {**seen, "a": a, "logp": logprob(a, mean), "guide": guide, "gw": gw, "priv": priv, "r": r,
-                                            "done": done, "fell": st["fell"], "v_fwd": st["v_fwd"], "wz": st["wz"], "ins": ins}
+                                            "r_out": r_out, "power": power, "done": done, "fell": st["fell"],
+                                            "v_fwd": st["v_fwd"], "wz": st["wz"], "ins": ins}
         (env, s_end, ins, air_ema), traj = jax.lax.scan(one, (env, s, ins, air_ema), jax.random.split(key, T))
         last = jp.concatenate([v_priv(env), jax.nn.one_hot(ins, n_i)], -1)
         return env, s_end, ins, air_ema, traj, last
@@ -1212,18 +1261,22 @@ def practice(args, bd, out: Path) -> dict:
         v = jax.lax.pmean(((x - m) ** 2).mean(0), "d")
         return m, jp.maximum(jp.sqrt(v), 0.05)
 
-    def iteration(params, opt_state, env, s, ins, air_ema, pstat, key, brain_on):
+    def iteration(params, opt_state, env, s, ins, air_ema, pstat, key, brain_on, help_):
         kr, ku = jax.random.split(key)
         s0 = s
-        env, s, ins, air_ema, traj, last = rollout(params, env, s, ins, air_ema, kr)
+        env, s, ins, air_ema, traj, last = rollout(params, env, s, ins, air_ema, kr, help_)
         adv, ret = advantages(params, traj, last, pstat)
         params, opt_state, m = update(params, opt_state, traj, s0, adv, ret, pstat, ku, brain_on)
         pstat = norm_stats(traj["priv"].reshape(-1, P))
         stats = {"reward_per_s": jax.lax.pmean(traj["r"].mean(), "d") / bd.CTRL_DT,
-                 "falls_per_min": jax.lax.pmean(traj["fell"].mean(), "d") * 3000, **m}
-        return params, opt_state, env, s, ins, air_ema, pstat, stats
+                 "falls_per_min": jax.lax.pmean(traj["fell"].mean(), "d") * 3000,
+                 "power": jax.lax.pmean(traj["power"].mean(), "d"), **m}
+        said_ = jax.nn.one_hot(traj["ins"], n_i)                     # per word: what the dog achieved on its own
+        per_word = (jax.lax.psum(jp.sum(said_ * traj["r_out"][..., None], (0, 1)), "d"),
+                    jax.lax.psum(jp.sum(said_, (0, 1)), "d"))
+        return params, opt_state, env, s, ins, air_ema, pstat, stats, per_word
 
-    step = jax.pmap(iteration, axis_name="d", in_axes=(0, 0, 0, 0, 0, 0, 0, 0, None))
+    step = jax.pmap(iteration, axis_name="d", in_axes=(0, 0, 0, 0, 0, 0, 0, 0, None, None))
     rep = lambda x: jax.device_put_replicated(x, jax.local_devices())
     params_r, opt_r = rep(params), rep(opt.init(params))
     keys = jax.random.split(jax.random.PRNGKey(args.seed + 1), nd + 1)
@@ -1262,7 +1315,9 @@ def practice(args, bd, out: Path) -> dict:
             print(f"[{(time.time() - t0) / 60:5.1f} min] REAL TEST (no harness) {label}, \"{g}\" from rest: "
                   f"{score(r, g):+.3f} {'rad/s' if GAITS[g][2] else 'm/s'} ({'real dog' if args.dog else 'teacher'} "
                   f"{score(teacher_ref[g], g):+.3f});  distance to the real dog's poses {r['dog_likeness']:.3f};  "
-                  f"feet off the ground FL/FR/RL/RR {r['feet_air']};  falls {r['falls']:.2f} per 13 s;  "
+                  f"feet off the ground FL/FR/RL/RR {r['feet_air']};  feet lifted together (one dog): "
+                  f"diagonal {r['feet_together']['diagonal']:.2f} same-side {r['feet_together']['same_side']:.2f} "
+                  f"front/rear pair {r['feet_together']['pair']:.2f};  falls {r['falls']:.2f} per 13 s;  "
                   f"after \"stand\" {r['moves_after_stand']:.3f} (standing before {r['moves_before_walk']:.3f})", flush=True)
         for pz in rests:
             r = sc["check_pose"](host(), pz, pose_off[pz])
@@ -1273,34 +1328,54 @@ def practice(args, bd, out: Path) -> dict:
         rows["get_up"] = sc_down["check_getup"](host())
         print(f"[{(time.time() - t0) / 60:5.1f} min] REAL TEST (no harness) {label}, fallen on its side or back, told \"stand\": "
               + ", ".join(f"{int(v * 100)}% on its feet after {k.split('_')[2]}" for k, v in rows["get_up"].items()), flush=True)
+        rows["help"] = {w: round(float(h), 3) for w, h in zip(said, help_)}
         curve.append({"when": label, **rows})
         (out / "practice.json").write_text(json.dumps(curve, indent=1))
         return rows
 
-    first = real_test("before practice")
     iters = max(1, int(args.steps) // (args.envs * T))
     every = max(1, iters // 8)
     warm = max(1, iters // 10)
+    help_ = np.ones(n_i, np.float32)                 # the teacher's share per word; only letting go lowers it
+    best, got_r, got_n = np.full(n_i, -np.inf), np.zeros(n_i), np.zeros(n_i)
+    reconsider = max(1, iters // HELP_CHECKS)
+    first = real_test("before practice")
     print(f"practice: {iters} updates x {args.envs * T:,} steps; the critic learns alone for the first {warm}", flush=True)
+    if args.let_go:
+        print(f"letting go: each word's help drops 20% whenever the dog does that word at least 90% as well as its best, "
+              f"comes back (x1.25) below 70%, and is zero for every word from update {int(HELP_GONE * iters)} on", flush=True)
     for it in range(iters):
         key, k = jax.random.split(key)
-        params_r, opt_r, env, s, ins, air_ema, pstat, st = step(params_r, opt_r, env, s, ins, air_ema, pstat,
-                                                                jax.random.split(k, nd), float(it >= warm))
+        params_r, opt_r, env, s, ins, air_ema, pstat, st, per_word = step(
+            params_r, opt_r, env, s, ins, air_ema, pstat, jax.random.split(k, nd), float(it >= warm), help_)
+        if args.let_go and it >= warm:
+            got_r += np.asarray(per_word[0])[0]
+            got_n += np.asarray(per_word[1])[0]
+            if (it + 1) % reconsider == 0:
+                deadline = 1.0 - (it + 1 - warm) / max(1.0, HELP_GONE * iters - warm)
+                help_, best = next_help(help_, best, got_r, got_n * bd.CTRL_DT, deadline)   # dog-steps -> seconds
+                got_r[:], got_n[:] = 0.0, 0.0
         if (it + 1) % every == 0 or it == warm - 1:
             m = {k_: float(np.asarray(v)[0]) for k_, v in st.items()}
             print(f"          practising: reward {m['reward_per_s']:+.3f}/s  falls {m['falls_per_min']:.2f}/min  "
-                  f"guide {m['guide']:.4f}  value error {m['vl']:.3f}", flush=True)
+                  f"guide {m['guide']:.4f}  value error {m['vl']:.3f}  power {m['power']:.2f} W/kg", flush=True)
+            if args.let_go:
+                print("          teacher's help: " + ", ".join(f"{w} {h:.2f}" for w, h in zip(said, help_)), flush=True)
             if (it + 1) % every == 0:
                 last = real_test(f"after {(it + 1) * args.envs * T / 1e6:.1f}M steps")
     trained = host()
-    save_brain(trained, out / "baby_dog.npz", {"stage": "practice", "wiring": WIRING, "readout": args.readout, "vocab": VOCAB,
-                                                "curve": curve})
+    save_brain(trained, out / "baby_dog.npz", {"stage": "let_go" if args.let_go else "practice", "wiring": WIRING,
+                                                "readout": args.readout, "vocab": VOCAB, "curve": curve})
     for g in gaits:
         print(f"VERDICT practice \"{g}\" (no harness, from rest): {score(first[g], g):+.3f} -> {score(last[g], g):+.3f} "
               f"({'real dog' if args.dog else 'teacher'} {score(teacher_ref[g], g):+.3f}); distance to the real dog's poses "
               f"{first[g]['dog_likeness']:.3f} -> {last[g]['dog_likeness']:.3f}; "
               f"falls per 13 s {first[g]['falls']:.2f} -> {last[g]['falls']:.2f}; "
-              f"feet off the ground {first[g]['feet_air']} -> {last[g]['feet_air']}", flush=True)
+              f"feet off the ground {first[g]['feet_air']} -> {last[g]['feet_air']}; feet lifted together "
+              f"(diagonal/same-side/pair) {'/'.join(f'{v:.2f}' for v in last[g]['feet_together'].values())}", flush=True)
+    if args.let_go:
+        print("VERDICT letting go: the teacher's help at the end: " + ", ".join(f"{w} {h:.2f}" for w, h in zip(said, help_))
+              + f" (zero for every word since update {int(HELP_GONE * iters)} of {iters})", flush=True)
     print(f"VERDICT practice getting up (fallen, told \"stand\"): " + ", ".join(
         f"{k.split('_')[2]}: {int(first['get_up'][k] * 100)}% -> {int(last['get_up'][k] * 100)}%" for k in first["get_up"]), flush=True)
     for pz in rests:
@@ -1445,6 +1520,9 @@ def main() -> None:
     ap.add_argument("--gaits", default="walk", help="no_parent: the gaits it already knows, comma-separated")
     ap.add_argument("--get_up", action="store_true", help="practice: falls stay down, some lives start fallen")
     ap.add_argument("--dog", action="store_true", help="practice the real dog's behaviours (MANN dog mocap on the Go2)")
+    ap.add_argument("--let_go", action="store_true",
+                    help="practice: the teacher's help fades to zero word by word as the dog manages alone; what stays "
+                         "is what each word achieves and the cost of moving")
     ap.add_argument("--brain", default="", help="the previous stage's brain (default: the attached Kaggle dataset)")
     ap.add_argument("--steps", type=float, default=15e6)
     ap.add_argument("--envs", type=int, default=512)
