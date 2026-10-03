@@ -1,9 +1,11 @@
 # Logbook: teaching the fly-connectome brain to control the Go2 dog
 
 This is the running record of every experiment in the "one brain, many bodies" work: what was tried, what came out,
-what it meant, and what went wrong. The newest results are in §4, and the plan in §6.
+what it meant, and what went wrong. The newest results are in §6, and the next steps in §7. The plan for the dog's
+senses, self-discovery and mind is in `DogMind.md`.
 
 - **Code:** `train/brain_dog.py` (body, brain, teacher, early runs); `train/baby_dog.py` (the baby curriculum);
+  `train/dog_mocap.py` (real dog motion capture retargeted onto the Go2);
   `scripts/kaggle_job.py` (runs them on Kaggle).
 - **Results:** `results/` (ignored by git: logs, JSON curves, every stage's brain `.npz`). The final films are in
   `videos/`.
@@ -39,6 +41,7 @@ The brain acts at 50 Hz; physics runs at 250 Hz.
 
 **The teacher** is the AI layer: code written between runs, which knows what "walk" or "sit" means. It never gives the
 brain line names. It finds its own demonstrations by practising on the body first: a trot, a sit pose, a lie-down pose.
+From 3 Oct it only teaches, and lets go completely. Every decision, goal and plan comes from the fly brain itself.
 
 ---
 
@@ -55,6 +58,11 @@ brain line names. It finds its own demonstrations by practising on the body firs
 | 27 Sep | "teach it and dont remove it, its gonna mess up the brains wiring". Keep everything it trained with (option C): its wobble, and anything else present during training, stays at runtime. |
 | 27 Sep | "experiment by removing the harness, that just means that the parent is gone". |
 | 28 Sep | "make sure the dog now behaves like a proper biological dog". This added independent skills: balance, poses, getting up, free time. |
+| 28 Sep | "always work on the main branch only from now". |
+| 3 Oct | "train the dog everything. Every single thing, make it mirrored to the real dog". The choices were a real animal dog, and real dog motion capture. |
+| 3 Oct | Decision-making, goals ("run to the ball"), dodging, "response to stimuli", with the fly's fast reactions as a "mutation"; and "see the entire robot, we will give that robot consciouness". All of the Go2's real sensors get added. |
+| 3 Oct | "i dont want you to train the dog fully how to walk, i want you to teach the initial steps, and then let it figure out its own body". **The teacher fades to zero, and its own way wins** over looking like the real dog. |
+| 3 Oct | "the ai layer is not an external layer, its the fly's brain only, but inside a dog now". The full plan is in `DogMind.md`. |
 
 ---
 
@@ -115,7 +123,7 @@ with stays on in tests.
 | 2 name (10M) | "move <leg> <joint>". The teacher's hands fade by 60%, then it only corrects. | moves the named joint (chance 8%) | 2% → **94%**. It learned mostly *after* the hands were gone. Untaught pairs: 0%, so it memorised pairs rather than words. |
 | 3 act (10M + 15M) | lift / swing-forward / swing-back / put-down, for single legs and diagonal pairs | pose error ÷ doing nothing | lift **0.08**, swing-forward **0.55**, swing-back **0.62**, "move" 100%. The untaught "lift rear-left" went 1.14 → 0.57, the first sign of combining words. |
 | 4a walk by words (15M) | The teacher talks it through a trot: lift, swing, other pair. Harness on. | forward speed when talked through | Already +0.142 m/s before this lesson (from stage-3 skills alone), **+0.167** after (79% of the teacher's +0.211). The teacher's spoken walk does *not* balance without the harness. |
-| 4b "walk" | One word, with the teacher counting the steps aloud and then fading out | lesson measure (mid-activity) | −0.02 → +0.205 m/s. **Caveat:** the brain filmed afterwards was the wrong file (bug 7.1), so how this brain behaved from rest was never actually tested. |
+| 4b "walk" | One word, with the teacher counting the steps aloud and then fading out | lesson measure (mid-activity) | −0.02 → +0.205 m/s. **Caveat:** the brain filmed afterwards was the wrong file (bug 8.1), so how this brain behaved from rest was never actually tested. |
 | 4c start/stop (20M) | Long "stand", then "walk" from rest, on the same first beat | **Real test:** fresh start, stand 2 s, walk 8 s, stand 3 s | −0.022 → **+0.257 m/s** (teacher +0.278), 0 falls. It stops on "stand". Filmed: +0.243 m/s. |
 | 4d gaits (25M) | turn-left, turn-right, back, plus walk (harness on) | real test for each gait | walk **+0.272**, turn-left **+0.60 rad/s**, turn-right **−0.72**, back **−0.063** (teacher +0.278 / +0.62 / −0.65 / −0.098). 0 falls. The new words were added without wiping the old ones. |
 
@@ -148,12 +156,95 @@ Filmed on 28 Sep (`videos/`). No harness, from a standing start, then back to "s
 
 ---
 
-## 6. Open problems and next steps
+## 6. Phase D (3 Oct): the real dog, then letting go
 
-1. **Getting up after a fall: not learned.** The teacher has no demonstration, and the ±0.1 wobble is far too small to
-   discover a roll-over by chance. Next: the teacher first finds a roll-over on the body by practice (tuck the legs on
-   one side, push with the others), then shows and guides it, as it did for the trot and the poses.
-2. **Free time** (nobody speaks): wander, rest, stay up. Not started.
+### 6.1 Real dog motion capture on the Go2
+
+**Data.** The MANN dog motion capture (Zhang, Starke, Komura, Saito, SIGGRAPH 2018; CC BY-NC 4.0, non-commercial): 51
+BVH files of a real dog.
+- `train/dog_mocap.py` reads them and solves the Go2's leg joints in closed form from where each real paw is.
+- It labels each stretch from the motion itself (speed, turning, trunk height and tilt, feet on the ground), and writes
+  `data/dog_mocap/go2_dog_motions.npz` at 50 Hz (git-ignored; a copy is in the private Kaggle dataset
+  `bio-bot-dog-mocap`).
+- Kine2Go, a ready-made Go2 retarget, was tried first and rejected: it had duplicate and mislabelled clips.
+
+| behaviour | seconds recorded | real dog's mean speed / turning |
+|---|---|---|
+| stand | 732 | 0 |
+| walk | 218 | +0.19 m/s |
+| pace | 203 | +0.71 m/s |
+| canter | 319 | +0.48 m/s |
+| run | 83 | +2.19 m/s |
+| turn-left / turn-right | 50 / 52 | +1.38 / −1.18 rad/s |
+| sit | 218 | trunk at 0.73 of standing, nose up 0.82 rad |
+| lie | 253 | trunk at 0.43, level |
+| jump | 73 | +0.11 m/s, all four feet off the ground |
+
+**Can the Go2 simply replay it?** (Kaggle `bio-bot-baby-dog-mocap`; 8 stretches per behaviour)
+- Kinematic playback (no physics) looks like a dog in every behaviour.
+- Played through the motors with physics on and no balance, it falls:
+  - falls per 6 s replay (a fall puts the body back, so it can fall again): stand 0.6, walk 0.8, pace 1.3, canter 4.3,
+    run 5.1;
+  - sit 7.3 (it tips backward), lie 4.9, jump 3.9, turns 4.1–4.7.
+- The replayed walk barely moves (+0.02 m/s against the dog's +0.17).
+
+**Conclusion:** a real dog's joint angles are not a controller for a different body. The recordings can only be
+something the brain watches and is pulled toward while it keeps its own balance. They can't be the teacher's hands.
+
+### 6.2 Real-dog practice (`baby_dog_realdog`, running)
+
+- **Setup:** from the stage-8 brain, 60M steps, learning rate 1e-4, every earlier skill rehearsed.
+- **Word meanings:** each word means what the real dog does, at the dog's speed (walk, pace, canter, run, turns, sit,
+  lie-down, jump; "back" keeps the teacher's meaning).
+- **Guide:** the real dog's next frame from the closest-matching recorded pose, so it is motion matching.
+- **Style reward:** paid for being near some real-dog pose of that word.
+- **Tests:** every test also reports the distance to the real dog's poses.
+
+Results: pending.
+
+### 6.3 Step 1 of `DogMind.md`: letting go (`--let_go`, built)
+
+**The finding behind it.** Since stage 6, the teacher's correction never left. Every practice adds `GUIDE = 0.5` of
+"be like the teacher" to the brain's update, 5.0 for rest poses. In the real-dog run, the guide is the real dog's next
+frame plus a style reward. So the walk was still mostly the teacher's walk.
+
+**What `--let_go` does:**
+- **Help fades by skill.** Each word's help (its guide, the style reward, the four-feet rule) drops 20% whenever the
+  dog does that word at least 90% as well as its best. It comes back (×1.25) if the dog falls below 70%.
+- **A hard deadline.** Help is zero for every word from 70% of the lesson on.
+- **What stays for good:**
+  - what each word achieves (speed, turning, stillness, the trunk of a sit or lie-down, all four feet off the ground
+    for "jump");
+  - not falling;
+  - an energy cost of 0.01 per W/kg of mechanical power.
+- **New measures:**
+  - which feet lift together (diagonal = trot, same-side = pace, front/rear pair = bound or gallop);
+  - the mechanical power while practising;
+  - each word's help at every checkpoint.
+
+**Checked on the Mac (numpy only):**
+- The foot measure gives diagonal 1.0 for a synthetic trot, same-side 1.0 for a pace, and pair 1.0 for a bound.
+- The help schedule drops for an improving word, comes back for a collapsing word, handles negative scores, leaves an
+  unused word alone, and is zero at the deadline.
+
+**On Kaggle:** a short smoke run (`baby_dog_letgo_smoke`, 3M steps, from the stage-8 brain), to be followed by the real
+run from the real-dog brain.
+
+**The risk, from phase B.** In v18, removing the teacher's *hands* collapsed the walk. Here, nothing moves the legs:
+the brain has acted alone in every practice since stage 6, and only the extra pull in its update is removed.
+
+---
+
+## 7. Open problems and next steps
+
+The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
+with a ball and thrown objects, drives, thinking, and the never-taught tests.
+
+1. **Getting up after a fall: not learned.** The teacher had no demonstration, and the ±0.1 wobble is far too small to
+   discover a roll-over by chance.
+   - Now one of the never-taught tests (`DogMind.md` §2.2): only being back on its feet is rewarded, never how.
+   - With curiosity and the energy cost, it must find a way itself.
+2. **Free time** (nobody speaks): wander, rest, stay up. Planned as curiosity and drives (`DogMind.md` §2.2, §7 step 6).
 3. **Words are only partly understood on their own.** Untaught word pairs work only partly (untaught lift: 0.57×
    pose error).
 4. **The human body**, then both bodies in one brain: the research question itself. Not started.
@@ -162,7 +253,7 @@ Filmed on 28 Sep (`videos/`). No harness, from a standing start, then back to "s
 
 ---
 
-## 7. Mistakes and bugs (so they are not repeated)
+## 8. Mistakes and bugs (so they are not repeated)
 
 1. **Stale downloads.** `kaggle kernels output` skips any file that already exists locally with the same size. Twice, a
    new brain of the same shape silently kept the previous run's file:
@@ -191,10 +282,19 @@ Filmed on 28 Sep (`videos/`). No harness, from a standing start, then back to "s
    - At most 2 batch GPU jobs at once; a replaced job can hold a slot.
    - The OAuth login expires after about 3 h.
    - Logs can only be read once a job ends.
+9. **Kaggle changed its machine image (Oct 2026)** to jax 0.11.1 on Python 3.13. Installing jax 0.7.2 on top left
+   jaxlib 0.11.1 in place, and the mix failed to import (`ImportError: xla_pmap_p`). **Fixed:** the whole set (jax[cuda12],
+   jaxlib, mujoco, mujoco-mjx 0.7.2 / 3.14.0) is pinned and checked by version before anything is imported.
+10. **A ready-made retarget taken on trust.** Kine2Go (an existing Go2 retarget of dog motion) had duplicate and
+    mislabelled clips. The raw MANN recordings were retargeted here instead, and labelled from the motion itself.
+11. **Foot contacts too strict.** One ground height for all paws marked most real-dog steps as "in the air". Each paw now
+    gets its own ground level (its 5th-percentile height) plus a speed check.
+12. **The teacher never really let go.** The harness left in stage 5, but the teacher's correction stayed in every
+    practice's update. The "self-taught" walk was mostly the teacher's. Found on 3 Oct; this is what `--let_go` fixes.
 
 ---
 
-## 8. How to reproduce
+## 9. How to reproduce
 
 ```bash
 # stage by stage (each loads the previous brain from the private dataset bio-bot-brains)
@@ -205,7 +305,14 @@ Filmed on 28 Sep (`videos/`). No harness, from a standing start, then back to "s
 .venv/bin/python scripts/kaggle_job.py wait  baby_dog --job baby_dog_practice
 .venv/bin/python scripts/kaggle_job.py fetch baby_dog --job baby_dog_practice     # always a fresh download (-o)
 .venv/bin/python scripts/kaggle_job.py upload baby_dog                            # results/baby_dog/baby_dog.npz -> dataset
+
+# the real dog: retarget the mocap (light, runs locally), then practise with it (needs the dataset bio-bot-dog-mocap)
+.venv/bin/python train/dog_mocap.py                  # data/dog_mocap/*.bvh -> data/dog_mocap/go2_dog_motions.npz
+.venv/bin/python scripts/kaggle_job.py push baby_dog --job baby_dog_realdog --embed train/brain_dog.py \
+    --embed data/malecns/core_v1.npz --dataset bio-bot-brains --dataset bio-bot-dog-mocap --set stage=practice \
+    --flag dog --set lr=1e-4 --steps 60e6
+# letting go (DogMind.md step 1): the same, plus --flag let_go
 ```
 
 Stage order: babble → name → act (×2) → walk_words → walk → start_stop → gaits → no_parent → practice → poses →
-practice (all skills together). Films come from `--set stage=film_walk`.
+practice (all skills together) → practice --dog (the real dog) → practice --dog --let_go. Films come from `--set stage=film_walk`.
