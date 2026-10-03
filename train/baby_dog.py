@@ -37,7 +37,7 @@ BABBLE_SIZE = 0.5        # command size of a twitch
 # the words the teacher speaks (the brain hears them as a set of active words; it is never told what they mean)
 VOCAB = ["front-left", "front-right", "rear-left", "rear-right", "hip", "thigh", "knee",
          "move", "lift", "swing-forward", "swing-back", "put-down", "stand", "walk",
-         "turn-left", "turn-right", "back", "sit", "lie-down"]
+         "turn-left", "turn-right", "back", "sit", "lie-down", "pace", "canter", "run", "jump"]
 LEGS, JOINTS = VOCAB[0:4], VOCAB[4:7]
 LEG_OF = {"FL": 0, "FR": 1, "RL": 2, "RR": 3}
 JOINT_OF = {"hip": 0, "thigh": 1, "calf": 2}
@@ -53,6 +53,12 @@ FEET_AIR = 0.3           # practice: while moving, each foot should be off the g
 STEP_REWARD = 0.5        # practice: reward per second for all four feet stepping (the rear legs too)
 POSE_REWARD = 1.0        # practice: reward per second for holding the asked rest pose
 GUIDE_REST = 5.0         # practice: the teacher's guide counts this much for rest poses (new words are learned fast)
+STYLE_REWARD = 1.0       # real-dog practice: reward per second for a pose close to some real-dog pose of that behaviour
+BANK = 800               # real-dog practice: frames kept per behaviour for motion matching
+# real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
+DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
+             "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
+DOG_MOVES = ["walk", "pace", "canter", "run", "turn-left", "turn-right", "back", "jump"]
 PUSH_P, PUSH_SIZE = 0.004, 0.5   # practice: a random shove about every 5 s, up to 0.5 m/s sideways/forward
 GUIDE = 0.5              # practice: how much the teacher's corrections still count (a light guide)
 # the teacher finds each rest pose on the body by trying these (radians from standing, per joint group)
@@ -772,7 +778,7 @@ def make_scripted(bd, model, body, weights, init_state, bstep, teacher, walk_g, 
             h_each = env["d"].subtree_com[:, base, 2] / env["info"]["h0"]
             upright = ((R[:, 2, 2] > 0.9) & (h_each > 0.7)).mean()             # standing on its feet
             return (env, s), (env["d"].qpos[0], env["d"].geom_xpos[0, body["feet"], 2], st["v_fwd"], st["fell"], st["wz"],
-                              pitch, roll, height, air, upright)
+                              pitch, roll, height, air, upright, env["d"].qpos[:, 7:19])
         xs = (walk, count, hands, jax.random.split(k_run, walk.shape[0]))
         return jax.lax.scan(one, (env, init_state(n)), xs)[1]
 
@@ -791,23 +797,24 @@ def make_scripted(bd, model, body, weights, init_state, bstep, teacher, walk_g, 
     run = jax.jit(life)
     word_of = lambda g: jp.zeros(len(VOCAB)).at[VOCAB.index(g)].set(1.0)
 
-    def check(bp, gait="walk", support=1.0, teacher=False, key=None):
+    def check(bp, gait="walk", support=1.0, teacher=False, key=None, with_joints=False):
         """The real test, as taught (wobble on): fresh start, "stand" 2 s, <gait> 8 s, "stand" 3 s; nobody counts
         or helps. teacher=True: the teacher's own trot instead, as the yardstick."""
         h_ = 1.0 if teacher else 0.0
         w, c, h = script([(2, False, False, h_), (8, True, False, h_), (3, False, False, h_)])
-        _, _, vf, fell, wz, _, _, _, air, _ = (np.asarray(x) for x in run(bp, jax.random.PRNGKey(11) if key is None else key, w, c,
+        _, _, vf, fell, wz, _, _, _, air, _, jts = (np.asarray(x) for x in run(bp, jax.random.PRNGKey(11) if key is None else key, w, c,
                                                                        h, 0.0 if teacher else WOBBLE, support, word_of(gait),
                                                                        jp.array(GAITS[gait])))
         return {"walks_from_rest": float(vf[sec(4):sec(10)].mean()), "turn_rate": float(wz[sec(4):sec(10)].mean()),
                 "feet_air": [round(float(x), 2) for x in air[sec(4):sec(10)].mean(0)],
+                **({"_joints": jts[sec(4):sec(10)]} if with_joints else {}),
                 "moves_after_stand": float(np.abs(vf[sec(11):sec(13)]).mean()),
                 "moves_before_walk": float(np.abs(vf[sec(0.5):sec(2)]).mean()), "falls": float(fell.sum() / n)}
     def check_pose(bp, name, offset, support=0.0, teacher=False, key=None):
         """Fresh start, "stand" 2 s, <pose word> 5 s, "stand" 4 s (back up), as taught (wobble on)."""
         h_ = 1.0 if teacher else 0.0
         w, c, h = script([(2, False, False, h_), (5, True, False, h_), (4, False, False, h_), (2, False, False, h_)])
-        _, _, vf, fell, _, pitch, roll, height, _, _ = (np.asarray(x) for x in run(
+        _, _, vf, fell, _, pitch, roll, height, _, _, _ = (np.asarray(x) for x in run(
             bp, jax.random.PRNGKey(11) if key is None else key, w, c, h, 0.0 if teacher else WOBBLE, support, word_of(name),
             jp.zeros(3), jp.array(offset, jp.float32), False))
         return {"pitch_in_pose": float(pitch[sec(5):sec(7)].mean()), "height_in_pose": float(height[sec(5):sec(7)].mean()),
@@ -818,7 +825,7 @@ def make_scripted(bd, model, body, weights, init_state, bstep, teacher, walk_g, 
         """For a body that starts fallen and stays down until it gets itself up: "stand" for 10 s, as taught
         (wobble on, no harness). How many dogs are on their feet after 1, 2, 4 and 8 s."""
         w, c, h = script([(10, False, False, 0.0), (3, False, False, 0.0)])
-        *_, upright = (np.asarray(x) for x in run(bp, jax.random.PRNGKey(13) if key is None else key, w, c, h, WOBBLE, 0.0,
+        *_, upright, _ = (np.asarray(x) for x in run(bp, jax.random.PRNGKey(13) if key is None else key, w, c, h, WOBBLE, 0.0,
                                                    word_of("stand"), jp.zeros(3)))
         return {f"up_after_{t}s": float(upright[sec(t) - 1]) for t in (1, 2, 4, 8)}
     return {"run": run, "script": script, "sec": sec, "steps": steps, "check": check, "check_pose": check_pose,
@@ -848,7 +855,7 @@ def film_walk(args, bd, out: Path) -> dict:
     cases["teacher, walk"] = (script([(2, False, False, 1.0), (8, True, False, 1.0), (3, False, False, 1.0)]), "walk", True)
     report = {}
     for label, ((w, c, h), gait, by_teacher) in cases.items():
-        qpos, feet_z, vf, fell, wz, _, _, _, _, _ = (np.asarray(x) for x in run(bp, jax.random.PRNGKey(5), w, c, h,
+        qpos, feet_z, vf, fell, wz, _, _, _, _, _, _ = (np.asarray(x) for x in run(bp, jax.random.PRNGKey(5), w, c, h,
                                                                  0.0 if by_teacher else WOBBLE, 0.0,
                                                                  sc["word_of"](gait), jp.array(GAITS[gait])))
         report[label] = {"forward": float(vf[sec(4):sec(10)].mean()), "turning": float(wz[sec(4):sec(10)].mean()),
@@ -867,7 +874,7 @@ def film_walk(args, bd, out: Path) -> dict:
     pose_off, _ = find_poses(bd, model, body, out)
     for pz, off in pose_off.items():
         w, c, h = script([(2, False, False, 0.0), (5, True, False, 0.0), (4, False, False, 0.0), (2, False, False, 0.0)])
-        qpos, _, _, fell, _, pitch, _, height, _, _ = (np.asarray(x) for x in run(bp, jax.random.PRNGKey(5), w, c, h, WOBBLE, 0.0,
+        qpos, _, _, fell, _, pitch, _, height, _, _, _ = (np.asarray(x) for x in run(bp, jax.random.PRNGKey(5), w, c, h, WOBBLE, 0.0,
                                                                               sc["word_of"](pz), jp.zeros(3),
                                                                               jp.array(off, jp.float32), False))
         report[f"brain, {pz}"] = {"pitch": float(pitch[sec(5):sec(7)].mean()), "height": float(height[sec(5):sec(7)].mean()),
@@ -1019,20 +1026,57 @@ def practice(args, bd, out: Path) -> dict:
     joints = [model.actuator_trnid[i, 0] for i in range(model.nu)]
     stand = jp.array(model.keyframe("home").qpos[model.jnt_qposadr[joints]])
 
-    gaits = list(GAITS)
     pose_off, pose_goal = find_poses(bd, model, body, out)                  # the teacher's sit and lie-down
     rests = list(pose_off)
+    if args.dog:
+        # the real dog: each word means what the dog does in the recordings, at the dog's own speed and turning
+        mocap = load_mocap()
+        dog_cmd, bank = {}, {}
+        for w, lab in DOG_WORDS.items():
+            if lab is None:
+                continue
+            k = mocap["labels"].index(lab)
+            idx = np.flatnonzero((mocap["label"][:-1] == k) & (mocap["label"][1:] == k) & (mocap["clip"][:-1] == mocap["clip"][1:]))
+            dog_cmd[w] = (float(mocap["fwd"][idx].mean()), 0.0, float(mocap["yaw_rate"][idx].mean()))
+            pick = idx[np.linspace(0, len(idx) - 1, min(BANK, len(idx))).astype(int)]
+            q, q_next = mocap["q"][pick], mocap["q"][pick + 1]
+            bank[w] = (q, (q_next - q) / 0.02, q_next)
+        for w in ("stand", "sit", "lie-down"):
+            dog_cmd[w] = (0.0, 0.0, 0.0)
+        dog_cmd["back"] = GAITS["back"]
+        GAITS.clear()
+        GAITS.update({w: dog_cmd[w] for w in DOG_MOVES})                   # the tests use the dog's meanings too
+        print("the real dog's meanings: " + ", ".join(f"{w} {c[0]:+.2f} m/s {c[2]:+.2f} rad/s" for w, c in dog_cmd.items()),
+              flush=True)
+        rests = ["sit", "lie-down"]
+    gaits = list(GAITS)
     said = ["stand", *gaits, *rests]                                        # what it practises
     n_i = len(said)
     words_of = jp.array(np.stack([np.eye(V, dtype=np.float32)[VOCAB.index(w)] for w in said]))
     cmd_of = jp.array([(0.0, 0.0, 0.0), *[GAITS[g] for g in gaits], *[(0.0, 0.0, 0.0)] * len(rests)], jp.float32)
     is_gait = jp.array([w in GAITS for w in said])
-    is_rest = jp.array([w in pose_off for w in said])
+    is_rest = jp.array([w in rests for w in said])
     offs = jp.array([pose_off.get(w, [0.0] * J) for w in said], jp.float32)
     goal_pitch = jp.array([pose_goal[w]["pitch"] if w in pose_goal else 0.0 for w in said], jp.float32)
     goal_height = jp.array([pose_goal[w]["height"] if w in pose_goal else 0.0 for w in said], jp.float32)
     choose = jp.array([0.2] + [0.5 / len(gaits)] * len(gaits) + [0.3 / len(rests)] * len(rests))
     base = model.body("base").id
+    if args.dog:                                     # motion-matching banks, one row per word ("back": none)
+        has_style = jp.array([w in bank for w in said])
+        M = BANK
+        pad = lambda a: np.concatenate([a, np.repeat(a[-1:], M - len(a), 0)]) if len(a) < M else a[:M]
+        zero = (np.zeros((M, J), np.float32),) * 3
+        bank_q, bank_dq, bank_next = (jp.array(np.stack([pad(bank.get(w, zero)[i]) for w in said]), jp.float32) for i in range(3))
+        bank_ok = jp.array(np.stack([np.arange(M) < (len(bank[w][0]) if w in bank else 0) for w in said]))
+        np_bank = {w: bank[w][0] for w in bank}
+
+        def nearest(qj, dqj, ins):
+            """For each dog: the real-dog frame of its word whose legs best match its legs now (pose and motion)."""
+            bq, bdq = bank_q[ins], bank_dq[ins]
+            d = jp.mean((bq - qj[:, None]) ** 2, -1) + 0.0025 * jp.mean((bdq - dqj[:, None]) ** 2, -1)
+            k = jp.argmin(jp.where(bank_ok[ins], d, jp.inf), -1)
+            pose_d = jp.mean((jp.take_along_axis(bq, k[:, None, None], 1)[:, 0] - qj) ** 2, -1)
+            return k, pose_d
 
     # the critic: the true state, what was said, and whether a shove just happened
     P = body["P"] + n_i
@@ -1082,6 +1126,10 @@ def practice(args, bd, out: Path) -> dict:
             mean = jp.tanh(mu)
             a = mean + WOBBLE * jax.random.normal(k_wob, mean.shape)
             guide = jp.where(moving[:, None], v_show(env, walk_g), v_lines(env, stand + offs[ins]))
+            if args.dog:                                 # the real dog's next frame from where its legs are now
+                k_now, _ = nearest(env["d"].qpos[:, 7:19], env["d"].qvel[:, 6:18], ins)
+                dog_next = jp.take_along_axis(bank_next[ins], k_now[:, None, None], 1)[:, 0]
+                guide = jp.where(has_style[ins][:, None], v_lines(env, dog_next), guide)
             env, r, done, st = v_act(env, a, jax.random.split(k_act, B), 0.0)
             r = r - (FALL_COST - 0.2) * st["fell"]                                          # the body's own 0.2 plus this
             # all four feet stepping while it moves (a real dog does not drag its hind legs)
@@ -1096,6 +1144,10 @@ def practice(args, bd, out: Path) -> dict:
             sag = jp.clip(bd.UPRIGHT * env["info"]["h0"] - com_z, 0.0, None)
             resting = is_rest[ins]
             held = jp.exp(-(pitch - goal_pitch[ins]) ** 2 / 0.02 - (height - goal_height[ins]) ** 2 / 0.005)
+            if args.dog:                                 # style: how close to some real-dog pose of this behaviour
+                _, pose_d = nearest(env["d"].qpos[:, 7:19], env["d"].qvel[:, 6:18], ins)
+                r = r + has_style[ins] * STYLE_REWARD * jp.exp(-pose_d / 0.05) * bd.CTRL_DT
+                held = jp.zeros_like(held)               # the pose comes from the dog, not the teacher's search
             r = r + resting * (POSE_REWARD * held + 2.0 * (1.0 - up) + 10.0 * sag) * bd.CTRL_DT
             gw = jp.where(is_rest[ins], GUIDE_REST, GUIDE)
             gw = jp.where(env["info"]["down"], 0.0, gw)           # the teacher cannot show how to get up
@@ -1186,7 +1238,17 @@ def practice(args, bd, out: Path) -> dict:
     sc = make_scripted(bd, model, body_test, weights, init_state, bstep, teacher, walk_g, n=64)
     sc_down = make_scripted(bd, model, body_down, weights, init_state, bstep, teacher, walk_g, n=64)
     host = lambda: jax.tree_util.tree_map(lambda x: np.asarray(x)[0], params_r["brain"])
-    teacher_ref = {g: sc["check"](host(), gait=g, support=0.0, teacher=True) for g in gaits}
+    if args.dog:                                     # the yardstick is the real dog itself
+        teacher_ref = {g: {"walks_from_rest": GAITS[g][0], "turn_rate": GAITS[g][2]} for g in gaits}
+    else:
+        teacher_ref = {g: sc["check"](host(), gait=g, support=0.0, teacher=True) for g in gaits}
+
+    def dog_likeness(joints, w):
+        """Mean distance (rad^2) from each recorded pose to the nearest real-dog pose of that word (lower = more dog)."""
+        if not args.dog or w not in np_bank:
+            return float("nan")
+        jj = joints.reshape(-1, J)[::7]
+        return float(np.mean(np.min(((jj[:, None] - np_bank[w][None]) ** 2).mean(-1), 1)))
 
     def score(r, g):
         return r["turn_rate"] * np.sign(GAITS[g][2]) if GAITS[g][2] else r["walks_from_rest"] * np.sign(GAITS[g][0])
@@ -1194,10 +1256,12 @@ def practice(args, bd, out: Path) -> dict:
     def real_test(label):
         rows = {}
         for g in gaits:
-            r = sc["check"](host(), gait=g, support=0.0)
+            r = sc["check"](host(), gait=g, support=0.0, with_joints=True)
+            r["dog_likeness"] = dog_likeness(r.pop("_joints"), g)
             rows[g] = r
             print(f"[{(time.time() - t0) / 60:5.1f} min] REAL TEST (no harness) {label}, \"{g}\" from rest: "
-                  f"{score(r, g):+.3f} {'rad/s' if GAITS[g][2] else 'm/s'} (teacher {score(teacher_ref[g], g):+.3f});  "
+                  f"{score(r, g):+.3f} {'rad/s' if GAITS[g][2] else 'm/s'} ({'real dog' if args.dog else 'teacher'} "
+                  f"{score(teacher_ref[g], g):+.3f});  distance to the real dog's poses {r['dog_likeness']:.3f};  "
                   f"feet off the ground FL/FR/RL/RR {r['feet_air']};  falls {r['falls']:.2f} per 13 s;  "
                   f"after \"stand\" {r['moves_after_stand']:.3f} (standing before {r['moves_before_walk']:.3f})", flush=True)
         for pz in rests:
@@ -1233,7 +1297,9 @@ def practice(args, bd, out: Path) -> dict:
                                                 "curve": curve})
     for g in gaits:
         print(f"VERDICT practice \"{g}\" (no harness, from rest): {score(first[g], g):+.3f} -> {score(last[g], g):+.3f} "
-              f"(teacher {score(teacher_ref[g], g):+.3f}); falls per 13 s {first[g]['falls']:.2f} -> {last[g]['falls']:.2f}; "
+              f"({'real dog' if args.dog else 'teacher'} {score(teacher_ref[g], g):+.3f}); distance to the real dog's poses "
+              f"{first[g]['dog_likeness']:.3f} -> {last[g]['dog_likeness']:.3f}; "
+              f"falls per 13 s {first[g]['falls']:.2f} -> {last[g]['falls']:.2f}; "
               f"feet off the ground {first[g]['feet_air']} -> {last[g]['feet_air']}", flush=True)
     print(f"VERDICT practice getting up (fallen, told \"stand\"): " + ", ".join(
         f"{k.split('_')[2]}: {int(first['get_up'][k] * 100)}% -> {int(last['get_up'][k] * 100)}%" for k in first["get_up"]), flush=True)
@@ -1244,12 +1310,141 @@ def practice(args, bd, out: Path) -> dict:
     return {"curve": curve}
 
 
+# ============================================================================ the real dog
+MOCAP_LABELS = ["stand", "walk", "pace", "canter", "run", "sit", "lie", "jump", "turn-left", "turn-right"]
+
+
+def find_file(name: str, local: Path) -> Path:
+    """A data file: the local copy, or the one in an attached Kaggle dataset."""
+    if local.exists():
+        return local
+    found = sorted(Path("/kaggle/input").glob(f"**/{name}")) if Path("/kaggle/input").exists() else []
+    if not found:
+        raise SystemExit(f"STOP: {name} not found locally ({local}) or under /kaggle/input")
+    return found[0]
+
+
+def load_mocap() -> dict:
+    """The real dog's movements retargeted onto the Go2 by train/dog_mocap.py (MANN dog mocap, CC BY-NC 4.0)."""
+    import numpy as np
+    path = find_file("go2_dog_motions.npz", Path(__file__).resolve().parent.parent / "data" / "dog_mocap" / "go2_dog_motions.npz")
+    with np.load(path, allow_pickle=False) as z:
+        m = {k: z[k] for k in z.files}
+    m["labels"] = [str(x) for x in m["labels"]]
+    return m
+
+
+def mocap_segments(m: dict, label: str, length: int, count: int) -> list:
+    """The `count` longest stretches of one behaviour (within one recording), each cut to `length` frames (50 Hz)."""
+    import numpy as np
+    k = m["labels"].index(label)
+    on = (m["label"] == k).astype(int)
+    edges = np.flatnonzero(np.diff(np.concatenate([[0], on, [0]])))
+    runs = [(a, b) for a, b in zip(edges[::2], edges[1::2]) if m["clip"][a] == m["clip"][b - 1]]
+    runs.sort(key=lambda r: r[0] - r[1])
+    out = []
+    for a, b in runs[:count]:
+        out.append((a, min(b, a + length)))
+    return out
+
+
+def mocap_check(args, bd, out: Path) -> dict:
+    """Is the retargeted dog real on the Go2? For each behaviour: the dog's own pose played straight onto the Go2
+    (kinematic, filmed), and the teacher playing it through the motors with physics on and no harness: does the
+    Go2 stay up and move the way the dog did (speed, turning, trunk height, nose angle)?"""
+    import jax
+    import jax.numpy as jp
+    import mujoco
+    import numpy as np
+    m = load_mocap()
+    go2 = Path(args.menagerie) / "unitree_go2" if args.menagerie else bd.fetch_go2(Path(tempfile.gettempdir()))
+    model = bd.build_model(go2)
+    body = bd.make_body(model, wiring=WIRING)
+    n, T, ramp = 16, 300, 25                                                  # 16 dogs, 6 s each, 0.5 s to get into it
+    joints = [model.actuator_trnid[i, 0] for i in range(model.nu)]
+    stand = np.array(model.keyframe("home").qpos[model.jnt_qposadr[joints]])
+    base = model.body("base").id
+    v_reset, v_lines = jax.vmap(body["reset"]), jax.vmap(body["line_commands"])
+    v_act = jax.vmap(body["act"], in_axes=(0, 0, 0, None))
+
+    @jax.jit
+    def track(qseq, key):
+        """qseq [n, T, 12]: joint targets over time. The teacher's hands only (the motors follow), no harness."""
+        k_body, k_run = jax.random.split(key)
+        env = v_reset(jax.random.split(k_body, n))
+
+        def one(env, x):
+            t, k = x
+            w = jp.minimum(1.0, t / ramp)
+            target = (1 - w) * jp.asarray(stand)[None] + w * qseq[:, t]
+            env, _, _, st = v_act(env, v_lines(env, target), jax.random.split(k, n), 0.0)
+            R = env["d"].xmat[:, base]
+            return env, (st["v_fwd"], st["wz"], env["d"].subtree_com[:, base, 2] / env["info"]["h0"],
+                         jp.arcsin(jp.clip(R[:, 2, 0], -1, 1)), st["fell"], env["d"].qpos[0])
+        return jax.lax.scan(one, env, (jp.arange(T), jax.random.split(k_run, T)))[1]
+
+    def playback_qpos(a, b):
+        """The dog's own motion as Go2 poses: heading and position integrated from its velocities, trunk pitch/roll
+        from the dog, height chosen so the lowest foot touches the ground."""
+        dt = 0.02
+        h = np.cumsum(m["yaw_rate"][a:b]) * dt
+        x = np.cumsum((np.cos(h) * m["fwd"][a:b] - np.sin(h) * m["side"][a:b]) * dt)
+        y = np.cumsum((np.sin(h) * m["fwd"][a:b] + np.cos(h) * m["side"][a:b]) * dt)
+        d = mujoco.MjData(model)
+        feet = [model.geom(f).id for f in bd.FEET]
+        qs = []
+        for i, t in enumerate(range(a, b)):
+            p, r = -m["pitch"][t], -m["roll"][t]
+            qz = np.array([np.cos(h[i] / 2), 0, 0, np.sin(h[i] / 2)])
+            qy = np.array([np.cos(p / 2), 0, np.sin(p / 2), 0])
+            qx = np.array([np.cos(r / 2), np.sin(r / 2), 0, 0])
+            quat = np.zeros(4)
+            mujoco.mju_mulQuat(quat, qz, qy)
+            mujoco.mju_mulQuat(quat, quat.copy(), qx)
+            d.qpos[:] = np.concatenate([[x[i], y[i], 0.6], quat, m["q"][t]])
+            mujoco.mj_kinematics(model, d)
+            lowest = min(d.geom_xpos[f][2] for f in feet)
+            d.qpos[2] = 0.6 - (lowest - 0.022)
+            qs.append(d.qpos.copy())
+        return np.array(qs)
+
+    report = {}
+    for i, label in enumerate(MOCAP_LABELS):
+        segs = mocap_segments(m, label, T, 8)
+        if not segs:
+            print(f"{label}: no stretch found", flush=True)
+            continue
+        qseq = np.stack([np.pad(m["q"][a:b], ((0, T - (b - a)), (0, 0)), mode="edge") for a, b in (segs * n)[:n]])
+        vf, wz, height, pitch, fell, qpos0 = (np.asarray(v) for v in track(jp.asarray(qseq, jp.float32), jax.random.PRNGKey(i)))
+        frames = np.concatenate([np.arange(a, b) for a, b in segs])
+        dog = {"forward": float(m["fwd"][frames].mean()), "turning": float(m["yaw_rate"][frames].mean()),
+               "height_ratio": float(m["height"][frames].mean() / np.percentile(m["height"], 80)),
+               "nose": float(m["pitch"][frames].mean())}
+        go = {"forward": float(vf[ramp:].mean()), "turning": float(wz[ramp:].mean()), "height_ratio": float(height[ramp:].mean()),
+              "nose": float(pitch[ramp:].mean()), "falls_per_dog": float(fell.sum() / n)}
+        report[label] = {"dog": dog, "go2_physics": go, "stretches": len(segs), "seconds": len(frames) * 0.02}
+        print(f"{label:10s} ({len(segs)} stretches, {len(frames) * 0.02:5.1f} s)  real dog: forward {dog['forward']:+.2f} m/s, turning "
+              f"{dog['turning']:+.2f}, trunk {dog['height_ratio']:.2f}, nose {dog['nose']:+.2f}  |  Go2 with physics: forward "
+              f"{go['forward']:+.2f}, turning {go['turning']:+.2f}, trunk {go['height_ratio']:.2f}, nose {go['nose']:+.2f}, "
+              f"falls {go['falls_per_dog']:.2f}", flush=True)
+        try:
+            a, b = segs[0]
+            bd.film(model, playback_qpos(a, b), out / f"dog_{label}_kinematic")
+            bd.film(model, qpos0, out / f"dog_{label}_physics")
+        except Exception as e:                           # rendering needs an OpenGL context; the numbers stand without it
+            print(f"film {label}: skipped ({e!r})", flush=True)
+    (out / "mocap_check.json").write_text(json.dumps(report, indent=1))
+    return report
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", default="babble", choices=["babble", "name", "act", "walk_words", "walk", "start_stop",
-                                                        "gaits", "no_parent", "practice", "poses", "film_walk"])
+                                                        "gaits", "no_parent", "practice", "poses", "film_walk",
+                                                        "mocap_check"])
     ap.add_argument("--gaits", default="walk", help="no_parent: the gaits it already knows, comma-separated")
     ap.add_argument("--get_up", action="store_true", help="practice: falls stay down, some lives start fallen")
+    ap.add_argument("--dog", action="store_true", help="practice the real dog's behaviours (MANN dog mocap on the Go2)")
     ap.add_argument("--brain", default="", help="the previous stage's brain (default: the attached Kaggle dataset)")
     ap.add_argument("--steps", type=float, default=15e6)
     ap.add_argument("--envs", type=int, default=512)
@@ -1275,7 +1470,7 @@ def main() -> None:
     print("jax", jax.__version__, "devices", jax.devices(), flush=True)
     {"babble": babble, "name": name, "act": act, "walk_words": walk_words, "walk": walk, "start_stop": start_stop,
      "gaits": gaits, "no_parent": no_parent, "practice": practice, "poses": poses,
-     "film_walk": film_walk}[args.stage](args, bd, out)
+     "film_walk": film_walk, "mocap_check": mocap_check}[args.stage](args, bd, out)
     print("DONE", flush=True)
 
 
