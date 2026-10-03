@@ -57,7 +57,7 @@ EMBEDDED: dict = {}   # data files shipped inside the job (base64), filled in by
 
 MENAGERIE_URL = "https://github.com/google-deepmind/mujoco_menagerie.git"
 MENAGERIE_COMMIT = "367e3d9884401dcf6f9c27fa69f118992539039f"  # same as scripts/fetch_assets.py
-PINS = ["jax==0.7.2", "mujoco==3.14.0", "mujoco-mjx==3.14.0", "optax"]
+PINS = {"jax": "0.7.2", "jaxlib": "0.7.2", "mujoco": "3.14.0", "mujoco-mjx": "3.14.0"}   # a set known to work together
 REPO = Path(__file__).resolve().parent.parent
 
 CTRL_DT, SIM_DT = 0.02, 0.004     # the brain acts at 50 Hz; physics runs at 250 Hz
@@ -90,11 +90,22 @@ MIN_DEMO_SPEED = 0.08             # m/s: below this the teacher has no walk to s
 
 
 def ensure_packages() -> None:
-    try:
-        import optax  # noqa: F401
-        from mujoco import mjx  # noqa: F401
-    except ImportError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", *PINS])
+    """Install the pinned set unless it is already there, checking versions without importing anything (an
+    import would load whatever the machine came with: Kaggle switched to jax 0.11.1 on Python 3.13 in Oct 2026,
+    and installing jax 0.7.2 on top of its jaxlib 0.11.1 left a mix that cannot import)."""
+    from importlib import metadata
+
+    def have(pkg):
+        try:
+            return metadata.version(pkg)
+        except metadata.PackageNotFoundError:
+            return None
+    gpu = Path("/kaggle").exists() or any(have(p) for p in ("jax-cuda12-plugin", "nvidia-cuda-runtime-cu12"))
+    if all(have(p) == v for p, v in PINS.items()) and have("optax"):
+        return
+    jax_spec = f"jax[cuda12]=={PINS['jax']}" if gpu else f"jax=={PINS['jax']}"
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", jax_spec, f"jaxlib=={PINS['jaxlib']}",
+                           f"mujoco=={PINS['mujoco']}", f"mujoco-mjx=={PINS['mujoco-mjx']}", "optax"])
 
 
 def fetch_go2(root: Path) -> Path:
