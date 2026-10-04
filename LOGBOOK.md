@@ -191,7 +191,7 @@ BVH files of a real dog.
 **Conclusion:** a real dog's joint angles are not a controller for a different body. The recordings can only be
 something the brain watches and is pulled toward while it keeps its own balance. They can't be the teacher's hands.
 
-### 6.2 Real-dog practice (`baby_dog_realdog`, running)
+### 6.2 Real-dog practice (`baby_dog_realdog`): four new behaviours, and it moves 4× more like a real dog
 
 - **Setup:** from the stage-8 brain, 60M steps, learning rate 1e-4, every earlier skill rehearsed.
 - **Word meanings:** each word means what the real dog does, at the dog's speed (walk, pace, canter, run, turns, sit,
@@ -200,9 +200,33 @@ something the brain watches and is pulled toward while it keeps its own balance.
 - **Style reward:** paid for being near some real-dog pose of that word.
 - **Tests:** every test also reports the distance to the real dog's poses.
 
-Results: pending.
+**Results** (60M steps, 3 Oct; real tests from rest, no help).
 
-### 6.3 Step 1 of `DogMind.md`: letting go (`--let_go`, built)
+The log scored the moving words as turns (bug 8.13), so the forward speeds below come from `practice.json`:
+
+| told | before | after | real dog |
+|---|---|---|---|
+| walk | +0.65 m/s | +0.50 | +0.19 |
+| pace (new word) | −0.04 | **+0.58** | +0.71 |
+| canter (new) | +0.03 | **+0.55** | +0.48 |
+| run (new) | +0.01 | **+0.68** | +2.19 |
+| jump (new) | −0.03 | +0.15 forward, but not off the ground | +0.11, all four feet in the air |
+| turn-left / turn-right | +1.13 / −1.08 rad/s | **+1.72 / −1.50** | +1.38 / −1.18 |
+| back | −0.44 | −0.30 | (−0.25, the teacher's) |
+| sit (nose up) | +0.46 rad | +0.38 | (+0.48, the teacher's) |
+| lie-down (trunk) | 0.38 | **0.85: lost** | (0.37) |
+| distance to the real dog's poses (walk / run) | 0.054 / 0.090 | **0.014 / 0.023** | 0 |
+
+- **What worked:** it learned four new behaviours from the recordings, and its leg poses are 4× closer to the real dog's.
+- **The cost:**
+  - **lie-down was lost.** In this mode only the joint poses were rewarded, never where the trunk ends up, and the
+    lie-down pull from the recordings can't be followed on this body;
+  - falls rose a little (0.03–0.14 per 13 s);
+  - getting up stayed at 0%. The body then sank through the floor when tipped (bug 8.14).
+- The brain is kept as `results/baby_dog_stages/stage10_realdog.npz` (md5 918a366d…), and is now `baby_dog.npz` in
+  `bio-bot-brains`.
+
+### 6.3 Step 1 of `DogMind.md`: letting go (`--let_go`)
 
 **The finding behind it.** Since stage 6, the teacher's correction never left. Every practice adds `GUIDE = 0.5` of
 "be like the teacher" to the brain's update, 5.0 for rest poses. In the real-dog run, the guide is the real dog's next
@@ -227,13 +251,90 @@ frame plus a style reward. So the walk was still mostly the teacher's walk.
 - The help schedule drops for an improving word, comes back for a collapsing word, handles negative scores, leaves an
   unused word alone, and is zero at the deadline.
 
-**On Kaggle:** a short smoke run (`baby_dog_letgo_smoke`, 3M steps, from the stage-8 brain), to be followed by the real
-run from the real-dog brain.
+**Smoke run** (`baby_dog_letgo_smoke`, 3M steps, from the stage-8 brain): it ran end to end, and the help reached zero
+for every word.
+- Nothing collapsed: the turns, sit and lie-down held.
+- Walk slowed from 0.65 to 0.48 m/s, toward the real dog's 0.19. Nothing pays for going faster than asked, and moving
+  now costs energy.
+
+**The full run** (`baby_dog_letgo`, 60M steps, from the real-dog brain) runs on the corrected body (bug 8.14) and with
+corrected meanings (bug 8.13).
 
 **The risk, from phase B.** In v18, removing the teacher's *hands* collapsed the walk. Here, nothing moves the legs:
 the brain has acted alone in every practice since stage 6, and only the extra pull in its update is removed.
 
 ---
+
+### 6.4 Step 2: the park and every sense of the real robot (`train/dog_world.py`)
+
+**The park.** A fenced 12 × 12 m square with:
+- grass with patches, so the ground streams past the eye;
+- three trees and the owner;
+- a ball;
+- a charging pad, the dog's food;
+- an object thrown at the dog about every 10 s (when switched on).
+
+Trees, owner, pad and ball each get their own sixth of the circle around the dog, so nothing starts inside anything
+else.
+
+**The senses:**
+- **eye:** the Go2's 120° × 90° camera at a fly's acuity (5°), 24 × 18 points, in blue and yellow as a dog sees,
+  retinotopic;
+- **LiDAR:** 360° × 90° at 10°, 36 × 9 distances;
+- **ears:** two, with three pitch bands;
+- **nose:** two nostrils, two smells (the real Go2 has no nose; a dog does);
+- **paws:** a touch sensor on each;
+- **skin:** on the trunk and head;
+- **battery;**
+- **heat:** the temperature of each of the 12 motors.
+
+Hot motors and a flat battery weaken the legs. Time is compressed so the battery lasts minutes.
+
+**Checked** (`--set stage=world_check`; CPU pictures in `results/dog_world/`):
+
+| check | result |
+|---|---|
+| the MJX eye and LiDAR against MuJoCo's own C ray caster, 4 scenes | **100% of points identical**; largest LiDAR difference 0.00002 m |
+| cost, 256 dogs on one T4, one 20 ms step | plain body 11.7–12.3 ms; in the park 21.0 ms; all the senses 2.9 ms |
+| paw sensors, dog standing | 149 N in total = the dog's weight (15.2 kg × 9.81) |
+| throws, first try | **every dog's physics blew up (NaN)** about 3 s after a throw (bug 8.15) |
+| throws, after the fix (8 dogs, local MJX) | 0% blew up; 88% felt (hardest 4,042 N with the 1-iteration solver; 105 N with 4 iterations), 100% heard coming |
+| throws, after the fix, 256 dogs on a T4 | 0% blew up; 96% passed within 20 cm of the trunk; 90% felt; 100% heard coming. Skin spikes reach 41 kN with the Go2 model's 1-iteration solver, 1.2 kN with 4 iterations (37.6 ms per step instead of 22.0). Whether a spike shoves the dog or only shows on the skin is measured before throws enter training. |
+
+### 6.5 Step 3: a bigger brain with both sides, eyes, ears, a nose and an inner state (`core_v2`)
+
+`brain/core.py build_v2`:
+- **Two sides:** one unit per fly cell type **per side**. The v1 core merged the two sides, so nothing in it could tell
+  "on the left" from "on the right".
+- **The senses, by the nerve they arrive on:**
+  - body: 309 units;
+  - vision, the visual projection neurons fed by the eye module: 681;
+  - hearing, Johnston's organ: 55;
+  - smell, the olfactory receptor neurons: 144;
+  - inner state, endocrine cells such as IPC, LK and DH44: 30.
+- **New circuits:**
+  - the central complex (navigation);
+  - the mushroom body (learning);
+  - the antennal lobe (smell).
+- **Size:** 7,019 units (v1: 2,500) and 502,438 connections.
+- **Carried over from v1:** every v1 type is kept on both sides. 4,884 units map back to v1 units, and 165,553 of v1's
+  167,630 connections (98.8%) are represented.
+
+**Growing a trained brain into it** (`grow_brain`, stage `grow`):
+- every learned number goes to the v2 units and connections it came from;
+- an old neuron's inputs keep their v1 proportions;
+- connections from new neurons start at about 1% strength;
+- the optic lobe's output starts at exactly zero.
+
+**Local check:** given exactly the sensory stream the trained v1 brain experienced, the grown brain's commands differ
+by 0.032 on average, against a command size of 0.124. So it is close but not identical. The causes are the real
+left/right asymmetries, the new neurons, and hearing neurons no longer receiving body lines. The real measure, the
+closed-loop skill test before and after, runs on Kaggle.
+
+**Step 4, built:** in the park, practice also trains the brain to predict its own senses.
+- Each line's next change, as in babbling.
+- Every eye point's next change, from the optic lobe and an efference copy of its motor neurons.
+- Each is scored against guessing "no change".
 
 ## 7. Open problems and next steps
 
@@ -291,6 +392,24 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
     gets its own ground level (its 5th-percentile height) plus a speed check.
 12. **The teacher never really let go.** The harness left in stage 5, but the teacher's correction stayed in every
     practice's update. The "self-taught" walk was mostly the teacher's. Found on 3 Oct; this is what `--let_go` fixes.
+13. **Real-dog meanings carried the recordings' drift.** Each word's meaning was the recordings' mean motion. So
+    "pace" asked for a −0.13 rad/s turn as well (the dog circled the capture room), and the tests scored every moving
+    word as a turn, because its turning part was not zero. **Fixed:** a moving word means forward at the dog's speed,
+    and a turning word means turning on the spot.
+14. **A tipped dog sank through the floor.** The Menagerie MJX Go2's only trunk collision shape is a 5.7 cm sphere,
+    and only the paws touched the ground. Tipped on its side and holding its pose, the trunk ended up 27 cm *under*
+    the floor. Getting up was physically impossible, which explains the 0% in stage 9 and in every get-up test since.
+    **Fixed:** a box the size of the real trunk, plus the head, now rest on the ground.
+    - Checked: standing height is unchanged (0.247 m), and a tipped dog lies at +0.06 m.
+    - The teacher's sit is unchanged; the lie-down settles at 0.39 instead of 0.37, with the belly on the ground.
+15. **The park's fence was an endless plane.** A collision plane is a half-space. The thrown object, "parked" at
+    (50, 50) between throws, sat 44 m deep inside it, and the physics exploded 3 s after every throw.
+    - My first local tests ran for exactly 3.0 s and stopped one step before it.
+    - **Fixed:** the fence's collision shape is now finite rails behind the visible boards.
+    - Lesson: run a check past every timer in the code under test.
+16. **A job too big for Kaggle.** Embedding the 1.8 MB `core_v2.npz` made the job script 3.25 MB, and Kaggle refused
+    it with a bare `400 Bad Request`. The cores now travel in the private dataset `bio-bot-cores`.
+
 
 ---
 
