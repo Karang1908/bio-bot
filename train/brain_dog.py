@@ -118,34 +118,57 @@ def fetch_go2(root: Path) -> Path:
     return d / "unitree_go2"
 
 
-def load_core() -> dict:
+def load_core(version: str = "v1") -> dict:
+    """v1: one unit per cell type (2,500). v2: one per cell type per side, with the senses of the full robot
+    (brain/core.py build_v2)."""
     import numpy as np
-    raw = base64.b64decode(EMBEDDED["core_v1.npz"]) if "core_v1.npz" in EMBEDDED else \
-        (REPO / "data" / "malecns" / "core_v1.npz").read_bytes()
+    name = f"core_{version}.npz"
+    found = sorted(Path("/kaggle/input").glob(f"**/{name}")) if Path("/kaggle/input").exists() else []
+    raw = base64.b64decode(EMBEDDED[name]) if name in EMBEDDED else found[0].read_bytes() if found else \
+        (REPO / "data" / "malecns" / name).read_bytes()          # embedded, a Kaggle dataset (bio-bot-cores), or local
     with np.load(io.BytesIO(raw)) as z:
         return {k: z[k] for k in z.files}
 
 
-def build_model(go2_dir: Path):
-    """Go2 on a plane; only the feet touch the ground (a physics speed-up, not a hint)."""
+def build_model(go2_dir: Path, world: bool = False):
+    """Go2 on a plane. The paws touch the ground, and so do the trunk and head when it is down: the Menagerie MJX
+    Go2's only trunk shape is a 5.7 cm sphere, so a tipped dog used to sink through the floor (and could never get
+    up); it now has a box the size of its real trunk. Its legs above the paws touch nothing (a physics speed-up).
+    world: the park and every sense of the real robot (train/dog_world.py)."""
     import mujoco
     spec = mujoco.MjSpec.from_file(str(go2_dir / "scene_mjx.xml"))
     for g in spec.geoms:
         if g.name not in ("floor", *FEET):
             g.contype = 0
             g.conaffinity = 0
+    # collision bits: 1 = paws and loose things on the ground, 2 = the trunk and head against the ground and things
+    spec.geom("floor").conaffinity = 3
+    base = spec.body("base")
+    base.add_geom(name="trunk", type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.19, 0.047, 0.057], group=3, contype=2,
+                  conaffinity=0)                    # the base has its own inertia, so this adds no mass
+    for g in spec.geoms:
+        if g.parent.name == "base" and g.type == mujoco.mjtGeom.mjGEOM_SPHERE and g.pos[0] > 0.2:
+            g.contype = 2                           # the head
+    if world:
+        import dog_world
+        dog_world.add_world(spec)
     model = spec.compile()
     model.opt.timestep = SIM_DT
     return model
 
 
 # ============================================================================ the body, as the brain meets it
-def make_body(model, wiring: int | None = None, keep_fallen: bool = False, fallen_starts: float = 0.0):
+def make_body(model, wiring: int | None = None, keep_fallen: bool = False, fallen_starts: float = 0.0, world=None):
     """wiring: one fixed random wiring for this body, the same in every life (a baby keeps its body): the lines
     are still shuffled, re-signed, rescaled and tagged at random, and the brain is never told which is which,
     but it is the same random draw every life. None: a new draw every life.
     keep_fallen: a fall does not put the body back; it stays down until it gets itself up (only a new life resets).
-    fallen_starts: share of new bodies that start fallen, on their side or back, legs every which way."""
+    fallen_starts: share of new bodies that start fallen, on their side or back, legs every which way.
+    world: the park and the full robot's senses (dog_world.make_world on a build_model(world=True) model). The 34
+    lines the brain already knows keep their wiring; the new lines (paws, skin, motor heat, ears, nose, battery)
+    get their own fixed draw, and every line carries the nerve it arrives on (seen["mod"]: 0 body, 2 hearing,
+    3 smell, 4 inner state), as a real animal's senses arrive each on its own nerve. The eye and the LiDAR arrive
+    whole and in order (seen["eye"], seen["lidar"]): retinotopic, like a fly's eye."""
     import jax
     import jax.numpy as jp
     import mujoco
@@ -164,7 +187,12 @@ def make_body(model, wiring: int | None = None, keep_fallen: bool = False, falle
                and not model.sensor(s).name.startswith("global")]
     sidx = jp.array(np.concatenate([np.arange(model.sensor_adr[s], model.sensor_adr[s] + model.sensor_dim[s])
                                     for s in onboard]))
-    K, J = int(sidx.shape[0]), int(model.nu)
+    K0, J = int(sidx.shape[0]), int(model.nu)
+    # the new lines, in the order dog_world gives them, and the nerve each arrives on
+    extra = [("paws", 0, 4), ("skin", 0, 1), ("heat", 0, J), ("ears", 2, 6), ("nose", 3, 4), ("battery", 4, 1)] if world else []
+    E = sum(n for _, _, n in extra)
+    K = K0 + E
+    mod_of = jp.array([0] * K0 + [m for _, m, n in extra for _ in range(n)], jp.int32)
     feet = jp.array([model.geom(f).id for f in FEET])
     d0 = mujoco.MjData(model)
     d0.qpos[:] = model.keyframe("home").qpos
@@ -185,7 +213,7 @@ def make_body(model, wiring: int | None = None, keep_fallen: bool = False, falle
     def new_body(key, fallen=False):
         k1, k2, k3, k4, k5 = jax.random.split(key, 5)
         spread = jp.where(fallen, 0.5, 0.1)
-        q = home.at[7:].add(jax.random.uniform(k1, (12,), minval=-1.0, maxval=1.0) * spread)
+        q = home.at[7:19].add(jax.random.uniform(k1, (12,), minval=-1.0, maxval=1.0) * spread)
         yaw = jax.random.uniform(k2, (), minval=-3.14, maxval=3.14)
         cy, sy = jp.cos(yaw / 2), jp.sin(yaw / 2)
         roll = jax.random.uniform(k3, (), minval=1.3, maxval=3.0) * jp.where(jax.random.bernoulli(k4), 1.0, -1.0)
@@ -193,23 +221,37 @@ def make_body(model, wiring: int | None = None, keep_fallen: bool = False, falle
         tipped = jp.array([cy * cr, cy * sr, sy * sr, sy * cr])            # yaw, then roll about its own long axis
         q = q.at[3:7].set(jp.where(fallen, tipped, jp.array([cy, 0.0, 0.0, sy])))
         q = q.at[2].set(jp.where(fallen, 0.25, q[2]))
-        d = mjx.forward(mx, mjx.make_data(model, impl="jax").replace(qpos=q, ctrl=q[7:]))
-        return d, d.subtree_com[base]           # d.ctrl: where each motor woke up (its "zero")
+        d = mjx.forward(mx, mjx.make_data(model, impl="jax").replace(qpos=q, ctrl=q[7:19]))
+        ws = {}
+        if world:
+            d, ws = world["place"](k5, d)
+        return d, d.subtree_com[base], ws       # d.ctrl: where each motor woke up (its "zero")
 
     def new_life(key):
         """How this life's body appears to the brain: shuffled, re-signed, rescaled, re-tagged."""
-        ks = jax.random.split(key if wiring is None else jax.random.PRNGKey(wiring), 6)
-        return {"perm": jax.random.permutation(ks[0], K),
-                "sign_in": jnp_sign(ks[1], K), "scale_in": jp.exp(jax.random.uniform(ks[2], (K,), minval=-1.4, maxval=1.4)),
-                "off_in": jax.random.normal(ks[3], (K,)),
+        k0 = key if wiring is None else jax.random.PRNGKey(wiring)
+        ks = jax.random.split(k0, 6)
+        life = {"perm": jax.random.permutation(ks[0], K0),
+                "sign_in": jnp_sign(ks[1], K0), "scale_in": jp.exp(jax.random.uniform(ks[2], (K0,), minval=-1.4, maxval=1.4)),
+                "off_in": jax.random.normal(ks[3], (K0,)),
                 "sign_out": jnp_sign(ks[4], J), "tag": jax.random.normal(ks[5], (J, DT))}
+        if E:                                   # the new lines: their own draw, so the old ones stay exactly as they were
+            kn = jax.random.split(jax.random.fold_in(k0, 1), 4)
+            life = {**life, "perm": jp.concatenate([life["perm"], K0 + jax.random.permutation(kn[0], E)]),
+                    "sign_in": jp.concatenate([life["sign_in"], jnp_sign(kn[1], E)]),
+                    "scale_in": jp.concatenate([life["scale_in"], jp.exp(jax.random.uniform(kn[2], (E,), minval=-1.4, maxval=1.4))]),
+                    "off_in": jp.concatenate([life["off_in"], jax.random.normal(kn[3], (E,))])}
+        return {**life, "mod": mod_of[life["perm"]]}
 
     def jnp_sign(key, n):
         return jp.where(jax.random.bernoulli(key, 0.5, (n,)), 1.0, -1.0)
 
-    def present(d, life):
-        """The inputs as the brain sees them this life."""
+    def present(d, life, ws):
+        """The inputs as the brain sees them this life (the eye and the LiDAR come separately, in order)."""
         x = d.sensordata[sidx]
+        if E:
+            s = world["sense"](d, ws, ws["key"], sight=False)
+            x = jp.concatenate([x, *[s[name] for name, _, _ in extra]])
         return (x[life["perm"]] * life["scale_in"] + life["off_in"]) * life["sign_in"]
 
     def fresh_discovery(x):
@@ -219,17 +261,17 @@ def make_body(model, wiring: int | None = None, keep_fallen: bool = False, falle
     def reset(key):
         k1, k2, k3, k4, k5 = jax.random.split(key, 5)
         fallen = jax.random.uniform(k5) < fallen_starts
-        d, com = new_body(k1, fallen)
+        d, com, ws = new_body(k1, fallen)
         life = new_life(k2)
-        return {"d": d, "life": life, "disc": fresh_discovery(present(d, life)),
+        return {"d": d, "life": life, "disc": fresh_discovery(present(d, life, ws)), "world": ws,
                 "info": {"cmd": sample_cmd(k3), "h0": jp.where(fallen, h_stand, com[2]), "com": com, "rest": d.ctrl,
                          "t": jp.zeros((), jp.int32), "phase": jp.zeros(()), "key": k4, "new_life": jp.ones((), bool),
-                         "down": fallen}}
+                         "down": fallen, "spoke": jp.zeros((), bool)}}
 
     def sense(state):
         """Adapt, update the self-map, and return what the brain gets this step."""
         d, life, disc = state["d"], state["life"], state["disc"]
-        x = present(d, life)
+        x = present(d, life, state["world"])
         n = disc["n"] + 1.0
         rate = jp.maximum(1.0 / n, 0.02)                       # quick first estimate, then ~1 s adaptation
         mean = disc["mean"] + rate * (x - disc["mean"])
@@ -246,6 +288,9 @@ def make_body(model, wiring: int | None = None, keep_fallen: bool = False, falle
         feats = jp.stack([z, dz], -1)                           # [K, 2]
         seen = {"feats": feats, "C": C, "a_hist": disc["a"][:2].T, "tag": life["tag"], "cmd": state["info"]["cmd"],
                 "new_life": state["info"]["new_life"]}
+        if world:
+            sight = world["sense"](d, state["world"], state["world"]["key"])
+            seen = {**seen, "mod": life["mod"], "eye": sight["eye"], "lidar": sight["lidar"]}
         return {**state, "disc": disc}, seen
 
     def line_commands(state, joint_target):
@@ -267,8 +312,11 @@ def make_body(model, wiring: int | None = None, keep_fallen: bool = False, falle
         """Apply the commands the motors receive (the brain's, or partly the teacher's hands on the legs),
         run physics with the teacher's harness at strength `support`, score by meaning code, handle falls
         and lives."""
-        d, life, disc, info = state["d"], state["life"], state["disc"], state["info"]
+        d, life, disc, info, ws = state["d"], state["life"], state["disc"], state["info"], state["world"]
         target = jp.clip(info["rest"] + a * life["sign_out"] * 0.5 * (hi - lo), lo, hi)   # zero = hold still
+        if world:                               # things get thrown, the battery drains, hot or flat motors are weak
+            d, ws = world["tick"](d, ws, CTRL_DT, info["spoke"])
+            target = d.qpos[7:19] + world["strength"](ws) * (target - d.qpos[7:19])
         d = jax.lax.fori_loop(0, n_sub, lambda _, x: mjx.step(mx, x.replace(
             ctrl=target, xfrc_applied=harness(x, info["h0"], support))), d)
         R, ch, sh = frame(d)
@@ -307,34 +355,43 @@ def make_body(model, wiring: int | None = None, keep_fallen: bool = False, falle
         pick = lambda new, old, cond: jax.tree_util.tree_map(lambda y, x: jp.where(cond, y, x), new, old)
         k7, k8 = jax.random.split(k5)
         fallen_new = jax.random.uniform(k7) < fallen_starts
-        d_new, com_new = new_body(k3, fallen_new)
+        d_new, com_new, ws_new = new_body(k3, fallen_new)
         life_new = new_life(k4)
         over = (fell & ~keep_fallen) | bad | life_over           # keep_fallen: it has to get itself up
         d, com = pick(d_new, d, over), jp.where(over, com_new, com)
+        ws = pick(ws_new, ws, over)
         life = pick(life_new, life, life_over)
-        disc = pick(fresh_discovery(present(d, life)), disc, life_over)
+        disc = pick(fresh_discovery(present(d, life, ws)), disc, life_over)
         info = {"cmd": jp.where(life_over, sample_cmd(k6), cmd),
                 "h0": jp.where(over, jp.where(fallen_new, h_stand, com_new[2]), info["h0"]),
                 "com": com, "rest": jp.where(over, d_new.ctrl, info["rest"]),
                 "t": jp.where(life_over, 0, info["t"] + 1), "phase": jp.where(over, 0.0, info["phase"]),
-                "key": k8, "new_life": life_over, "down": jp.where(over, fallen_new, down)}
+                "key": k8, "new_life": life_over, "down": jp.where(over, fallen_new, down), "spoke": info["spoke"]}
         stats = {"v_fwd": v_fwd, "v_side": v_side, "wz": wz, "track": track, "fell": fell.astype(jp.float32),
                  "down": down.astype(jp.float32),
                  "height": com[2] / info["h0"], "along": jp.where(moving, along, 0.0), "asked": jp.where(moving, asked, 0.0)}
-        return {"d": d, "life": life, "disc": disc, "info": info}, reward, over, stats
+        return {"d": d, "life": life, "disc": disc, "info": info, "world": ws}, reward, over, stats
 
     def privileged(state):
         """For the critic only: the true, unshuffled state."""
         d, info = state["d"], state["info"]
         R, ch, sh = frame(d)
         v = d.qvel[0:3]
-        return jp.concatenate([d.sensordata[sidx], info["cmd"],
-                               jp.array([ch * v[0] + sh * v[1], -sh * v[0] + ch * v[1], v[2],
-                                         d.subtree_com[base][2] / info["h0"], info["t"] / LIFE_STEPS]),
-                               state["disc"]["a"][0] * state["life"]["sign_out"]])
+        out = [d.sensordata[sidx], info["cmd"],
+               jp.array([ch * v[0] + sh * v[1], -sh * v[0] + ch * v[1], v[2],
+                         d.subtree_com[base][2] / info["h0"], info["t"] / LIFE_STEPS]),
+               state["disc"]["a"][0] * state["life"]["sign_out"]]
+        if world:                               # where things are, in the dog's own frame, and how it is inside
+            w, ws = world["where"](d), state["world"]
+            rel = lambda p: jp.array([ch * (p[0] - d.qpos[0]) + sh * (p[1] - d.qpos[1]),
+                                      -sh * (p[0] - d.qpos[0]) + ch * (p[1] - d.qpos[1]), p[2]])
+            out += [rel(w["ball"]), rel(w["thrown"]), w["thrown_vel"], rel(w["owner"]), rel(w["pad"]),
+                    ws["battery"][None], (ws["heat"] - 25.0) / 40.0]
+        return jp.concatenate(out)
 
+    P = K0 + 3 + 5 + J + (15 + 1 + J if world else 0)
     return {"reset": reset, "sense": sense, "act": act, "privileged": privileged, "line_commands": line_commands,
-            "feet": feet, "K": K, "J": J, "P": K + 3 + 5 + J}
+            "feet": feet, "K": K, "J": J, "P": P}
 
 
 # ============================================================================ the teacher (the AI layer)
@@ -487,10 +544,11 @@ def make_teacher(model, body):
 
 # ============================================================================ the brain
 READOUTS = ("rates", "vector", "line")
+OL_CH = 16                        # channels of the optic lobe's column circuit
 
 
 def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gain0: float = None, readout: str = "rates",
-               words: int = 0):
+               words: int = 0, eye_shape: tuple | None = None, lidar_shape: tuple | None = None):
     """Connectome core + set-based interface. No parameter's shape depends on the body.
 
     readout, how an output line turns the motor neurons into its command:
@@ -502,7 +560,15 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
     words: size of the vocabulary the teacher speaks; heard words (seen["words"], one weight per word, 0..1)
            enter the central brain and the descending neurons like the goal does.
     step.predict(p, s, seen): what the brain expects each input line to do next, given the command it has just
-           sent (seen["a_hist"][..., 0]): its model of its own body."""
+           sent (seen["a_hist"][..., 0]): its model of its own body.
+    A v2 core (core["modality"]): each input line reaches only the sense neurons of the nerve it arrives on
+           (seen["mod"]; without it every line is a body line), and an old neuron's inputs keep the proportions
+           they had in v1 while connections from new neurons start weak (their gain at ~1%) and grow by learning.
+    eye_shape, lidar_shape: the optic lobe. One small circuit, the same at every point of the eye (as the fly
+           repeats the same cell types in every column), mirror-symmetric between the left and right halves, sees
+           each point's colour and how it changed since the last step (and the LiDAR's nearness); every visual
+           projection neuron type pools its own side's circuit through a receptive field of its own. Its output
+           starts at exactly zero, so a brain that grows eyes keeps doing what it did until it learns to see."""
     assert readout in READOUTS, readout
     import jax
     import jax.numpy as jp
@@ -516,16 +582,28 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
     # from hop to hop. (Scaling the whole matrix to spectral radius 0.9 instead shrank every ordinary
     # connection ~70x and signals died within one hop: goals never reached the motor neurons.)
     z = np.bincount(post, weights=syn, minlength=N) + 1.0
+    if "v1_unit" in core:                   # grown from v1: old neurons keep their input proportions
+        old_pre = core["v1_unit"][pre] >= 0
+        z_old = np.bincount(post, weights=np.where(old_pre, syn, 0.0), minlength=N)
+        z = np.where((core["v1_unit"] >= 0) & (z_old > 0), z_old, z - 1.0) + 1.0
     base_w = core["sign"].astype(np.float32)[pre] * syn / z[post]
-    M = np.zeros((N, N), np.float64)
-    np.add.at(M, (pre, post), base_w)
-    rho = float(np.max(np.abs(np.linalg.eigvals(M))))
+    rho = float("nan")                      # spectral radius, only reported (too slow to compute for big cores)
+    if N <= 3000:
+        M = np.zeros((N, N), np.float64)
+        np.add.at(M, (pre, post), base_w)
+        rho = float(np.max(np.abs(np.linalg.eigvals(M))))
     idx = {n: np.where(role == i)[0] for i, n in enumerate(["sense", "motor", "descending", "ascending", "cord", "central"])}
+    sense_mod = core["modality"][idx["sense"]].astype(np.int32) if "modality" in core else np.zeros(len(idx["sense"]), np.int32)
+    vis = np.where(sense_mod == 1)[0]                                     # visual projection neurons, among the senses
+    names = core["name"][idx["sense"]][vis] if len(vis) else np.array([], str)
+    vis_type_names, vis_type = np.unique([n.rsplit("|", 1)[0] for n in names], return_inverse=True)
+    vis_left = np.array([n.endswith("|L") for n in names])
+    eyes = eye_shape is not None and len(vis) > 0
     goal_units = np.concatenate([idx["central"], idx["descending"]])      # intent enters the central brain
     A, Mo, G = len(idx["sense"]), len(idx["motor"]), len(goal_units)        # and the fly's command neurons
     L = len(LAGS)
 
-    ks = iter(jax.random.split(key, 32))
+    ks = iter(jax.random.split(key, 64 if eye_shape else 32))       # (32: the v1 draws stay exactly as they were)
     nrm = lambda shape, s: jax.random.normal(next(ks), shape) * s
     mlp = lambda i, h, o: {"w1": nrm((i, h), (1 / i) ** 0.5), "b1": jp.zeros(h), "w2": nrm((h, o), (1 / h) ** 0.5), "b2": jp.zeros(o)}
     params = {
@@ -539,6 +617,17 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
         "wq": nrm((D, HEADS * D), (1 / D) ** 0.5), "k_motor": nrm((HEADS, Mo, D), 1.0),
         "out_w": nrm((HEADS,), 0.3), "out_b": jp.zeros((), jp.float32), "log_std": jp.array(-1.0, jp.float32),
     }
+    if eyes:
+        Tv, (eh, ew), (lh, lw) = len(vis_type_names), eye_shape, lidar_shape
+        conv = lambda cin, cout: nrm((3, 3, cin, cout), (1 / (9 * cin)) ** 0.5)
+        params.update({"ol_e1": conv(4, OL_CH), "ol_e2": conv(OL_CH, OL_CH), "ol_l1": conv(2, OL_CH), "ol_l2": conv(OL_CH, OL_CH),
+                       "rf_e": nrm((Tv, eh, ew // 2), 1.0 / (eh * ew // 2)), "rf_l": nrm((Tv, lh, lw // 2), 1.0 / (lh * lw // 2)),
+                       "vp_e": jp.zeros((Tv, OL_CH), jp.float32), "vp_l": jp.zeros((Tv, OL_CH), jp.float32),
+                       # what it will see next: the optic lobe's columns plus a copy of what its motor neurons do
+                       "sp_eff": nrm((len(idx["motor"]), 8), (1 / len(idx["motor"])) ** 0.5),
+                       "sp_1": nrm((OL_CH + 8, 16), (1 / (OL_CH + 8)) ** 0.5), "sp_2": nrm((16, 2), 0.1)})
+    if "v1_edge" in core:                   # connections the v1 brain never had start weak
+        params["gamma"] = jp.where(jp.array(core["v1_edge"]) >= 0, 0.0, -5.0).astype(jp.float32)
     params.update({"word_w": nrm((max(words, 1), G), goal_scale),
                    "pq": nrm((D, D), (1 / D) ** 0.5), "pk": nrm((A, D), 1.0), "pv": nrm((A, D), 1.0), "pm": mlp(2 * D, 64, 1)})
     if readout == "vector":
@@ -557,7 +646,52 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
         return jp.zeros((N, N), jp.float32).at[static["pre"], static["post"]].add(w)
 
     def init_state(batch: int):
-        return {"v": jp.zeros((batch, N)), "f": jp.zeros((batch, N))}
+        s = {"v": jp.zeros((batch, N)), "f": jp.zeros((batch, N))}
+        if eyes:                            # the last frame, for the change at every point
+            s.update({"eye": jp.zeros((batch, *eye_shape, 2)), "lidar": jp.zeros((batch, *lidar_shape))})
+        return s
+
+    def eye_halves(e, before):
+        """Each side's half of the eye (colour and its change), seen from the midline outward: mirror images."""
+        fe = jp.concatenate([e, e - before], -1)                             # [B, H, W, 4]
+        half = eye_shape[1] // 2
+        return {True: fe[:, :, :half][:, :, ::-1], False: fe[:, :, half:]}
+
+    def predict_sight(p, s_before, s_after, seen):
+        """What it expects to see next: the change of every eye point by the next step [B, H, W, 2], from each
+        column of its optic lobe and a copy of what its motor neurons are doing (an efference copy)."""
+        conv = lambda x, w: jax.lax.conv_general_dilated(x, w, (1, 1), "SAME", dimension_numbers=("NHWC", "HWIO", "NHWC"))
+        eff = jp.tanh(jax.nn.relu(s_after["v"]))[:, static["motor"]] @ p["sp_eff"]          # [B, 8]
+        halves = eye_halves(seen["eye"], s_before["eye"])
+        out = {}
+        for left in (True, False):
+            g = jax.nn.gelu(conv(jax.nn.gelu(conv(halves[left], p["ol_e1"])), p["ol_e2"]))
+            g = jp.concatenate([g, jp.broadcast_to(eff[:, None, None], (*g.shape[:3], 8))], -1)
+            out[left] = jax.nn.gelu(g @ p["sp_1"]) @ p["sp_2"]
+        return jp.concatenate([out[True][:, :, ::-1], out[False]], 2)
+
+    def route(mod):
+        """[B, A, K]: which input lines reach which sense neurons (each line its own nerve)."""
+        return jp.asarray(sense_mod)[None, :, None] == mod[:, None, :]
+
+    def optic_lobe(p, s, seen):
+        """The eye and the LiDAR -> each visual projection neuron's input [B, Nv], and the frames to remember."""
+        e, l = seen["eye"], 1.0 / (0.3 + seen["lidar"])                  # colour; LiDAR nearness
+        conv = lambda x, w: jax.lax.conv_general_dilated(x, w, (1, 1), "SAME", dimension_numbers=("NHWC", "HWIO", "NHWC"))
+        def lobe(x, w1, w2):
+            return jax.nn.gelu(conv(jax.nn.gelu(conv(x, w1)), w2))
+        e_side = eye_halves(e, s["eye"])
+        fl = jp.stack([l, l - 1.0 / (0.3 + s["lidar"])], -1)               # [B, h, w, 2]
+        half_l = lidar_shape[1] // 2
+        l_side = {True: fl[:, :, :half_l], False: fl[:, :, ::-1][:, :, :half_l]}
+        out = []
+        for left in (True, False):
+            ge = lobe(e_side[left], p["ol_e1"], p["ol_e2"])                # [B, H, W/2, C]
+            gl = lobe(l_side[left], p["ol_l1"], p["ol_l2"])
+            out.append(jp.einsum("bhwc,thw,tc->bt", ge, p["rf_e"], p["vp_e"]) +
+                       jp.einsum("bhwc,thw,tc->bt", gl, p["rf_l"], p["vp_l"]))   # [B, Tv] per type
+        per_unit = jp.where(jp.asarray(vis_left)[None], out[0][:, vis_type], out[1][:, vis_type])
+        return per_unit, {"eye": e, "lidar": seen["lidar"]}
 
     def step(p, W, s, seen):
         """One control step for a batch. Works for any number of inputs K and outputs J."""
@@ -569,8 +703,17 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
         agg_out = sum(jp.einsum("bkj,bkd->bjd", C[..., l], h @ p["w_out"][l]) for l in range(L)) / K
         tok_in = run_mlp(p["i"], jp.concatenate([h, agg_in], -1))                    # what this input does, for me
         tok_out = run_mlp(p["o"], jp.concatenate([g, agg_out], -1))                  # what this output does, for me
-        att = jax.nn.softmax(jp.einsum("ad,bkd->bak", p["q_aff"], tok_in @ p["wk"]) / np.sqrt(D), -1)
+        logits = jp.einsum("ad,bkd->bak", p["q_aff"], tok_in @ p["wk"]) / np.sqrt(D)
+        if "modality" in core:              # each line reaches only the sense neurons of its own nerve
+            ok = route(seen.get("mod", jp.zeros((B, K), jp.int32)))
+            att = jax.nn.softmax(jp.where(ok, logits, -1e9), -1) * jp.any(ok, -1, keepdims=True)
+        else:
+            att = jax.nn.softmax(logits, -1)
         u = jp.zeros((B, N)).at[:, static["sense"]].set(jp.einsum("bak,bk->ba", att, tok_in @ p["wv"]))
+        new = {}
+        if eyes and "eye" in seen:
+            seen_now, new = optic_lobe(p, s, seen)
+            u = u.at[:, static["sense"][vis]].add(seen_now)
         u = u.at[:, static["goal"]].add(cmd @ p["goal_w"])
         if words:
             u = u.at[:, static["goal"]].add(seen["words"] @ p["word_w"])
@@ -590,7 +733,7 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
         else:
             mix = jp.einsum("bjhm,bm->bjh", read, r_m)
             mu = run_mlp(p["o2"], jp.concatenate([mix, tok_out], -1))[..., 0] + p["out_b"]
-        return {"v": v, "f": fat}, mu
+        return {**s, "v": v, "f": fat, **new}, mu
 
     def predict(p, s, seen):
         feats, C, a_hist, tag = seen["feats"], seen["C"], seen["a_hist"], seen["tag"]
@@ -600,10 +743,16 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
         agg_in = sum(jp.einsum("bkj,bjd->bkd", C[..., l], g @ p["w_in"][l]) for l in range(L)) / J
         tok_in = run_mlp(p["i"], jp.concatenate([h, agg_in], -1))
         r_s = jp.tanh(jax.nn.relu(s["v"]))[:, static["sense"]]                      # [B,A]
-        att_p = jax.nn.softmax(jp.einsum("bkd,ad->bka", tok_in @ p["pq"], p["pk"]) / np.sqrt(D), -1)
+        logits_p = jp.einsum("bkd,ad->bka", tok_in @ p["pq"], p["pk"]) / np.sqrt(D)
+        if "modality" in core:
+            ok = jp.swapaxes(route(seen.get("mod", jp.zeros(feats.shape[:2], jp.int32))), 1, 2)   # [B, K, A]
+            att_p = jax.nn.softmax(jp.where(ok, logits_p, -1e9), -1)
+        else:
+            att_p = jax.nn.softmax(logits_p, -1)
         read = jp.einsum("bka,ba,ad->bkd", att_p, r_s, p["pv"])
         return run_mlp(p["pm"], jp.concatenate([tok_in, read], -1))[..., 0]          # [B,K]
     step.predict = predict
+    step.predict_sight = predict_sight if eyes else None
 
     return params, weights, init_state, step, {"N": N, "A": A, "Mo": Mo, "G": G, "edges": len(pre), "rho": rho,
                                                "motor_idx": idx["motor"].tolist(), "readout": readout}
