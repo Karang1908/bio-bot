@@ -182,6 +182,12 @@ compilation; a run costs ~1 of the 30 weekly GPU hours. MJX's JAX backend needs 
 and a rare solver blow-up on terrain turns a whole run to NaN unless the environment ends such episodes and zeroes their
 observations (Playground's auto-reset keeps `info`, so that must be cleaned too).
 The Kaggle CLI's OAuth login (`kaggle auth login`) expired within ~3 h in use; re-run it with `--force` before fetching.
+Kaggle rejects a pushed job script that is too large with a bare `400 Bad Request` from `SaveKernel`. A 0.9 MB script
+(with `core_v1.npz` embedded) worked; a 3.25 MB one (with `core_v2.npz` embedded too) failed. Data bigger than about
+half a megabyte goes in a private dataset instead (`--dataset`). The cores live in `bio-bot-cores`, and
+`load_core` finds them under `/kaggle/input`.
+In Oct 2026 Kaggle's image moved to jax 0.11.1 on Python 3.13. `train/brain_dog.py ensure_packages` pins the whole
+jax[cuda12] 0.7.2 / jaxlib / mujoco 3.14 set, and checks versions without importing anything.
 
 Gotchas measured on 27–28 Sep 2026:
 - `kaggle kernels output` skips any file that already exists locally with the same size, unless it is given `-o`. Two
