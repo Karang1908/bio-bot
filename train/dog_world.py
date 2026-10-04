@@ -197,7 +197,7 @@ def make_world(model, throws: bool = False):
         qpos = d.qpos.at[ball_q:ball_q + 7].set(ball).at[thr_q:thr_q + 7].set(jp.concatenate([parked, jp.array([1.0, 0, 0, 0])]))
         qvel = d.qvel.at[ball_v:ball_v + 6].set(0.0).at[thr_v:thr_v + 6].set(0.0)
         d = mjx.forward(mx, d.replace(mocap_pos=mp, qpos=qpos, qvel=qvel))
-        state = {"battery": jax.random.uniform(ks[6], (), minval=0.5, maxval=1.0), "heat": jp.full(model.nu, AMBIENT),
+        state = {"battery": jax.random.uniform(ks[6], (), minval=0.1, maxval=1.0), "heat": jp.full(model.nu, AMBIENT),
                  "voice": jp.zeros(()), "flying": jp.zeros(()), "throw_now": jp.zeros((), bool), "key": ks[7]}
         return d, state
 
