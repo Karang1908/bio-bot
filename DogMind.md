@@ -6,8 +6,13 @@ This is the plan for the next part of the work, agreed on 3 October 2026. It cov
 - **deciding and thinking with its own fly brain**;
 - carrying the functional ingredients that scientific theories link to consciousness.
 
-Results go in `LOGBOOK.md` as they come in. Built: step 1 (`--let_go`; a short Kaggle smoke run is underway). Every other step is
-still a plan.
+Results go in `LOGBOOK.md` as they come in (§6). Built:
+- step 1 (letting go);
+- step 2 (the park and every sense);
+- step 3 (the grown two-sided brain);
+- step 4 (predicting its own senses).
+
+Steps 5–8 are still a plan.
 
 ---
 
@@ -119,16 +124,26 @@ added to the simulation (MuJoCo MJX 3.14):
 | battery | charge level | no | A battery that drains with mechanical power, and recharges on a charging pad (its food). |
 | motor temperature | per-motor heat (the real Go2 limits torque when hot) | no | Each motor heats with torque² and cools slowly. A hot motor gets weaker, as on the real robot. This works like tiredness. |
 
-**Camera resolution: fly-eye resolution.** The full 120° view goes in, sampled at about the number of ommatidia in a
-fly's two eyes (about 1,500).
-- Nothing in the scene is left out; it is seen at the resolution a fly brain is built for.
-- The full 1280×720 feed is 921,600 pixels per frame. That is far more than the fly's visual system takes in, and far
-  too heavy to train on free GPUs.
-- Measured first on Kaggle: cost per step of 1,500 rays × the scene's shapes × 512 dogs. If too slow, fewer rays, with
-  the measured cost in the logbook.
+**Camera resolution: a fly's acuity.** The full 120° × 90° view goes in, sampled every 5°, the angle between a fly's
+ommatidia: 24 × 18 = 432 points.
+- Nothing in the scene is left out; it is seen at the resolution a fly's eye has.
+- The ~1,500 ommatidia of a fly's two eyes cover almost the whole sphere. The Go2's camera covers only the front, so it
+  gets the fly's acuity over the camera's field.
+- Measured on a T4: casting every eye and LiDAR ray for 256 dogs costs 2.9 ms per step. That is affordable.
 
-**Every sense stays anonymous within itself.** Pixels, rays and paws are shuffled, sign-flipped and rescaled by the
-fixed wiring. The brain must discover which pixel looks where, just as it discovered which line was which joint.
+**The eye is wired in order, like the fly's** (decided 3 Oct).
+- Each point of the eye is wired to its own place in the optic lobe, neighbours next to neighbours, as development
+  wires the fly's eye. The brain learns what it sees, not where each point is.
+- Feeding 432 points as scrambled lines would cost the brain several GB per GPU (every line carries its own map of
+  how it answers each motor), and it is not how an eye works.
+- The body senses (joints, IMU, paws, skin, motor heat), the ears, the nose and the battery stay scrambled lines: the
+  brain must discover what each one is. Each line arrives on its own nerve, as in a real animal.
+
+**Also built:**
+- **A nose:** two nostrils, smelling the ball and the charging pad. The real Go2 has no smell sensor, but a dog lives
+  by its nose, and the fly brain is built around smell. On the real robot it would need a gas sensor.
+- **A trunk that rests on the ground:** the simulated Go2's trunk used to sink through the floor when it tipped over
+  (`LOGBOOK.md` §8.14).
 
 ---
 
@@ -145,6 +160,13 @@ learning. What is learned is everything *within* a sense. So the senses enter th
 | foot force | leg touch and load sensors | the leg mechanosensory types (already in the core) |
 | battery, motor heat | internal state: hunger, energy, fatigue | the central-brain neurosecretory and internal-state types |
 | words | (none; a fly has no language) | central and descending neurons, as now |
+
+**Two sides.** The first core (v1) merged each cell type's left and right neurons into one unit, so nothing in it could
+tell "ball on the left" from "ball on the right". The grown core (v2) keeps the two sides apart, the way the fly's two
+eyes, two antennae and two halves of the brain are separate.
+- The left half of the eye and the left side of the LiDAR feed the left optic lobe's visual projection neurons.
+- The left ear and the left nostril feed the left Johnston's organ and the left olfactory neurons.
+- And the same on the right.
 
 **Growing the brain without erasing it.** The current core (`data/malecns/core_v1.npz`, `brain/core.py`) deliberately
 **left the optic lobes out**, because no body had a camera yet.
