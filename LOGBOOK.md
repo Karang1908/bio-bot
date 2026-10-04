@@ -257,8 +257,41 @@ for every word.
 - Walk slowed from 0.65 to 0.48 m/s, toward the real dog's 0.19. Nothing pays for going faster than asked, and moving
   now costs energy.
 
-**The full run** (`baby_dog_letgo`, 60M steps, from the real-dog brain) runs on the corrected body (bug 8.14) and with
-corrected meanings (bug 8.13).
+**The full run** (`baby_dog_letgo`, 60M steps, from the real-dog brain, on the corrected body (bug 8.14) and with
+corrected meanings (bug 8.13)). **The teacher is gone, and the dog kept every skill.** Help was zero for every word from
+update 2,563 of 3,662, so the last 30% had no teacher at all. Real tests from rest:
+
+| told | before (real-dog brain) | after | real dog |
+|---|---|---|---|
+| walk | +0.50 m/s | +0.32 (slowed toward the asked speed) | +0.19 |
+| pace | +0.58 | **+0.78** | +0.71 |
+| canter | +0.55 | **+0.54** | +0.48 |
+| run | +0.68 | **+0.99** | +2.19 |
+| turn-left / turn-right | +1.74 / −1.48 rad/s | +1.89 / −1.47 | +1.38 / −1.18 |
+| back / jump (forward) | −0.29 / +0.15 | −0.34 / +0.21 | −0.25 / +0.11 |
+| sit nose-up | +0.39 | **+0.48** (recovered) | (teacher +0.48) |
+| lie-down trunk | 0.85 | 0.72 (recovering slowly) | (teacher 0.39) |
+| on its feet 8 s after a fall | 0% | **1–2%**: the first ever, never trained | |
+| falls per 13 s | 0.02–0.06 | 0.00–0.02 | |
+| distance to the real dog's poses (walk / run) | 0.014 / 0.023 | 0.057 / 0.083 | |
+
+- **Its own way won**, as decided: the speeds moved toward what each word asks, and the poses drifted from the real
+  dog's.
+- **The feet:**
+  - walk, pace and canter lift diagonal pairs together (trot-like);
+  - running starts to pair the front feet (0.11) and the same-side feet (0.07), with every foot in the air 34–38% of
+    the time.
+- **Not yet:**
+  - lie-down is only part-way back;
+  - "jump" still never leaves the ground;
+  - "run" reaches 45% of the real dog's speed.
+- Brain: `results/baby_dog_stages/stage12_letgo.npz` (md5 5cb02e1f…), now `baby_dog.npz` in `bio-bot-brains`.
+- **Films of the current dog** (the grown let-go brain, no help, wobble on, from a standing start):
+  `videos/dog_selftaught_<word>.mp4` for walk, pace, canter, run, turn-left, turn-right, back, jump, sit_then_stand and
+  lie-down_then_stand. Filmed:
+  - walk +0.27 m/s, pace +0.60, canter +0.54, run +0.90;
+  - turns +1.63 / −1.36 rad/s, back −0.29, jump +0.24 forward;
+  - sit nose-up +0.47, lie-down trunk 0.72 (part-way).
 
 **The risk, from phase B.** In v18, removing the teacher's *hands* collapsed the walk. Here, nothing moves the legs:
 the brain has acted alone in every practice since stage 6, and only the extra pull in its update is removed.
@@ -328,8 +361,90 @@ Hot motors and a flat battery weaken the legs. Time is compressed so the battery
 
 **Local check:** given exactly the sensory stream the trained v1 brain experienced, the grown brain's commands differ
 by 0.032 on average, against a command size of 0.124. So it is close but not identical. The causes are the real
-left/right asymmetries, the new neurons, and hearing neurons no longer receiving body lines. The real measure, the
-closed-loop skill test before and after, runs on Kaggle.
+left/right asymmetries, the new neurons, and hearing neurons no longer receiving body lines.
+
+**The real measure** (`baby_dog_grow`, from the real-dog brain): the closed-loop test of every word from rest, as it runs
+now (wobble on, no help).
+
+| told | v1 brain | grown, plain body | grown, in the park with every sense on |
+|---|---|---|---|
+| walk / pace / canter / run (m/s) | 0.51 / 0.58 / 0.54 / 0.68 | 0.45 / 0.52 / 0.50 / 0.54 | 0.43 / 0.51 / 0.49 / 0.54 |
+| turn-left / turn-right (rad/s) | +1.75 / −1.49 | +1.60 / −1.30 | +1.69 / −1.26 |
+| back / jump (m/s) | −0.29 / +0.15 | −0.27 / +0.15 | −0.27 / +0.13 |
+| sit nose-up (rad) / lie-down trunk | +0.38 / 0.85 | +0.38 / 0.85 | +0.37 / 0.85 |
+| falls per 13 s | 0.02–0.12 | 0.02–0.12 | 0.02–0.19 |
+
+**The grown brain keeps every skill.**
+- The largest changes: run −0.14 m/s, turn-right 0.19 rad/s slower. Everything else is within 0.07.
+- Living in the park with eyes, ears and a nose (all still unused) changes almost nothing.
+- Leftovers of the meaning bug (8.13) are still visible, e.g. pace turns at −0.66 rad/s. Letting go retrains them.
+
+**Growing the let-go brain** (`baby_dog_grow` v3; its "before" numbers match the let-go result, so it is the right
+brain):
+- v1 → grown, plain body: walk 0.32 → 0.29, pace 0.76 → 0.63, canter 0.54 → 0.54, run 0.99 → 0.89, turn-left
+  1.84 → 1.62, turn-right −1.49 → −1.33, back −0.34 → −0.29, jump 0.21 → 0.25, sit +0.47 → +0.48, lie-down 0.70 →
+  0.71;
+- the same in the park with every sense on;
+- the largest change is 0.22 (turn-left).
+
+Kept as `results/baby_dog_stages/stage13_grown_letgo.npz` (md5 a239dd9a…), the start of the park run `baby_dog_park`
+(60M steps; rehearses everything; with thrown objects, "ball", "come" and self-prediction).
+
+**The park before any practice in it** (`baby_dog_park_smoke`, the grown real-dog brain; real tests from rest):
+- told "ball": 11% reach it, and on average they drift away (2.46 → 3.34 m);
+- told "come": 2% reach the owner;
+- an object thrown while standing: hit 83%, against ~96% for a dog that doesn't move. 11% moved before it arrived
+  (median 320 ms after the throw).
+
+The run then crashed on its first update: the new-life reset assumed every brain state is 2-D, and the eye's last frame
+is not. Fixed for any shape.
+
+**The first park run** (`baby_dog_park`, 60M steps, 8 h, from the grown let-go brain, with throws, "ball" and "come";
+real tests from rest):
+
+| measure | before | after |
+|---|---|---|
+| told "ball": reached it | 3% | 2%: **not learned** |
+| told "come": reached the owner | 6% | 0%: **not learned** |
+| object thrown while standing: hit | 83% | 84%: **no dodging** |
+| predicting its next body / hearing / smell / sight (÷ "no change") | 0.33 / 1.02 / 0.55 / 0.87 | **0.31 / 0.90 / 0.54 / 0.74**: every sense better than guessing |
+| walk / pace / canter / run (m/s) | 0.30 / 0.63 / 0.54 / 0.82 | 0.21 / 0.51 / 0.38 / 0.64 |
+| turn-left / turn-right (rad/s) | +1.60 / −1.36 | +1.62 / −1.07 |
+| jump (forward), sit, lie-down | 0.27, +0.48, 0.72 | 0.02, +0.49, 0.74 |
+| falls per 13 s | ~0 | ~0 |
+
+- **Step 4 is done:** it predicts what every sense will do next better than guessing "no change".
+- **Step 5's goals failed.** The likely reason: vision never reaches its decisions.
+  - The optic lobe's output into the brain starts at zero.
+  - Only the reward could open that path, and the reward is too weak and noisy to train vision.
+  - The self-prediction trains the optic lobe's columns, but not the path from them into the central brain.
+  - Hearing only hears the ball when it moves, and the two nostrils are 3 cm apart.
+- **The fix being tried:** the voice. Learning to *say* "ball on the left" trains that path, as a parent pointing at
+  a ball teaches a child to see it. If its ball-left / ball-right accuracy stays at chance, the information is not
+  getting in.
+- **Also found:** every practice run restarted the teacher's help at full, so this run briefly had a teacher again.
+  Fixed: a brain that has been let go starts with the teacher at zero, permanently.
+- Brain: `results/baby_dog_stages/stage14_park.npz` (md5 4f41909f…). Next run: `baby_dog_park2`, the same plus drives
+  and the voice.
+
+**Step 6, built and smoke-tested** (`baby_dog_drives_smoke`, 2M steps from the grown let-go brain; it ran end to end):
+- **Free time:** nobody speaks, no word is heard.
+- **Hunger:** some lives start with a low battery. Charging on the pad pays FOOD_PAY × hunger, and a flat battery
+  costs.
+- **Curiosity:** in free time, it is paid for learning progress, i.e. its own sight surprise falling (a fast average
+  dropping below a slow one). Surprise itself is not paid, so unpredictable noise is not attractive. The bookkeeping
+  lives in the brain's own state.
+- **Two loopholes closed before running:**
+  - a fall used to reset the battery, so falling could "feed" it;
+  - switching to silence made the owner's voice sound.
+- **Results:**
+  - self-prediction against "no change": body 0.44 → 0.37, smell 0.62 → 0.60, sight 1.14 → 1.00, hearing 1.9 → 1.6
+    (still worse than guessing);
+  - before practice in free time, a hungry dog never went to its food (0%), and a dog nobody speaks to barely moves
+    (0.9–2.2 m² in 10 s).
+- **Hunger was too strong:** lives that started at 5% battery starved from the first second, the reward per second
+  went to −0.35…−1.1, and the critic's error jumped from ~1 to 17–30. Now lives start at ≥10% battery, and starving
+  costs 1/s.
 
 **Step 4, built:** in the park, practice also trains the brain to predict its own senses.
 - Each line's next change, as in babbling.
@@ -431,6 +546,17 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
     --embed data/malecns/core_v1.npz --dataset bio-bot-brains --dataset bio-bot-dog-mocap --set stage=practice \
     --flag dog --set lr=1e-4 --steps 60e6
 # letting go (DogMind.md step 1): the same, plus --flag let_go
+# the park and every sense, checked (step 2); the grown brain (step 3); practice in the park (steps 4-5)
+.venv/bin/python train/dog_world.py                   # pictures of what the dog senses -> results/dog_world/
+.venv/bin/python -c "from brain.core import build_v2; build_v2()"      # data/malecns/core_v2.npz (dataset bio-bot-cores)
+.venv/bin/python scripts/kaggle_job.py push baby_dog --job baby_dog_world --embed train/brain_dog.py \
+    --embed train/dog_world.py --embed data/malecns/core_v1.npz --set stage=world_check
+.venv/bin/python scripts/kaggle_job.py push baby_dog --job baby_dog_grow --embed train/brain_dog.py \
+    --embed train/dog_world.py --dataset bio-bot-brains --dataset bio-bot-dog-mocap --dataset bio-bot-cores \
+    --set stage=grow --flag dog
+.venv/bin/python scripts/kaggle_job.py push baby_dog --job baby_dog_park --embed train/brain_dog.py \
+    --embed train/dog_world.py --dataset bio-bot-brains --dataset bio-bot-dog-mocap --dataset bio-bot-cores \
+    --set stage=practice --set core=v2 --flag dog --flag let_go --flag park --flag throws --flag tasks --set lr=1e-4
 ```
 
 Stage order: babble → name → act (×2) → walk_words → walk → start_stop → gaits → no_parent → practice → poses →
