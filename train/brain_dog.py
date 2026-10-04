@@ -359,6 +359,9 @@ def make_body(model, wiring: int | None = None, keep_fallen: bool = False, falle
         life_new = new_life(k4)
         over = (fell & ~keep_fallen) | bad | life_over           # keep_fallen: it has to get itself up
         d, com = pick(d_new, d, over), jp.where(over, com_new, com)
+        if world:                               # a fall puts the body back, but not its hunger or its hot motors
+            ws_new = {**ws_new, "battery": jp.where(life_over, ws_new["battery"], ws["battery"]),
+                      "heat": jp.where(life_over, ws_new["heat"], ws["heat"])}
         ws = pick(ws_new, ws, over)
         life = pick(life_new, life, life_over)
         disc = pick(fresh_discovery(present(d, life, ws)), disc, life_over)
@@ -548,7 +551,7 @@ OL_CH = 16                        # channels of the optic lobe's column circuit
 
 
 def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gain0: float = None, readout: str = "rates",
-               words: int = 0, eye_shape: tuple | None = None, lidar_shape: tuple | None = None):
+               words: int = 0, eye_shape: tuple | None = None, lidar_shape: tuple | None = None, say: int = 0):
     """Connectome core + set-based interface. No parameter's shape depends on the body.
 
     readout, how an output line turns the motor neurons into its command:
@@ -568,7 +571,9 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
            repeats the same cell types in every column), mirror-symmetric between the left and right halves, sees
            each point's colour and how it changed since the last step (and the LiDAR's nearness); every visual
            projection neuron type pools its own side's circuit through a receptive field of its own. Its output
-           starts at exactly zero, so a brain that grows eyes keeps doing what it did until it learns to see."""
+           starts at exactly zero, so a brain that grows eyes keeps doing what it did until it learns to see.
+    say: words it can say about itself. step.say(p, s) -> [B, say] logits, read from its own central and descending
+           neurons the way its motor readout drives the legs (the fly has no voice; this is the dog's)."""
     assert readout in READOUTS, readout
     import jax
     import jax.numpy as jp
@@ -626,6 +631,8 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
                        # what it will see next: the optic lobe's columns plus a copy of what its motor neurons do
                        "sp_eff": nrm((len(idx["motor"]), 8), (1 / len(idx["motor"])) ** 0.5),
                        "sp_1": nrm((OL_CH + 8, 16), (1 / (OL_CH + 8)) ** 0.5), "sp_2": nrm((16, 2), 0.1)})
+    if say:                                 # its voice: a readout from its own central and descending neurons
+        params.update({"say_w": nrm((G, say), (1 / G) ** 0.5), "say_b": jp.zeros((say,), jp.float32)})
     if "v1_edge" in core:                   # connections the v1 brain never had start weak
         params["gamma"] = jp.where(jp.array(core["v1_edge"]) >= 0, 0.0, -5.0).astype(jp.float32)
     params.update({"word_w": nrm((max(words, 1), G), goal_scale),
@@ -647,8 +654,10 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
 
     def init_state(batch: int):
         s = {"v": jp.zeros((batch, N)), "f": jp.zeros((batch, N))}
-        if eyes:                            # the last frame, for the change at every point
-            s.update({"eye": jp.zeros((batch, *eye_shape, 2)), "lidar": jp.zeros((batch, *lidar_shape))})
+        if eyes:                            # the last frame, for the change at every point; and its own surprise:
+            s.update({"eye": jp.zeros((batch, *eye_shape, 2)), "lidar": jp.zeros((batch, *lidar_shape)),
+                      "sight_pred": jp.zeros((batch, *eye_shape, 2)), "has_pred": jp.zeros((batch,)),   # what it expected
+                      "surprise_fast": jp.zeros((batch,)), "surprise_slow": jp.zeros((batch,))})       # (curiosity)
         return s
 
     def eye_halves(e, before):
@@ -752,6 +761,7 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
         read = jp.einsum("bka,ba,ad->bkd", att_p, r_s, p["pv"])
         return run_mlp(p["pm"], jp.concatenate([tok_in, read], -1))[..., 0]          # [B,K]
     step.predict = predict
+    step.say = (lambda p, s: jp.tanh(jax.nn.relu(s["v"]))[:, static["goal"]] @ p["say_w"] + p["say_b"]) if say else None
     step.predict_sight = predict_sight if eyes else None
 
     return params, weights, init_state, step, {"N": N, "A": A, "Mo": Mo, "G": G, "edges": len(pre), "rho": rho,
@@ -870,7 +880,8 @@ def watch(bp, brain, body, teacher, walk, envs: int, unroll: int, steps: float, 
     v_act = jax.vmap(body["act"], in_axes=(0, 0, 0, None))
     v_show = jax.vmap(teacher["show"], in_axes=(0, None))
     v_follow = jax.vmap(teacher["follow"], in_axes=(0, None))
-    fresh = lambda tree, new_life: jax.tree_util.tree_map(lambda x: jp.where(new_life[:, None], 0.0, x), tree)
+    fresh = lambda tree, new_life: jax.tree_util.tree_map(       # a new life forgets everything (any state shape)
+        lambda x: jp.where(new_life.reshape(-1, *([1] * (x.ndim - 1))), 0.0, x), tree)
     opt = optax.chain(optax.clip_by_global_norm(1.0), optax.adam(lr))
 
     def loss(bp, traj, bst0):
