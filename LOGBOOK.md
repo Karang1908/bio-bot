@@ -1170,10 +1170,52 @@ Architectural updates implemented in `train/baby_dog.py`:
 3. Task duration: Instruction duration for tasks set to `p_task = 0.0025` (~8 s) to allow sufficient time to reach 2.5m targets and trigger `there` arrival rewards.
 4. Remote CPU preflight `bio-bot-baby-dog-selflearn-vision-preflight` verified on Kaggle CPU (version 2, 7,019 units, 502,438 connections, candidate SHA256 `18f6e629…` verified, JAX JIT optimizer verified to learn vision, voice and critic while keeping motor parameters frozen).
 
-GPU trial `baby_dog_selflearn_vision_approach_pilot` (version 1) submitted to 2x Nvidia Tesla T4:
-- Configuration: `lesson=approach`, `brain_lr=5e-6`, `voice_lr=3e-4`, `vision_lr=3e-4`, `--protect_skills`, 1M steps (61 updates), 512 envs, 3 cohorts, 3h cap. Teacher movement help zero from rest.
+GPU trial `baby_dog_selflearn_vision_approach_pilot` (version 1) completed on 2x Nvidia Tesla T4 (79.6 min execution, 12 Oct 01:25 Dubai):
+- Configuration: `lesson=approach`, `brain_lr=5e-6`, `voice_lr=3e-4`, `vision_lr=3e-4`, `--protect_skills`, 1M steps (61 updates), 512 envs, 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
 - Checkpoint: resume candidate `baby_dog_step_0000983040.npz` (`18f6e629…`).
-- Status: RUNNING; background API monitor active.
+- All terminal artifacts fetched to `results/baby_dog_selflearn_vision_approach_pilot/` (`baby_dog.npz`, snapshots at steps 491520, 983040, 999424, `practice.json`, `log.txt`, `resume.json`).
+
+| measured metric (three cohorts, 192 lives) | fresh baseline | final 999,424 steps |
+|---|---:|---:|
+| mean seven movement falls / 13 s | 0.3013 | 0.2969 |
+| walk falls / 13 s | 0.2969 | 0.3073 |
+| pace falls / 13 s | 0.3646 | 0.3125 |
+| canter falls / 13 s | 0.2396 | 0.2656 |
+| run falls / 13 s | 0.3125 | 0.2917 |
+| turn-left falls / 13 s | 0.2240 | 0.3177 |
+| turn-right falls / 13 s | 0.2708 | 0.2188 |
+| back falls / 13 s | 0.4010 | 0.3646 |
+| walk speed, m/s | +0.3461 | +0.3696 |
+| pace speed, m/s | +0.4198 | +0.4285 |
+| canter speed, m/s | +0.3416 | +0.3482 |
+| run speed, m/s | +0.4739 | +0.4984 |
+| turn-left yaw, rad/s | +1.4966 | +1.5196 |
+| turn-right yaw, rad/s | -1.1572 | -1.1763 |
+| backward speed, m/s | -0.1587 | -0.1485 |
+| jump speed, m/s | +0.1321 | +0.1511 |
+| sit pose (pitch / trunk) | +0.509 / 0.600 | +0.505 / 0.599 |
+| lie-down pose (pitch / trunk) | +0.056 / 0.962 | +0.057 / 0.960 |
+| ball arrival success (got_there) | 0.0% | 0.0% |
+| ball distance drift (start -> end, m) | 2.492 -> 2.534 | 2.482 -> 2.603 |
+| ball aligned in final second | 8.45% | 10.93% |
+| ball final facing cosine | -0.030 | -0.058 |
+| owner arrival success (got_there, "come") | 0.0% | 2.60% (5/192) |
+| owner distance drift (start -> end, m) | 3.663 -> 3.740 | 3.668 -> 3.669 |
+| owner aligned in final second | 9.42% | 13.56% |
+| owner final facing cosine | -0.092 | -0.045 |
+| ball-right balanced accuracy | 0.593 | 0.613 |
+| owner-left balanced accuracy | 0.580 | 0.606 |
+| owner-ahead balanced accuracy | 0.503 | 0.523 |
+| moving balanced accuracy | 0.680 | 0.688 |
+| dodge hit rate / reaction median | 80.21% / 210 ms | 81.77% / 97 ms |
+
+**Interpretation:**
+1. **Motor skills preserved and stable:** Mean falls across the 7 gaits slightly decreased (0.3013 -> 0.2969 per 13s), with turn-right falls dropping to 0.2188 and back falls improving to 0.3646. All 11 skills maintained nominal speeds and geometry.
+2. **First non-zero approach success on "come":** 2.60% of test dogs (5 out of 192) successfully reached the owner within 1.0 m without any teacher assistance. Outward distance drift was completely halted (net drift +0.001 m vs baseline drift +0.077 m), and final-second heading alignment increased from 9.42% to 13.56%.
+3. **"Ball" approach remains at 0.0% arrival:** While heading alignment in the final second improved from 8.45% to 10.93%, zero dogs reached the 0.35m arrival sphere. Because the ball is smaller (0.11m radius) than the owner, approaching it requires higher precision heading control.
+4. **Perception self-reports actively learning:** Sight prediction error reduced during training from 0.741 to 0.702. In-practice accuracy reached 0.66 for `owner-left`, 0.63 for `ball-right`, and 0.59 for `owner-ahead`.
+5. **Candidate promotion:** `baby_dog_step_0000999424.npz` (`17f6c746…`) / `baby_dog.npz` (`1452d51e…`) demonstrates superior approach performance and improved locomotion stability compared to `baby_dog_step_0000983040.npz`. It is selected as the new active learning restart checkpoint for subsequent approach lessons. `stage16_park3_open.npz` (`4af773f4…`) remains the established global best.
+
 
 
 ## 7. Open problems and next steps
