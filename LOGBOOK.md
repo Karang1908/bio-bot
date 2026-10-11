@@ -1113,6 +1113,14 @@ The 2.56 s history window did not resolve the perception/orientation learning bo
 or selected for restart. The established stage16 remains the global best, and intermediate candidate
 `baby_dog_step_0000983040.npz` (`18f6e629…`) remains the learning restart.
 
+**Submitted approach trial (19:14 Dubai):** `karang1908/bio-bot-baby-dog-selflearn-approach-pilot` version 1 accepted on Kaggle.
+Configuration: `lesson=approach` from the verified pre-voice restart candidate `baby_dog_step_0000983040.npz` (`18f6e629…`).
+In this lesson, task rewards include getting closer (`TASK_PAY * closer`), turning to face (`FACE_PAY * turned`), and reaching
+the target (`REACH_PAY * there`), rather than differential turning alone. Curiosity and eating rewards remain disabled.
+Rehearses all 11 established skills, teacher movement help stays zero, ±0.1 wobble and all senses kept, lr 5e-6 / voice lr 3e-4,
+outcome guard on, 1M steps (61 updates), 512 parallel environments (32 unroll ticks = 0.64 s credit assignment), three evaluation
+cohorts, 3h cap on NvidiaTeslaT4. Active clock monitoring and status tracking initiated. Results pending; no promotion.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
