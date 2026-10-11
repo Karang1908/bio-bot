@@ -194,6 +194,7 @@ def make_practice_optimizer(params, brain_lr, voice_lr=None, vision_lr=None, ox=
     With brain_lr=5e-6, the connectome weights and motor readouts are protected to preserve established gaits,
     while vision_lr allows the visual convolution and projection weights to learn spatial features and heading.
     """
+    vision_keys = {"ol_e1", "ol_e2", "ol_l1", "ol_l2", "rf_e", "rf_l", "vp_e", "vp_l", "sp_eff", "sp_1", "sp_2"}
     if ox is None:
         ox = vision_lr
         vision_lr = None
@@ -205,7 +206,7 @@ def make_practice_optimizer(params, brain_lr, voice_lr=None, vision_lr=None, ox=
             raise ValueError("a separate voice learning rate requires the learned voice head")
         transforms["voice"] = ox.adam(voice_lr)
     if vision_lr is not None:
-        if not VISION_PARAMS.issubset(params["brain"]):
+        if not vision_keys.issubset(params["brain"]):
             raise ValueError("a separate vision learning rate requires eyes/vision parameters in the brain")
         transforms["vision"] = ox.adam(vision_lr)
 
@@ -213,7 +214,7 @@ def make_practice_optimizer(params, brain_lr, voice_lr=None, vision_lr=None, ox=
         def label_key(k):
             if voice_lr is not None and k in ("say_w", "say_b"):
                 return "voice"
-            if vision_lr is not None and k in VISION_PARAMS:
+            if vision_lr is not None and k in vision_keys:
                 return "vision"
             return "brain"
         labels["brain"] = {k: label_key(k) for k in params["brain"]}
