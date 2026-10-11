@@ -9,16 +9,68 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 12 Oct 00:15 Dubai:** `baby_dog_selflearn_vision_approach_pilot` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+**Current state, 12 Oct 01:30 Dubai:** `baby_dog_selflearn_vision_approach_pilot` v1 **COMPLETED** on Kaggle GPU (2x Nvidia Tesla T4, 79.6 min execution).
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-selflearn-vision-approach-pilot (version 1).
-Configured with dedicated `vision_lr = 3e-4` (optic lobe convs, receptive fields, visual projections `vp_e`, `vp_l`), `voice_lr = 3e-4`, connectome rate-model and motor readouts protected at `brain_lr = 5e-6`, 50% rollout task share (25% ball, 25% come), 50% motor rehearsal (10% stand, 28% across 7 gaits, 12% across 2 rest poses), task duration `p_task = 0.0025` (~8 s) to match distance travel time, 1M steps (61 updates), 512 envs, 3 cohorts, 3h cap. Teacher movement help zero from rest.
+Configured with dedicated `vision_lr = 3e-4` (optic lobe convs, receptive fields, visual projections `vp_e`, `vp_l`), `voice_lr = 3e-4`, connectome rate-model and motor readouts protected at `brain_lr = 5e-6`, 50% rollout task share (25% ball, 25% come), 50% motor rehearsal (10% stand, 28% across 7 gaits, 12% across 2 rest poses), task duration `p_task = 0.0025` (~8 s) to match distance travel time, 1M steps (61 updates), 512 envs, 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
 Preflight `bio-bot-baby-dog-selflearn-vision-preflight` v2 passed remotely on free Kaggle CPU (all 11 checks passed, finite params, SHA256 `18f6e629…` verified, optimizer under JIT learns vision/voice/critic while freezing motor weights).
-Original stage16 (`4af773f4…`) remains the established global best; candidate `18f6e629…` is the learning restart.
-Active API monitor is running in background (`task-1518`).
+Original stage16 (`4af773f4…`) remains the established global best; new candidate `baby_dog_step_0000999424.npz` (`17f6c746…`) / `baby_dog.npz` (`1452d51e…`) from `results/baby_dog_selflearn_vision_approach_pilot/` is promoted to the **learning restart candidate**.
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
 
-### Latest completed trial: approach outcome pilot
+### Latest completed trial: dedicated vision learning rate approach pilot
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-selflearn-vision-approach-pilot (version 1).
+All 61 updates completed (999,424 actual steps, 79.6 min run). Outputs automatically downloaded into `results/baby_dog_selflearn_vision_approach_pilot/`.
+Evaluation across three fresh cohorts of 64 lives = 192 lives per evaluation:
+
+| measured metric (three cohorts, 192 lives) | fresh baseline | final 999,424 steps |
+|---|---:|---:|
+| mean seven movement falls / 13 s | 0.3013 | 0.2969 |
+| walk falls / 13 s | 0.2969 | 0.3073 |
+| pace falls / 13 s | 0.3646 | 0.3125 |
+| canter falls / 13 s | 0.2396 | 0.2656 |
+| run falls / 13 s | 0.3125 | 0.2917 |
+| turn-left falls / 13 s | 0.2240 | 0.3177 |
+| turn-right falls / 13 s | 0.2708 | 0.2188 |
+| back falls / 13 s | 0.4010 | 0.3646 |
+| walk speed, m/s | +0.3461 | +0.3696 |
+| pace speed, m/s | +0.4198 | +0.4285 |
+| canter speed, m/s | +0.3416 | +0.3482 |
+| run speed, m/s | +0.4739 | +0.4984 |
+| turn-left yaw, rad/s | +1.4966 | +1.5196 |
+| turn-right yaw, rad/s | -1.1572 | -1.1763 |
+| backward speed, m/s | -0.1587 | -0.1485 |
+| jump speed, m/s | +0.1321 | +0.1511 |
+| sit pose (pitch / trunk) | +0.509 / 0.600 | +0.505 / 0.599 |
+| lie-down pose (pitch / trunk) | +0.056 / 0.962 | +0.057 / 0.960 |
+| ball arrival success (got_there) | 0.0% | 0.0% |
+| ball distance drift (start -> end, m) | 2.492 -> 2.534 | 2.482 -> 2.603 |
+| ball aligned in final second | 8.45% | 10.93% |
+| ball final facing cosine | -0.030 | -0.058 |
+| owner arrival success (got_there, "come") | 0.0% | 2.60% (5/192) |
+| owner distance drift (start -> end, m) | 3.663 -> 3.740 | 3.668 -> 3.669 |
+| owner aligned in final second | 9.42% | 13.56% |
+| owner final facing cosine | -0.092 | -0.045 |
+| ball-right balanced accuracy | 0.593 | 0.613 |
+| owner-left balanced accuracy | 0.580 | 0.606 |
+| owner-ahead balanced accuracy | 0.503 | 0.523 |
+| moving balanced accuracy | 0.680 | 0.688 |
+| dodge hit rate / reaction median | 80.21% / 210 ms | 81.77% / 97 ms |
+
+**Interpretation:**
+1. **Locomotion and poses preserved:** Mean 7-gait falls improved slightly from 0.3013 to 0.2969 per 13s. Sit pose (+0.505 pitch, 0.599 trunk) and lie-down (+0.057 pitch, 0.960 trunk) remained stable.
+2. **First non-zero arrival on "come":** 2.60% of test dogs reached the owner within 1.0m (5 out of 192). Outward distance drift stopped completely (+0.001m net change vs +0.077m baseline). Final-second heading alignment improved from 9.42% to 13.56%.
+3. **"Ball" arrival remains at 0%:** Alignment improved from 8.45% to 10.93%, but the 0.35m arrival sphere was not reached. Higher precision is needed for the smaller 0.11m ball target.
+4. **Active perception learning:** In-practice perception accuracy reached 0.66 for owner-left and 0.63 for ball-right; sight prediction error fell from 0.741 to 0.702.
+5. **Candidate promotion:** `baby_dog_step_0000999424.npz` (`17f6c746…`) / `baby_dog.npz` (`1452d51e…`) is promoted to the active **learning restart checkpoint**.
+
+Evidence is local (git-ignored):
+- `results/baby_dog_selflearn_vision_approach_pilot/practice.json`: all four averaged evaluations;
+- `results/baby_dog_selflearn_vision_approach_pilot/resume.json`: exact input identity and configuration;
+- `results/baby_dog_selflearn_vision_approach_pilot/baby_dog.npz`, `baby_dog_step_0000491520.npz`, `baby_dog_step_0000983040.npz`, `baby_dog_step_0000999424.npz`, `log.txt`;
+- `results/kaggle/baby_dog_selflearn_vision_approach_pilot/`: submit script and output logs.
+
+### Prior trial: approach outcome pilot (uniform lr)
 
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-selflearn-approach-pilot (version 1).
 Configured with `lesson=approach`: rewards getting closer (`TASK_PAY * closer`), turning (`FACE_PAY * turned`), and reaching
@@ -136,15 +188,12 @@ connections can become stale; active clock checks and reconnections recovered cu
 monitor elapsed includes ~31 minutes queued; it is not 115 minutes of training. No local model checks/training
 were run, and no Colab runtime or additional account was used. Current remaining GPU quota was not queried.
 Completion is recorded in `LOGBOOK.md` §6.10 and above.
-Current agent takeover (11 Oct 18:45 Dubai): continuing from where the previous agent left off.
-Next measured question: Why did orientation and perception learning fail to emerge in the orient and long-history pilots?
-Investigating two specific mechanisms:
-1. Visual projection weights: `vp_e` and `vp_l` start at 0.0, and with shared brain learning rate 5e-6, Adam gradient updates
-   across ~60 updates cannot scale them up past ~0.0003, leaving visual inputs to the sensory neurons orders of magnitude
-   smaller than proprioceptive lines.
-2. Orientation outcome reward formulation: `task_reward = FACE_PAY * turned` rewards only rate-of-change `d(facing)/dt`,
-   providing zero reward once facing the target and zero reward if the ball is already in view ahead.
-A bounded free Kaggle CPU probe will be formulated to measure visual projection weights and gradients in the restart candidate.
+Current agent takeover (12 Oct 01:30 Dubai): Continuing the `/goal` mission to teach the dog visual approach and orientation while preserving all motor skills.
+Vision approach pilot v1 demonstrated the first non-zero target arrival success on "come" (2.60%, 5/192 dogs) and eliminated outward drift (+0.001m net drift vs +0.077m baseline), while reducing overall 7-gait falls (0.3013 -> 0.2969 per 13s) and preserving all 11 motor skills.
+Next measured question: How to scale "come" arrival from 2.6% to >15% and break through "ball" arrival (currently 0.0% due to smaller 0.11m target radius)?
+Two-pronged iteration:
+1. Continue training from newly promoted restart candidate `baby_dog_step_0000999424.npz` (`17f6c746…`) using hosted kernel output `--kernel-source karang1908/bio-bot-baby-dog-selflearn-vision-approach-pilot` for 1.5M steps (91 updates).
+2. Enhance heading alignment reward during approach rollouts: In `task_reward` (`train/baby_dog.py`), augment the step-wise change reward `FACE_PAY * turned` with a continuous alignment reward `ALIGN_PAY * jnp.maximum(0.0, facing_cos)` when facing toward the target, ensuring forward walking is reinforced whenever the dog is looking at the target.
 
 **11 Oct results:** the first teacher-zero perception pilot completed but was rejected: walking falls rose
 0.422 -> 1.031 per 13 s, run falls 0.375 -> 0.828, and backward speed weakened -0.155 -> -0.045 m/s.
