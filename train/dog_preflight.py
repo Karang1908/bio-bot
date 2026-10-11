@@ -124,7 +124,7 @@ def main() -> None:
     reversed_ = levels(-3.0 * raw + 0.7, zero, np.ones(4, bool), np)
     assert reversed_[0] > reversed_[1] and reversed_[2] > reversed_[3], "anonymous signed/scaled levels lost information"
     report["checks"].append("additional level nerves distinguish steady charge/heat; original adaptive values unchanged")
-    if any(JOB_ARGS.get(k) for k in ("check_wiring", "check_guard", "check_voice_optimizer", "check_reset", "check_sensor_path")):
+    if any(JOB_ARGS.get(k) for k in ("check_wiring", "check_guard", "check_voice_optimizer", "check_vision_optimizer", "check_reset", "check_sensor_path")):
         import os
         import subprocess
         import sys
@@ -213,6 +213,39 @@ def main() -> None:
         report["checks"] += ["actual voice optimizer under jit learns both voice weights and critic",
                              "zero shared learning rate preserves nested non-voice parameters across repeated updates",
                              "omitted voice option exactly matches established optimizer; missing voice aborts"]
+    if JOB_ARGS.get("check_vision_optimizer"):
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "jax==0.7.2", "jaxlib==0.7.2", "optax"])
+        import optax
+        baby_tree = ast.parse(base64.b64decode(EMBEDDED["baby_dog.py"]))
+        fn = next(n for n in baby_tree.body if isinstance(n, ast.FunctionDef) and n.name == "make_practice_optimizer")
+        scope = {}
+        exec(compile(ast.Module(body=[fn], type_ignores=[]), "baby_dog.py", "exec"), scope)
+        make_opt = scope["make_practice_optimizer"]
+        v_keys = {"ol_e1", "ol_e2", "ol_l1", "ol_l2", "rf_e", "rf_l", "vp_e", "vp_l", "sp_eff", "sp_1", "sp_2"}
+        ps = {"brain": {"gamma": jp.array([0.2, -0.3]), "o2": {"w1": jp.array([[0.4, -0.5]])},
+                        "say_w": jp.array([[0.1, 0.2]]), "say_b": jp.array([0.0, 0.0]),
+                        **{k: jp.ones((2, 2)) * 0.1 for k in v_keys}},
+              "critic": [{"w": jp.array([0.7]), "b": jp.array([0.0])}]}
+        grad = jax.tree_util.tree_map(lambda x: jp.ones_like(x) * 2, ps)
+        opt = make_opt(ps, 0.0, 3e-4, 3e-4, optax)
+        state = opt.init(ps)
+        @jax.jit
+        def step(p, state, g):
+            u, state = opt.update(g, state, p)
+            return optax.apply_updates(p, u), state
+        trained = ps
+        for _ in range(4):
+            trained, state = step(trained, state, grad)
+        for name in ("gamma", "o2"):
+            assert all(np.array_equal(a, b) for a, b in zip(jax.tree_util.tree_leaves(ps["brain"][name]),
+                                                             jax.tree_util.tree_leaves(trained["brain"][name]))), "vision/voice lesson changed motor weights"
+        for name in ("say_w", "say_b"):
+            assert not np.array_equal(ps["brain"][name], trained["brain"][name]), "voice head did not learn"
+        for name in v_keys:
+            assert not np.array_equal(ps["brain"][name], trained["brain"][name]), f"vision param {name} did not learn"
+        assert not np.array_equal(ps["critic"][0]["w"], trained["critic"][0]["w"]), "critic did not learn"
+        report["optax"] = optax.__version__
+        report["checks"] += ["actual vision optimizer under jit learns vision frontend, voice and critic while freezing motor weights"]
     if JOB_ARGS.get("check_wiring"):
         body_fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "make_body")
         wiring_fns = [n for n in body_fn.body if isinstance(n, ast.FunctionDef) and n.name in ("new_life", "jnp_sign")]
