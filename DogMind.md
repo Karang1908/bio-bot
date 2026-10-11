@@ -14,6 +14,22 @@ Results go in `LOGBOOK.md` as they come in (§6). Built:
 
 Steps 5–8 are still a plan.
 
+10 Oct continuation: the owner reaffirmed **self-learning** as the main goal and required **free compute only**,
+with **no checks or training on the laptop**. Focused Kaggle lessons will rehearse all existing skills, keep teacher
+movement help at zero, and progress from perception to orienting to approaching. Senses, wobble and park hazards stay.
+These changes are prepared; remote results and remaining failures belong in `LOGBOOK.md` §6.4. Learning during Kaggle
+practice and continuing to learn after deployment are separate milestones.
+
+Optional **steady charge and temperature level nerves** (`--absolute_drives`) retain a life's initial battery
+level that adaptive nerves otherwise centre away. Every established nerve and learned parameter stays; the added
+readings are anonymous, without hungry/hot labels. Free Kaggle CPU checks verified the feature mathematics and
+unchanged existing wiring. GPU lessons have not established useful perception or navigation; the original stage16
+remains the best established brain. The 11 Oct orientation trial largely retained movement (mean falls 0.298 ->
+0.303 per 13 s), but ball alignment stayed weak (8.93% -> 10.79%). A frozen-brain CPU probe confirmed that charge
+reaches internal and central activity, so a disconnected charge pathway is not the supported explanation.
+The next trial uses a 2.56 s recurrent learning window instead of 0.64 s, with the same samples per update, to test
+whether longer credit assignment helps. Results are pending; read `LOGBOOK.md` §6.10 for measurements and limits.
+
 ---
 
 ## 1. Decisions (in the user's words)
