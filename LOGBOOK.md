@@ -1161,6 +1161,20 @@ On the approach task: target facing cosine stabilized slightly from baseline (-0
 Perception balanced accuracies remained near chance (ball-ahead 0.516, hungry 0.572).
 **No checkpoint is promoted to global best.** `stage16_park3_open.npz` (`4af773f4…`) remains the global best. `baby_dog_step_0000983040.npz` (`18f6e629…`) remains the learning restart candidate. Newly generated checkpoints `baby_dog_step_0000999424.npz` (`d9f92de6…`) and `baby_dog.npz` (`2211476f…`) are preserved locally for record.
 
+**Vision learning rate investigation and dedicated optimizer trial submission (12 Oct 00:05 Dubai):**
+Root-cause analysis of checkpoint weights (`baby_dog.npz` vs `baby_dog_step_0000983040.npz`) revealed that in `make_practice_optimizer`, all optic lobe conv filters (`ol_e1`, `ol_e2`, `ol_l1`, `ol_l2`), receptive fields (`rf_e`, `rf_l`), and visual projections (`vp_e`, `vp_l`) were grouped under `brain_lr = 5e-6`. Over 61 updates (1M steps), `vp_e` norm changed by only 0.00003 (from 1.374581 to 1.374548). With Adam step size capped by `5e-6`, visual features were effectively frozen. Furthermore, task rollouts received only 20% of episode sampling, and instruction switching (~2.5 s) was too brief for the dog to cross the 2.5–3.5m spawn distance to trigger `REACH_PAY`.
+
+Architectural updates implemented in `train/baby_dog.py`:
+1. Dedicated `vision_lr` in `make_practice_optimizer`: `VISION_PARAMS` (`ol_e1`, `ol_e2`, `ol_l1`, `ol_l2`, `rf_e`, `rf_l`, `vp_e`, `vp_l`, `sp_eff`, `sp_1`, `sp_2`) receive `vision_lr` (default 3e-4) while the connectome rate-model and motor readouts remain protected at `brain_lr = 5e-6`.
+2. Focused lesson rollout concentration: In `lesson in ("orient", "approach")`, 50% of rollouts are allocated to tasks (25% "ball", 25% "come") while maintaining 50% for motor skill rehearsal (10% stand, 28% across 7 gaits, 12% across 2 rest poses).
+3. Task duration: Instruction duration for tasks set to `p_task = 0.0025` (~8 s) to allow sufficient time to reach 2.5m targets and trigger `there` arrival rewards.
+4. Remote CPU preflight `bio-bot-baby-dog-selflearn-vision-preflight` verified on Kaggle CPU (version 2, 7,019 units, 502,438 connections, candidate SHA256 `18f6e629…` verified, JAX JIT optimizer verified to learn vision, voice and critic while keeping motor parameters frozen).
+
+GPU trial `baby_dog_selflearn_vision_approach_pilot` (version 1) submitted to 2x Nvidia Tesla T4:
+- Configuration: `lesson=approach`, `brain_lr=5e-6`, `voice_lr=3e-4`, `vision_lr=3e-4`, `--protect_skills`, 1M steps (61 updates), 512 envs, 3 cohorts, 3h cap. Teacher movement help zero from rest.
+- Checkpoint: resume candidate `baby_dog_step_0000983040.npz` (`18f6e629…`).
+- Status: RUNNING; background API monitor active.
+
 
 ## 7. Open problems and next steps
 
