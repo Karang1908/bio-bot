@@ -26,7 +26,7 @@ def kaggle(*args: str) -> str:
     out = subprocess.run([KAGGLE, *args], capture_output=True, text=True)
     text = out.stdout + out.stderr
     # the CLI can print an HTTP error and still exit 0 (seen: 400 on an oversized kernel push)
-    if out.returncode != 0 or "Client Error" in text or "Server Error" in text:
+    if out.returncode != 0 or "Client Error" in text or "Server Error" in text or "Kernel push error:" in text:
         sys.exit(f"kaggle {' '.join(args)} failed:\n{text}")
     return out.stdout
 
@@ -42,7 +42,19 @@ def slug(name: str) -> str:
     return f"bio-bot-{name.replace('_', '-')}"
 
 
-def push(name: str, job_args: dict, embed: list[str], datasets: list[str], machine: str = "", job: str = "") -> None:
+def parse_value(value: str):
+    # Integer options such as seed and unroll must stay integers when JOB_ARGS bypasses argparse.
+    try:
+        return int(value)
+    except ValueError:
+        try:
+            return float(value)
+        except ValueError:
+            return value
+
+
+def push(name: str, job_args: dict, embed: list[str], datasets: list[str], machine: str = "", job: str = "",
+         kernel_sources: list[str] | None = None, timeout: int | None = None) -> None:
     """name: the script in train/; job: the Kaggle job it runs as (default: name). Different jobs run side by side."""
     src = REPO / "train" / f"{name}.py"
     code = src.read_text()
@@ -60,18 +72,32 @@ def push(name: str, job_args: dict, embed: list[str], datasets: list[str], machi
     meta = {
         "id": f"{username()}/{slug(job or name)}", "title": slug(job or name), "code_file": f"{name}.py",
         "language": "python", "kernel_type": "script", "is_private": "true",
-        "enable_gpu": "false" if machine.startswith("Tpu") else "true", "enable_tpu": "true" if machine.startswith("Tpu") else "false",
-        "enable_internet": "true", "machine_shape": machine, "dataset_sources": [f"{username()}/{d}" for d in datasets], "competition_sources": [],
-        "kernel_sources": [], "model_sources": [],
+        "enable_gpu": "false" if machine == "CPU" or machine.startswith("Tpu") else "true", "enable_tpu": "true" if machine.startswith("Tpu") else "false",
+        "enable_internet": "true", "machine_shape": "" if machine == "CPU" else machine, "dataset_sources": [f"{username()}/{d}" for d in datasets], "competition_sources": [],
+        "kernel_sources": kernel_sources or [], "model_sources": [],
     }
     (job_dir / "kernel-metadata.json").write_text(json.dumps(meta, indent=2))
-    print(kaggle("kernels", "push", "-p", str(job_dir)).strip())
+    command = ["kernels", "push", "-p", str(job_dir)]
+    if timeout is not None:
+        command += ["--timeout", str(timeout)]
+    print(kaggle(*command).strip())
+
+
+def parse_status(output: str) -> str:
+    # A failed job prints its failure message *after* its status. Reading the last line would hide ERROR
+    # and leave the waiter running forever. Parse the actual status line wherever the CLI places it.
+    m = re.search(r'status "(?:KernelWorkerStatus\.)?(\w+)"', output)
+    if not m:
+        raise SystemExit(f"Unrecognised Kaggle status response:\n{output}")
+    return m.group(1).upper()
 
 
 def status(name: str) -> str:
-    line = kaggle("kernels", "status", f"{username()}/{slug(name)}").strip().splitlines()[-1]
-    m = re.search(r'status "(?:KernelWorkerStatus\.)?(\w+)"', line)
-    return (m.group(1) if m else line).upper()
+    output = kaggle("kernels", "status", f"{username()}/{slug(name)}").strip()
+    state = parse_status(output)
+    if state == "ERROR" and "Failure message:" in output:
+        print(output.split("Failure message:", 1)[1].strip(), file=sys.stderr, flush=True)
+    return state
 
 
 def wait(name: str, every: float = 30.0) -> str:
@@ -84,7 +110,9 @@ def wait(name: str, every: float = 30.0) -> str:
         except SystemExit as e:              # a dropped connection mid-run is common; give up only if it persists
             misses += 1
             if misses >= 10:
-                raise
+                hint = (" The Kaggle login has probably expired (it lasts ~3 h): run `.venv/bin/kaggle auth login --force`."
+                        if "denied" in str(e) or "401" in str(e) or "nauthenticated" in str(e) else "")
+                sys.exit(f"{time.strftime('%H:%M:%S')}  GAVE UP: status checks failed 10 times in a row.{hint}")
             print(f"{time.strftime('%H:%M:%S')}  status check failed ({misses}/10), retrying: {str(e).strip()[-120:]}", flush=True)
             time.sleep(every)
             continue
@@ -135,24 +163,22 @@ def main() -> None:
     ap.add_argument("--steps", type=float, help="environment steps to train")
     ap.add_argument("--envs", type=int, help="parallel environments")
     ap.add_argument("--evals", type=int, help="evaluations during training")
+    ap.add_argument("--timeout", type=int, help="maximum remote runtime in seconds; useful for bounded free-compute trials")
     ap.add_argument("--embed", action="append", default=[], help="repo file to ship inside the job (repeatable)")
     ap.add_argument("--flag", action="append", default=[], help="boolean option to switch on in the job (repeatable)")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
                     help="option for the job, e.g. --set bias0=0.3 or --set readout=line (repeatable)")
-    ap.add_argument("--machine", default="", choices=["", "NvidiaTeslaT4", "NvidiaTeslaP100", "Tpu1VmV38"],
-                    help="Kaggle machine (default: Kaggle's GPU default, 2x T4); another shape has its own queue")
+    ap.add_argument("--machine", default="", choices=["", "CPU", "NvidiaTeslaT4", "NvidiaTeslaP100", "Tpu1VmV38"],
+                    help="Kaggle machine (default: Kaggle's GPU default, 2x T4); CPU uses no GPU quota")
     ap.add_argument("--dataset", action="append", default=[],
                     help="one of your Kaggle datasets to attach; it appears under /kaggle/input/<name>/ (repeatable)")
+    ap.add_argument("--kernel-source", action="append", default=[],
+                    help="existing Kaggle job outputs to attach directly, e.g. username/kernel-slug (repeatable)")
     a = ap.parse_args()
     if a.action == "push":
         job = {k: v for k, v in (("steps", a.steps), ("envs", a.envs), ("evals", a.evals)) if v is not None}
-        def value(v: str):
-            try:
-                return float(v)
-            except ValueError:
-                return v
-        settings = {k: value(v) for k, v in (kv.split("=", 1) for kv in a.set)}
-        push(a.name, {**job, **{f: True for f in a.flag}, **settings}, a.embed, a.dataset, a.machine, a.job)
+        settings = {k: parse_value(v) for k, v in (kv.split("=", 1) for kv in a.set)}
+        push(a.name, {**job, **{f: True for f in a.flag}, **settings}, a.embed, a.dataset, a.machine, a.job, a.kernel_source, a.timeout)
     elif a.action == "status":
         print(status(a.job or a.name))
     elif a.action == "wait":
