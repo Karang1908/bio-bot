@@ -9,9 +9,11 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 11 Oct 16:42 Dubai:** `baby_dog_selflearn_long_history_pilot` v1 is RUNNING
+**Current state, 11 Oct 17:29 Dubai:** `baby_dog_selflearn_long_history_pilot` v1 is RUNNING
 (started 16:40, about 31 minutes queued). Its log confirms the exact restart hash, two CUDA devices and weight
-carry-over with `new parts: none`; baseline/training outcomes are pending. Continue active clock checks about once
+carry-over with `new parts: none`. All three baseline cohorts and six critic-only warm-up updates completed;
+runtime guide loss is zero and every word's help is 0.00. The 0.5M/final held-out outcomes are pending.
+Continue active clock checks about once
 a minute and reconnect stale live streams. Original stage16 remains the established best; the verified 983,040-step level-sense
 candidate remains the training restart. Full dog training and deployed online learning are incomplete.
 The owner now authorizes and requires **commit and push each changed file individually immediately after every
