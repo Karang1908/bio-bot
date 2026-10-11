@@ -180,19 +180,44 @@ def mean_test_rows(rows, xp, name=""):
     return (values.sum(0) if name in ("positive_states", "negative_states") else values.mean(0)).tolist()
 
 
-def make_practice_optimizer(params, brain_lr, voice_lr, ox):
-    """Give the voice readout its own learning rate without changing the motor brain's rate.
+VISION_PARAMS = {
+    "ol_e1", "ol_e2", "ol_l1", "ol_l2",
+    "rf_e", "rf_l",
+    "vp_e", "vp_l",
+    "sp_eff", "sp_1", "sp_2",
+}
 
-    With brain_lr=0 only say_w/say_b can learn in the brain. This is a temporary naming lesson, not a
-    frozen deployment policy; the senses and recurrent brain still run exactly as before.
+
+def make_practice_optimizer(params, brain_lr, voice_lr=None, vision_lr=None, ox=None):
+    """Give the voice readout and vision frontend their own learning rates without changing the motor brain's rate.
+
+    With brain_lr=5e-6, the connectome weights and motor readouts are protected to preserve established gaits,
+    while vision_lr allows the visual convolution and projection weights to learn spatial features and heading.
     """
+    if ox is None:
+        ox = vision_lr
+        vision_lr = None
+
     transforms = {"brain": ox.inject_hyperparams(ox.adam)(learning_rate=brain_lr), "critic": ox.adam(3e-4)}
     labels = {"brain": "brain", "critic": "critic"}
     if voice_lr is not None:
         if not {"say_w", "say_b"}.issubset(params["brain"]):
             raise ValueError("a separate voice learning rate requires the learned voice head")
         transforms["voice"] = ox.adam(voice_lr)
-        labels["brain"] = {k: "voice" if k in ("say_w", "say_b") else "brain" for k in params["brain"]}
+    if vision_lr is not None:
+        if not VISION_PARAMS.issubset(params["brain"]):
+            raise ValueError("a separate vision learning rate requires eyes/vision parameters in the brain")
+        transforms["vision"] = ox.adam(vision_lr)
+
+    if voice_lr is not None or vision_lr is not None:
+        def label_key(k):
+            if voice_lr is not None and k in ("say_w", "say_b"):
+                return "voice"
+            if vision_lr is not None and k in VISION_PARAMS:
+                return "vision"
+            return "brain"
+        labels["brain"] = {k: label_key(k) for k in params["brain"]}
+
     return ox.chain(ox.clip_by_global_norm(1.0), ox.multi_transform(transforms, labels))
 
 
@@ -1222,11 +1247,16 @@ def practice(args, bd, out: Path) -> dict:
     lesson = args.lesson
     if args.eval_repeats < 1:
         raise SystemExit("STOP: eval_repeats must be at least one")
-    if args.lr < 0 or (args.voice_lr is not None and args.voice_lr < 0):
+    if args.lr < 0 or (args.voice_lr is not None and args.voice_lr < 0) or (args.vision_lr is not None and args.vision_lr < 0):
         raise SystemExit("STOP: learning rates must be nonnegative")
     if args.voice_lr is not None and not (args.park and args.voice):
         raise SystemExit("STOP: a separate voice learning rate requires park and voice")
-    learning_rates = {"brain": args.lr, "voice": args.lr if args.voice_lr is None else args.voice_lr, "critic": 3e-4}
+    if args.vision_lr is not None and not (args.park and args.core == "v2"):
+        raise SystemExit("STOP: a separate vision learning rate requires park and v2 core (eyes)")
+    learning_rates = {"brain": args.lr,
+                      "voice": args.lr if args.voice_lr is None else args.voice_lr,
+                      "vision": args.lr if args.vision_lr is None else args.vision_lr,
+                      "critic": 3e-4}
     if lesson != "all" and not (args.park and args.tasks and args.drives and args.voice and args.let_go):
         raise SystemExit("STOP: focused lessons require park, tasks, drives, voice and let_go; senses and rehearsal stay on")
     brain_path = find_brain(args.brain)
@@ -1326,9 +1356,14 @@ def practice(args, bd, out: Path) -> dict:
     goal_pitch = jp.array([pose_goal[w]["pitch"] if w in pose_goal else 0.0 for w in said], jp.float32)
     goal_height = jp.array([pose_goal[w]["height"] if w in pose_goal else 0.0 for w in said], jp.float32)
     if tasks or free:
-        share = [0.15] + [0.35 / len(gaits)] * len(gaits) + [0.15 / len(rests)] * len(rests)
-        share += [0.2 / len(tasks)] * len(tasks) if tasks else []
-        share += [0.15] if free else []
+        if lesson in ("orient", "approach"):
+            share = [0.10] + [0.28 / len(gaits)] * len(gaits) + [0.12 / len(rests)] * len(rests)
+            share += [0.50 / len(tasks)] * len(tasks) if tasks else []
+            share += [0.0] if free else []
+        else:
+            share = [0.15] + [0.35 / len(gaits)] * len(gaits) + [0.15 / len(rests)] * len(rests)
+            share += [0.2 / len(tasks)] * len(tasks) if tasks else []
+            share += [0.15] if free else []
         choose = jp.array(share) / sum(share)
     else:
         choose = jp.array([0.2] + [0.5 / len(gaits)] * len(gaits) + [0.3 / len(rests)] * len(rests))
@@ -1385,7 +1420,7 @@ def practice(args, bd, out: Path) -> dict:
         return x[..., 0]
 
     params = {"brain": bp, "critic": cp}
-    opt = make_practice_optimizer(params, args.lr, args.voice_lr, optax)
+    opt = make_practice_optimizer(params, args.lr, args.voice_lr, args.vision_lr, optax)
 
     def logprob(a, mean):                        # the wobble is its exploration: a ~ N(tanh(mu), WOBBLE)
         return jp.sum(-0.5 * ((a - mean) / WOBBLE) ** 2 - np.log(WOBBLE), -1)
@@ -1397,7 +1432,8 @@ def practice(args, bd, out: Path) -> dict:
         def one(carry, k):
             env, s, ins, air_ema = carry
             k_new, k_sw, k_wob, k_push, k_size, k_act = jax.random.split(k, 6)
-            switch = jax.random.uniform(k_sw, (B,)) < jp.where(is_gait[ins], 0.006, 0.008)  # ~3 s gaits, ~2.5 s the rest
+            p_task = 0.0025 if lesson in ("orient", "approach") else 0.008
+            switch = jax.random.uniform(k_sw, (B,)) < jp.where(is_task[ins], p_task, jp.where(is_gait[ins], 0.006, 0.008))
             new_ins = jp.where(switch, jax.random.choice(k_new, n_i, (B,), p=choose), ins)
             spoke = (new_ins != ins) & ~is_free[new_ins]  # the owner said something new (the ears hear the voice)
             ins = new_ins
@@ -2237,6 +2273,7 @@ def main() -> None:
     ap.add_argument("--eval_repeats", type=int, default=1, help="practice: fresh-seed cohorts per evaluation (64 lives each)")
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--voice_lr", type=float, default=None, help="practice: voice readout learning rate (default: same as lr)")
+    ap.add_argument("--vision_lr", type=float, default=None, help="practice: vision frontend learning rate (default: same as lr)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--bias0", type=float, default=0.3)
     ap.add_argument("--goal_scale", type=float, default=2.0)
