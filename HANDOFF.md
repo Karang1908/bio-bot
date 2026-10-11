@@ -9,11 +9,12 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 12 Oct 01:30 Dubai:** `baby_dog_selflearn_vision_approach_pilot` v1 **COMPLETED** on Kaggle GPU (2x Nvidia Tesla T4, 79.6 min execution).
-Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-selflearn-vision-approach-pilot (version 1).
-Configured with dedicated `vision_lr = 3e-4` (optic lobe convs, receptive fields, visual projections `vp_e`, `vp_l`), `voice_lr = 3e-4`, connectome rate-model and motor readouts protected at `brain_lr = 5e-6`, 50% rollout task share (25% ball, 25% come), 50% motor rehearsal (10% stand, 28% across 7 gaits, 12% across 2 rest poses), task duration `p_task = 0.0025` (~8 s) to match distance travel time, 1M steps (61 updates), 512 envs, 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
-Preflight `bio-bot-baby-dog-selflearn-vision-preflight` v2 passed remotely on free Kaggle CPU (all 11 checks passed, finite params, SHA256 `18f6e629…` verified, optimizer under JIT learns vision/voice/critic while freezing motor weights).
-Original stage16 (`4af773f4…`) remains the established global best; new candidate `baby_dog_step_0000999424.npz` (`17f6c746…`) / `baby_dog.npz` (`1452d51e…`) from `results/baby_dog_selflearn_vision_approach_pilot/` is promoted to the **learning restart candidate**.
+**Current state, 12 Oct 01:36 Dubai:** `baby_dog_vision_approach_continue` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-continue (version 1).
+Configured with dedicated `vision_lr = 3e-4` (optic lobe convs, receptive fields, visual projections `vp_e`, `vp_l`), `voice_lr = 3e-4`, connectome rate-model and motor readouts protected at `brain_lr = 5e-6`, continuous heading alignment reward `ALIGN_PAY = 0.2` (`ALIGN_PAY * jp.maximum(0.0, facing_now)`), 50% rollout task share (25% ball, 25% come), 50% motor rehearsal (10% stand, 28% across 7 gaits, 12% across 2 rest poses), task duration `p_task = 0.0025` (~8 s) to match distance travel time, 1.5M steps (91 updates), 512 envs, 3 evals, 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+Preflight `bio-bot-baby-dog-vision-continue-preflight` v1 passed remotely on free Kaggle CPU (all 10 checks passed, finite params, SHA256 `1452d51e…` verified, optimizer under JIT learns vision/voice/critic while freezing motor weights).
+Original stage16 (`4af773f4…`) remains the established global best; candidate `baby_dog.npz` (`1452d51e…`) from `results/baby_dog_selflearn_vision_approach_pilot/` is the **active learning restart candidate**.
+Active API monitor is running in background (`task-1852`).
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
 
