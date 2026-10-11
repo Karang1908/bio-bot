@@ -158,7 +158,13 @@ def build_model(go2_dir: Path, world: bool = False):
 
 
 # ============================================================================ the body, as the brain meets it
-def make_body(model, wiring: int | None = None, keep_fallen: bool = False, fallen_starts: float = 0.0, world=None):
+def level_features(x, adaptive_z, level_mask, xp):
+    """Additional level nerves keep steady information; established adaptive nerves are untouched."""
+    return xp.where(level_mask, 5.0 * xp.tanh(x / 5.0), adaptive_z)
+
+
+def make_body(model, wiring: int | None = None, keep_fallen: bool = False, fallen_starts: float = 0.0, world=None,
+              absolute_drives: bool = False):
     """wiring: one fixed random wiring for this body, the same in every life (a baby keeps its body): the lines
     are still shuffled, re-signed, rescaled and tagged at random, and the brain is never told which is which,
     but it is the same random draw every life. None: a new draw every life.
@@ -168,13 +174,17 @@ def make_body(model, wiring: int | None = None, keep_fallen: bool = False, falle
     lines the brain already knows keep their wiring; the new lines (paws, skin, motor heat, ears, nose, battery)
     get their own fixed draw, and every line carries the nerve it arrives on (seen["mod"]: 0 body, 2 hearing,
     3 smell, 4 inner state), as a real animal's senses arrive each on its own nerve. The eye and the LiDAR arrive
-    whole and in order (seen["eye"], seen["lidar"]): retinotopic, like a fly's eye."""
+    whole and in order (seen["eye"], seen["lidar"]): retinotopic, like a fly's eye.
+    absolute_drives: append anonymous charge/temperature level nerves, keeping every original nerve and draw.
+    Adaptive centring otherwise hides a steady battery level; these additional nerves retain it."""
     import jax
     import jax.numpy as jp
     import mujoco
     import numpy as np
     from mujoco import mjx
 
+    if absolute_drives and world is None:
+        raise ValueError("absolute drive senses require the park's battery and motor heat")
     mx = mjx.put_model(model, impl="jax")
     lo, hi = (jp.array(x) for x in model.actuator_ctrlrange.T)
     home = jp.array(model.keyframe("home").qpos)
@@ -190,9 +200,12 @@ def make_body(model, wiring: int | None = None, keep_fallen: bool = False, falle
     K0, J = int(sidx.shape[0]), int(model.nu)
     # the new lines, in the order dog_world gives them, and the nerve each arrives on
     extra = [("paws", 0, 4), ("skin", 0, 1), ("heat", 0, J), ("ears", 2, 6), ("nose", 3, 4), ("battery", 4, 1)] if world else []
-    E = sum(n for _, _, n in extra)
+    E0 = sum(n for _, _, n in extra)                  # keep the previous 28 new nerves' random draw intact
+    level_extra = [("battery_level", 4, 1), ("heat_level", 0, J)] if absolute_drives else []
+    EL = sum(n for _, _, n in level_extra)
+    E = E0 + EL
     K = K0 + E
-    mod_of = jp.array([0] * K0 + [m for _, m, n in extra for _ in range(n)], jp.int32)
+    mod_of = jp.array([0] * K0 + [m for _, m, n in extra + level_extra for _ in range(n)], jp.int32)
     feet = jp.array([model.geom(f).id for f in FEET])
     d0 = mujoco.MjData(model)
     d0.qpos[:] = model.keyframe("home").qpos
@@ -235,12 +248,18 @@ def make_body(model, wiring: int | None = None, keep_fallen: bool = False, falle
                 "sign_in": jnp_sign(ks[1], K0), "scale_in": jp.exp(jax.random.uniform(ks[2], (K0,), minval=-1.4, maxval=1.4)),
                 "off_in": jax.random.normal(ks[3], (K0,)),
                 "sign_out": jnp_sign(ks[4], J), "tag": jax.random.normal(ks[5], (J, DT))}
-        if E:                                   # the new lines: their own draw, so the old ones stay exactly as they were
+        if E0:                                  # the original extra lines keep exactly their old draw and positions
             kn = jax.random.split(jax.random.fold_in(k0, 1), 4)
-            life = {**life, "perm": jp.concatenate([life["perm"], K0 + jax.random.permutation(kn[0], E)]),
-                    "sign_in": jp.concatenate([life["sign_in"], jnp_sign(kn[1], E)]),
-                    "scale_in": jp.concatenate([life["scale_in"], jp.exp(jax.random.uniform(kn[2], (E,), minval=-1.4, maxval=1.4))]),
-                    "off_in": jp.concatenate([life["off_in"], jax.random.normal(kn[3], (E,))])}
+            life = {**life, "perm": jp.concatenate([life["perm"], K0 + jax.random.permutation(kn[0], E0)]),
+                    "sign_in": jp.concatenate([life["sign_in"], jnp_sign(kn[1], E0)]),
+                    "scale_in": jp.concatenate([life["scale_in"], jp.exp(jax.random.uniform(kn[2], (E0,), minval=-1.4, maxval=1.4))]),
+                    "off_in": jp.concatenate([life["off_in"], jax.random.normal(kn[3], (E0,))])}
+        if EL:                                  # separate draw: adding levels never rewires an existing nerve
+            kn = jax.random.split(jax.random.fold_in(k0, 2), 4)
+            life = {**life, "perm": jp.concatenate([life["perm"], K0 + E0 + jax.random.permutation(kn[0], EL)]),
+                    "sign_in": jp.concatenate([life["sign_in"], jnp_sign(kn[1], EL)]),
+                    "scale_in": jp.concatenate([life["scale_in"], jp.exp(jax.random.uniform(kn[2], (EL,), minval=-1.4, maxval=1.4))]),
+                    "off_in": jp.concatenate([life["off_in"], jax.random.normal(kn[3], (EL,))])}
         return {**life, "mod": mod_of[life["perm"]]}
 
     def jnp_sign(key, n):
@@ -252,6 +271,9 @@ def make_body(model, wiring: int | None = None, keep_fallen: bool = False, falle
         if E:
             s = world["sense"](d, ws, ws["key"], sight=False)
             x = jp.concatenate([x, *[s[name] for name, _, _ in extra]])
+            if EL:
+                # Instrument units, without a hungry/hot label or a threshold. The brain must learn their meaning.
+                x = jp.concatenate([x, ws["battery"][None], ws["heat"] / 100.0])
         return (x[life["perm"]] * life["scale_in"] + life["off_in"]) * life["sign_in"]
 
     def fresh_discovery(x):
@@ -277,6 +299,8 @@ def make_body(model, wiring: int | None = None, keep_fallen: bool = False, falle
         mean = disc["mean"] + rate * (x - disc["mean"])
         var = disc["var"] + rate * ((x - mean) ** 2 - disc["var"])
         z = jp.clip((x - mean) / jp.sqrt(var + 1e-4), -5.0, 5.0)
+        if EL:
+            z = level_features(x, z, life["perm"] >= K0 + E0, jp)
         dz = jp.where(n > 1, z - disc["z"], 0.0)
         vz = disc["vz"] + 0.02 * (dz ** 2 - disc["vz"])
         da = disc["a"][:-1] - disc["a"][1:]                     # output changes, newest first: t-1, t-2, t-3
@@ -565,8 +589,8 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
     step.predict(p, s, seen): what the brain expects each input line to do next, given the command it has just
            sent (seen["a_hist"][..., 0]): its model of its own body.
     A v2 core (core["modality"]): each input line reaches only the sense neurons of the nerve it arrives on
-           (seen["mod"]; without it every line is a body line), and an old neuron's inputs keep the proportions
-           they had in v1 while connections from new neurons start weak (their gain at ~1%) and grow by learning.
+           (seen["mod"]; without it every line is a body line), an old neuron's inputs keep the proportions they
+           had in v1, and new neurons are silent at rest, so they speak only when something drives them.
     eye_shape, lidar_shape: the optic lobe. One small circuit, the same at every point of the eye (as the fly
            repeats the same cell types in every column), mirror-symmetric between the left and right halves, sees
            each point's colour and how it changed since the last step (and the LiDAR's nearness); every visual
@@ -633,8 +657,10 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
                        "sp_1": nrm((OL_CH + 8, 16), (1 / (OL_CH + 8)) ** 0.5), "sp_2": nrm((16, 2), 0.1)})
     if say:                                 # its voice: a readout from its own central and descending neurons
         params.update({"say_w": nrm((G, say), (1 / G) ** 0.5), "say_b": jp.zeros((say,), jp.float32)})
-    if "v1_edge" in core:                   # connections the v1 brain never had start weak
-        params["gamma"] = jp.where(jp.array(core["v1_edge"]) >= 0, 0.0, -5.0).astype(jp.float32)
+    if "v1_unit" in core:                   # neurons the v1 brain never had are silent at rest (they speak when driven)
+        params["bias"] = jp.where(jp.array(core["v1_unit"]) >= 0, params["bias"], 0.0).astype(jp.float32)
+        # (new connections start at full strength: started at ~1%, the eye, nose and hunger never reached the old
+        # brain in 120M steps of practice; LOGBOOK 8.17)
     params.update({"word_w": nrm((max(words, 1), G), goal_scale),
                    "pq": nrm((D, D), (1 / D) ** 0.5), "pk": nrm((A, D), 1.0), "pv": nrm((A, D), 1.0), "pm": mlp(2 * D, 64, 1)})
     if readout == "vector":
