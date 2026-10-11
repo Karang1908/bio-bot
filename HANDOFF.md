@@ -1,6 +1,6 @@
 # HANDOFF: bio-bot, "One Brain, Many Bodies"
 
-The handoff for the next AI coding agent. Written 10 Oct 2026, at the end of a long session (25 Sep – 5 Oct 2026).
+The handoff for the next AI coding agent. Written 10 Oct 2026; updated 11 Oct 2026 after the longer-history trial.
 
 Read this file first, then:
 - `LOGBOOK.md`: every experiment, number and mistake;
@@ -9,16 +9,88 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 11 Oct 17:29 Dubai:** `baby_dog_selflearn_long_history_pilot` v1 is RUNNING
-(started 16:40, about 31 minutes queued). Its log confirms the exact restart hash, two CUDA devices and weight
-carry-over with `new parts: none`. All three baseline cohorts and six critic-only warm-up updates completed;
-runtime guide loss is zero and every word's help is 0.00. The 0.5M/final held-out outcomes are pending.
-Continue active clock checks about once
-a minute and reconnect stale live streams. Original stage16 remains the established best; the verified 983,040-step level-sense
-candidate remains the training restart. Full dog training and deployed online learning are incomplete.
+**Current state, 11 Oct 18:08 Dubai:** `baby_dog_selflearn_long_history_pilot` v1 is **COMPLETE**.
+Status became COMPLETE at 18:04:58 Dubai; all outputs were downloaded and the API monitor exited successfully.
+Timed tracking of this notebook is finished. No new training job was submitted after it.
+Original stage16 remains the established best; the verified 983,040-step level-sense candidate remains the
+training restart. The longer-history output is not promoted or selected for restart. Full dog training and
+deployed online weight learning are incomplete.
 The owner now authorizes and requires **commit and push each changed file individually immediately after every
-change, on main**. The prior pending source/docs are being published as separate commits. No checks or training
-on the laptop. The chronological notes below retain the experiment history; this current-state note takes precedence.
+change, on main**. All prior pending source/docs were committed and pushed individually. No checks or training
+on the laptop. Latest steering: update only this handoff after finishing; another agent will take over.
+The current-state and completed-result sections below take precedence over the chronological pending-status notes.
+
+### Latest completed trial: longer recurrent history
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-selflearn-long-history-pilot (version 1).
+Same verified input and orientation configuration as the 32-tick control; only unroll/envs changed from 32/512
+to 128/128. This gives 2.56 s of recurrent credit assignment and keeps 16,384 samples per update. Shared lr 5e-6,
+voice lr 3e-4, seed 1, outcome guard enabled, every sense and prior skill kept, teacher movement help zero.
+All 61 updates completed: 999,424 actual steps, including six critic-only warm-up updates. Three fresh 64-life
+cohorts were used at baseline and each evaluation. JAX 0.7.2 ran on two CUDA devices; carry-over reported
+`new parts: none`. Runtime guide loss and every recorded help value were zero.
+
+| measured metric | fresh baseline | final 999,424 steps |
+|---|---:|---:|
+| mean seven movement falls / 13 s | 0.2991 | 0.2731 |
+| walk falls / 13 s | 0.3073 | 0.2708 |
+| pace falls / 13 s | 0.3438 | 0.3490 |
+| canter falls / 13 s | 0.2344 | 0.2500 |
+| back falls / 13 s | 0.4010 | 0.3125 |
+| walk speed, m/s | 0.3446 | 0.3505 |
+| backward speed, m/s | -0.1621 | -0.1514 |
+| ball aligned in final second | 9.40% | 6.68% |
+| owner aligned in final second | 10.50% | 10.84% |
+| ball final facing cosine | -0.0223 | -0.0294 |
+| owner final facing cosine | -0.0792 | -0.0384 |
+| hungry balanced accuracy | 0.5714 | 0.5780 |
+| ball-ahead balanced accuracy | 0.5524 | 0.5399 |
+| owner-ahead balanced accuracy | 0.4965 | 0.5023 |
+
+Final ball and owner arrival success are both 0%; hungry food seeking and recovery are also 0%. Food and recovery
+outcome training were not enabled in this focused orientation lesson, so their scores describe unfinished goals.
+**Interpretation:** movement was largely retained, with mixed individual fall changes and slightly weaker backing.
+Useful orientation or perception learning was not established. Ball alignment worsened; owner alignment and hungry
+naming barely changed. Longer history did not fix the stall in this trial. This is not proof that longer history
+can never help: concurrent lives also changed, and repeated tests showed variation. No checkpoint promotion.
+
+The completed 32-tick control had mean falls 0.2976 -> 0.3028, ball alignment 8.93% -> 10.79%, and hungry accuracy
+0.5724 -> 0.5716. Compare each trial against its own fresh baseline; do not overinterpret small differences.
+The longer-history 0.5M snapshot had ball alignment 7.09%; its 983,040-step snapshot 7.64%; neither showed mastery.
+The last two curve labels both round to `after 1.0M steps`; distinguish 983,040 and 999,424 by snapshot filename.
+
+Evidence is already local (git-ignored):
+- `results/baby_dog_selflearn_long_history_pilot/practice.json`: all four averaged evaluations;
+- `results/baby_dog_selflearn_long_history_pilot/resume.json`: exact input identity and configuration;
+- `results/baby_dog_selflearn_long_history_pilot/baby_dog.npz`: final brain;
+- the same directory's `baby_dog_step_0000491520.npz`, `baby_dog_step_0000983040.npz`,
+  `baby_dog_step_0000999424.npz`, and `log.txt`;
+- `results/kaggle/baby_dog_selflearn_long_history_pilot/`: exact submit script, monitor and live streams.
+
+Original best: `results/baby_dog_stages/stage16_park3_open.npz`, SHA256
+`4af773f477e7a173e74904d66d82943227ab2b96b5e2ee1454dc7921a7f0bf41`.
+Keep using the earlier learning candidate, SHA256
+`18f6e62923d7b1c832fe6731784af830c37843d8fcd855b52d2944bd956b8dc1`, partial 60/61:
+`/kaggle/input/notebooks/karang1908/bio-bot-baby-dog-selflearn-levels-pilot/baby_dog_step_0000983040.npz`.
+It passed remote CPU identity/finite-parameter/wiring/voice/zero-help checks. The longer-history final weights have
+not received a separate post-training finite-parameter audit; do not call such an audit passed.
+Training baby source SHA256 was unchanged from the CPU-verified orientation source:
+`a45385fe785db0ef0acee0c7a1659ca4aa4bab64514930a4f837754197d4bbcf`.
+
+Runtime issues: package resolver/optional Warp-import warnings appeared, but execution continued. XLA reported
+slow constant folding and a 2m10s compilation operation; all updates and tests subsequently completed. Live log
+connections can become stale; active clock checks and reconnections recovered current output. The ~115-minute
+monitor elapsed includes ~31 minutes queued; it is not 115 minutes of training. No local model checks/training
+were run, and no Colab runtime or additional account was used. Current remaining GPU quota was not queried.
+Completion is recorded here only, per the owner's latest instruction; LOGBOOK §6.10 stops at startup/warm-up.
+
+Next agent: read these results and LOGBOOK §§6.4–6.10 before spending more GPU time. The frozen-brain CPU probe
+already showed an active charge pathway, so a dead/disconnected pathway is not an established cause. Measure
+the remaining representation/learning bottleneck with a bounded free-cloud experiment before choosing a new
+lesson; simply extending history again is not a demonstrated fix. Keep self-learning as the main objective:
+current learning is offline recurrent PPO plus sensory prediction and runtime sensory adaptation, with supervised
+voice naming. Continuous deployed weight learning is still future work. The owner handed off the continuation;
+this agent is not launching another job.
 
 **11 Oct results:** the first teacher-zero perception pilot completed but was rejected: walking falls rose
 0.422 -> 1.031 per 13 s, run falls 0.375 -> 0.828, and backward speed weakened -0.155 -> -0.045 m/s.
@@ -400,10 +472,11 @@ Numbered roughly in order; the logbook's §8 has more. Each item: what happened,
 
 ## 6. What I believe should happen next
 
-1. Continue timed tracking of the accepted longer-history trial, fetch terminal outputs, and read its full report.
-2. Compare its three-cohort paired baseline/final orientation, perception and movement results to the completed
-   32-tick orientation control. More history is a hypothesis, not a confirmed fix. Do not promote automatically.
-3. Choose the next bounded free-cloud lesson using the measurements. Retain every sense, wiring, wobble and old
+1. The longer-history trial is finished and fetched. Read its completed-result section above and full report;
+   no notebook is awaiting tracking from this agent, and no output has been promoted.
+2. Investigate the measured perception/orientation stall before another GPU continuation. The charge path is
+   active in the existing static CPU probe; longer history did not produce useful orientation in this trial.
+3. Choose the next bounded free-cloud experiment using that evidence. Retain every sense, wiring, wobble and old
    skill; movement help stays zero. No repeated `--open_senses`, local model checks or local checkpoint uploads.
 4. Commit and push every future changed file separately on `main`, with no co-author trailer.
 5. **Then step 7:**
