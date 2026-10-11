@@ -1086,6 +1086,33 @@ This starting variation reinforces the need for paired cohort averages. Hungry n
 and recovery remain unfinished. XLA reported constant-folding/slow-compile warnings, including a 2m10s operation;
 execution subsequently reached the warm-up report. The 0.5M/final held-out results and checkpoint selection are pending.
 
+**Completed trial outcomes (18:04 Dubai):** `baby_dog_selflearn_long_history_pilot` v1 finished all 61 updates
+(999,424 steps) and all terminal checkpoints and logs were downloaded to `results/baby_dog_selflearn_long_history_pilot/`.
+The API monitor exited cleanly. Three fresh 64-life cohorts were tested at baseline and each evaluation.
+
+| measured metric (three cohorts) | fresh baseline | final 999,424 steps |
+|---|---:|---:|
+| mean seven movement falls / 13 s | 0.2991 | 0.2731 |
+| walk falls / 13 s | 0.3073 | 0.2708 |
+| pace falls / 13 s | 0.3438 | 0.3490 |
+| canter falls / 13 s | 0.2344 | 0.2500 |
+| back falls / 13 s | 0.4010 | 0.3125 |
+| walk speed, m/s | 0.3446 | 0.3505 |
+| backward speed, m/s | -0.1621 | -0.1514 |
+| ball aligned in final second | 9.40% | 6.68% |
+| owner aligned in final second | 10.50% | 10.84% |
+| ball final facing cosine | -0.0223 | -0.0294 |
+| owner final facing cosine | -0.0792 | -0.0384 |
+| hungry balanced accuracy | 0.5714 | 0.5780 |
+| ball-ahead balanced accuracy | 0.5524 | 0.5399 |
+| owner-ahead balanced accuracy | 0.4965 | 0.5023 |
+
+Teacher movement help remained zero throughout. Movement skills were largely retained with small fall reductions,
+but orientation and perception learning did not improve: ball alignment fell to 6.68% and owner alignment was 10.84%.
+The 2.56 s history window did not resolve the perception/orientation learning bottleneck. No checkpoint is promoted
+or selected for restart. The established stage16 remains the global best, and intermediate candidate
+`baby_dog_step_0000983040.npz` (`18f6e629…`) remains the learning restart.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
