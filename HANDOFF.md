@@ -9,12 +9,14 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 11 Oct 18:45 Dubai (Takeover):** New agent has taken over. `baby_dog_selflearn_long_history_pilot` v1 is **COMPLETE**
-and fully documented in `LOGBOOK.md` §6.10 and below. All outputs downloaded, monitor exited, no jobs running.
-Original stage16 remains the established best; the verified 983,040-step candidate (`18f6e629…`) remains the training restart.
-Working tree clean on `main`. Standing owner rules strictly observed: commit/push file-by-file on `main` with no co-author trailer,
-zero checks or training on laptop, free compute only. The next task is investigating the visual projection and orientation
-learning bottleneck via a bounded free remote CPU probe.
+**Current state, 11 Oct 19:15 Dubai:** `baby_dog_selflearn_approach_pilot` v1 is **QUEUED / RUNNING**.
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-selflearn-approach-pilot (version 1).
+Submitted at 19:14 Dubai from the verified pre-voice restart candidate `baby_dog_step_0000983040.npz` (`18f6e629…`).
+Configured with `lesson=approach`: rewards getting closer (`TASK_PAY * closer`), turning (`FACE_PAY * turned`), and reaching
+(`REACH_PAY * there`), keeping curiosity/eating off, 11 movement skills rehearsed, teacher help zero, ±0.1 wobble,
+lr 5e-6 / voice lr 3e-4, outcome guard on, 1M steps (61 updates), 512 envs (32 unroll ticks = 0.64 s), 3 cohorts, 3h cap on 2x T4.
+Timed clock-based tracking is active. Original stage16 remains the established best; candidate `18f6e629…` is restart.
+All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and completed-result sections below take precedence over chronological pending-status notes.
 
 ### Latest completed trial: longer recurrent history
