@@ -1216,6 +1216,16 @@ GPU trial `baby_dog_selflearn_vision_approach_pilot` (version 1) completed on 2x
 4. **Perception self-reports actively learning:** Sight prediction error reduced during training from 0.741 to 0.702. In-practice accuracy reached 0.66 for `owner-left`, 0.63 for `ball-right`, and 0.59 for `owner-ahead`.
 5. **Candidate promotion:** `baby_dog_step_0000999424.npz` (`17f6c746…`) / `baby_dog.npz` (`1452d51e…`) demonstrates superior approach performance and improved locomotion stability compared to `baby_dog_step_0000983040.npz`. It is selected as the new active learning restart checkpoint for subsequent approach lessons. `stage16_park3_open.npz` (`4af773f4…`) remains the established global best.
 
+**Vision continue trial and heading alignment shaping (12 Oct 01:35 Dubai):**
+To scale "come" arrival from 2.6% to >15% and break through "ball" arrival (stalled at 0.0% due to the 0.35m arrival threshold vs smaller 0.11m target radius):
+1. Enhanced heading alignment reward: Added `ALIGN_PAY = 0.2` in `train/baby_dog.py`, rewarding continuous target facing (`ALIGN_PAY * jp.maximum(0.0, facing_now)`) during approach lessons. This provides a continuous potential field reinforcing forward locomotion whenever the target is maintained in the forward field of view, while standing still remains strictly penalized by the `-still` penalty (-1.0/s).
+2. Remote CPU preflight `bio-bot-baby-dog-vision-continue-preflight` verified on free Kaggle CPU (version 1, 7,019 units, 502,438 connections, SHA256 `1452d51e…` verified, optimizer under JIT verified to train vision frontend while keeping motor weights frozen, all 10 checks passed).
+3. GPU trial `baby_dog_vision_approach_continue` submitted to 2x Nvidia Tesla T4 (https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-continue):
+   - Configuration: `lesson=approach`, `brain_lr=5e-6`, `voice_lr=3e-4`, `vision_lr=3e-4`, `--protect_skills`, 1.5M steps (91 updates), 512 envs, 3 evals (~0.5M, ~1.0M, ~1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+   - Resuming directly from the promoted candidate `baby_dog.npz` (`1452d51e…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-selflearn-vision-approach-pilot`.
+   - Status: RUNNING; background API monitor active (`task-1852`).
+
+
 
 
 ## 7. Open problems and next steps
