@@ -1113,13 +1113,54 @@ The 2.56 s history window did not resolve the perception/orientation learning bo
 or selected for restart. The established stage16 remains the global best, and intermediate candidate
 `baby_dog_step_0000983040.npz` (`18f6e629…`) remains the learning restart.
 
-**Submitted approach trial (19:14 Dubai):** `karang1908/bio-bot-baby-dog-selflearn-approach-pilot` version 1 accepted on Kaggle.
+**Approach trial execution and completed outcomes (22:00 Dubai):** `karang1908/bio-bot-baby-dog-selflearn-approach-pilot`
+v1 finished all 61 updates (999,424 steps) on NvidiaTeslaT4 and all terminal checkpoints and logs were downloaded to
+`results/baby_dog_selflearn_approach_pilot/`.
 Configuration: `lesson=approach` from the verified pre-voice restart candidate `baby_dog_step_0000983040.npz` (`18f6e629…`).
 In this lesson, task rewards include getting closer (`TASK_PAY * closer`), turning to face (`FACE_PAY * turned`), and reaching
-the target (`REACH_PAY * there`), rather than differential turning alone. Curiosity and eating rewards remain disabled.
-Rehearses all 11 established skills, teacher movement help stays zero, ±0.1 wobble and all senses kept, lr 5e-6 / voice lr 3e-4,
-outcome guard on, 1M steps (61 updates), 512 parallel environments (32 unroll ticks = 0.64 s credit assignment), three evaluation
-cohorts, 3h cap on NvidiaTeslaT4. Active clock monitoring and status tracking initiated. Results pending; no promotion.
+the target (`REACH_PAY * there`), rather than differential turning alone. Curiosity and eating rewards remained disabled.
+Rehearsed all 11 established skills, teacher movement help stayed zero throughout, ±0.1 wobble and all senses kept, lr 5e-6 / voice lr 3e-4,
+outcome guard on, 1M steps (61 updates), 512 parallel environments (32 unroll ticks = 0.64 s credit assignment), three evaluation cohorts.
+Active clock monitoring (~60s timer checks) tracked execution from queue through RUNNING (86 min queue wait, ~77 min execution).
+
+| measured metric (three cohorts) | fresh baseline | final 999,424 steps |
+|---|---:|---:|
+| mean seven movement falls / 13 s | 0.3073 | 0.3475 |
+| walk falls / 13 s | 0.3073 | 0.3594 |
+| pace falls / 13 s | 0.3490 | 0.3646 |
+| canter falls / 13 s | 0.2344 | 0.2865 |
+| run falls / 13 s | 0.3229 | 0.2812 |
+| turn-left falls / 13 s | 0.2448 | 0.3125 |
+| turn-right falls / 13 s | 0.2917 | 0.2969 |
+| back falls / 13 s | 0.4010 | 0.5312 |
+| walk speed, m/s | +0.3424 | +0.3538 |
+| pace speed, m/s | +0.4203 | +0.4334 |
+| canter speed, m/s | +0.3403 | +0.3482 |
+| run speed, m/s | +0.4732 | +0.4807 |
+| turn-left yaw, rad/s | +1.4938 | +1.4837 |
+| turn-right yaw, rad/s | -1.1576 | -1.2052 |
+| backward speed, m/s | -0.1594 | -0.1614 |
+| jump speed, m/s | +0.1384 | +0.1533 |
+| sit pose (pitch / trunk) | +0.51 / 0.60 | +0.51 / 0.60 |
+| lie-down pose (pitch / trunk) | +0.06 / 0.96 | +0.05 / 0.96 |
+| ball arrival success (got_there) | 0.0% | 0.0% |
+| ball distance drift (start -> end, m) | 2.48 -> 2.58 | 2.48 -> 2.56 |
+| ball aligned in final second | 8.76% | 9.64% |
+| ball final facing cosine | -0.056 | +0.002 |
+| owner arrival success (got_there) | 0.52% | 1.04% |
+| owner distance drift (start -> end, m) | 3.66 -> 3.72 | 3.66 -> 3.68 |
+| owner aligned in final second | 12.27% | 9.75% |
+| owner final facing cosine | -0.130 | -0.032 |
+| hungry balanced accuracy | 0.582 | 0.572 |
+| ball-ahead balanced accuracy | 0.551 | 0.516 |
+| owner-ahead balanced accuracy | 0.505 | 0.513 |
+| dodge hit rate / reaction median | 82.29% / 237 ms | 83.85% / 33 ms |
+
+**Interpretation:** All 11 movement skills were retained with expected locomotion speeds, sit pose maintained perfect geometry (+0.51 pitch, 0.60 trunk), but fall rates drifted slightly higher across movement skills (mean 0.307 -> 0.348 / 13s, with back falls rising to 0.531).
+On the approach task: target facing cosine stabilized slightly from baseline (-0.056 -> +0.002 for ball, -0.130 -> -0.032 for owner), and outward distance drift was reduced (2.48 -> 2.56m vs baseline 2.58m for ball), but target arrival success remained effectively zero (0.0% ball, 1.04% owner). The reward gradient for approaching was insufficient to induce forward locomotion toward distant targets from rest across 2-3m.
+Perception balanced accuracies remained near chance (ball-ahead 0.516, hungry 0.572).
+**No checkpoint is promoted to global best.** `stage16_park3_open.npz` (`4af773f4…`) remains the global best. `baby_dog_step_0000983040.npz` (`18f6e629…`) remains the learning restart candidate. Newly generated checkpoints `baby_dog_step_0000999424.npz` (`d9f92de6…`) and `baby_dog.npz` (`2211476f…`) are preserved locally for record.
+
 
 ## 7. Open problems and next steps
 
