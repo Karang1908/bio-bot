@@ -9,17 +9,70 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 11 Oct 19:15 Dubai:** `baby_dog_selflearn_approach_pilot` v1 is **QUEUED / RUNNING**.
+**Current state, 11 Oct 22:05 Dubai:** `baby_dog_selflearn_approach_pilot` v1 is **COMPLETE** and fetched.
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-selflearn-approach-pilot (version 1).
-Submitted at 19:14 Dubai from the verified pre-voice restart candidate `baby_dog_step_0000983040.npz` (`18f6e629…`).
-Configured with `lesson=approach`: rewards getting closer (`TASK_PAY * closer`), turning (`FACE_PAY * turned`), and reaching
-(`REACH_PAY * there`), keeping curiosity/eating off, 11 movement skills rehearsed, teacher help zero, ±0.1 wobble,
-lr 5e-6 / voice lr 3e-4, outcome guard on, 1M steps (61 updates), 512 envs (32 unroll ticks = 0.64 s), 3 cohorts, 3h cap on 2x T4.
-Timed clock-based tracking is active. Original stage16 remains the established best; candidate `18f6e629…` is restart.
+All 61 updates (999,424 steps) completed on 2x T4. All 11 movement skills retained; approach outcome reward reduced distance drift but arrival success stayed ~0-1%. No promotion to global best.
+Original stage16 (`4af773f4…`) remains the established global best; candidate `18f6e629…` is the learning restart.
+Active monitor has terminated; no background jobs are running.
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and completed-result sections below take precedence over chronological pending-status notes.
 
-### Latest completed trial: longer recurrent history
+### Latest completed trial: approach outcome pilot
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-selflearn-approach-pilot (version 1).
+Configured with `lesson=approach`: rewards getting closer (`TASK_PAY * closer`), turning (`FACE_PAY * turned`), and reaching
+(`REACH_PAY * there`), keeping curiosity/eating off, 11 movement skills rehearsed, teacher help zero, ±0.1 wobble,
+lr 5e-6 / voice lr 3e-4, outcome guard on, 1M steps (61 updates), 512 envs (32 unroll ticks = 0.64 s credit assignment), 3 cohorts, 3h cap on 2x T4.
+Submitted from the verified pre-voice restart candidate `baby_dog_step_0000983040.npz` (`18f6e629…`).
+All 61 updates completed (999,424 actual steps). Outputs automatically downloaded into `results/baby_dog_selflearn_approach_pilot/`.
+
+| measured metric (three cohorts) | fresh baseline | final 999,424 steps |
+|---|---:|---:|
+| mean seven movement falls / 13 s | 0.3073 | 0.3475 |
+| walk falls / 13 s | 0.3073 | 0.3594 |
+| pace falls / 13 s | 0.3490 | 0.3646 |
+| canter falls / 13 s | 0.2344 | 0.2865 |
+| run falls / 13 s | 0.3229 | 0.2812 |
+| turn-left falls / 13 s | 0.2448 | 0.3125 |
+| turn-right falls / 13 s | 0.2917 | 0.2969 |
+| back falls / 13 s | 0.4010 | 0.5312 |
+| walk speed, m/s | +0.3424 | +0.3538 |
+| pace speed, m/s | +0.4203 | +0.4334 |
+| canter speed, m/s | +0.3403 | +0.3482 |
+| run speed, m/s | +0.4732 | +0.4807 |
+| turn-left yaw, rad/s | +1.4938 | +1.4837 |
+| turn-right yaw, rad/s | -1.1576 | -1.2052 |
+| backward speed, m/s | -0.1594 | -0.1614 |
+| jump speed, m/s | +0.1384 | +0.1533 |
+| sit pose (pitch / trunk) | +0.51 / 0.60 | +0.51 / 0.60 |
+| lie-down pose (pitch / trunk) | +0.06 / 0.96 | +0.05 / 0.96 |
+| ball arrival success (got_there) | 0.0% | 0.0% |
+| ball distance drift (start -> end, m) | 2.48 -> 2.58 | 2.48 -> 2.56 |
+| ball aligned in final second | 8.76% | 9.64% |
+| ball final facing cosine | -0.056 | +0.002 |
+| owner arrival success (got_there) | 0.52% | 1.04% |
+| owner distance drift (start -> end, m) | 3.66 -> 3.72 | 3.66 -> 3.68 |
+| owner aligned in final second | 12.27% | 9.75% |
+| owner final facing cosine | -0.130 | -0.032 |
+| hungry balanced accuracy | 0.582 | 0.572 |
+| ball-ahead balanced accuracy | 0.551 | 0.516 |
+| owner-ahead balanced accuracy | 0.505 | 0.513 |
+| dodge hit rate / reaction median | 82.29% / 237 ms | 83.85% / 33 ms |
+
+**Interpretation:**
+1. All 11 movement skills were retained with expected locomotion speeds and geometry (sit: +0.51 pitch, 0.60 trunk), but fall rates drifted slightly higher (mean 0.307 -> 0.348 / 13s; back 0.401 -> 0.531).
+2. Facing cosine stabilized slightly (-0.056 -> +0.002 for ball, -0.130 -> -0.032 for owner), and outward distance drift was reduced (2.48 -> 2.56m vs baseline 2.58m for ball), but target arrival success remained effectively zero (0.0% ball, 1.04% owner).
+3. The reward gradient for approaching was insufficient to induce forward locomotion toward distant targets from rest across 2-3m.
+4. Perception balanced accuracies remained near chance (ball-ahead 0.516, hungry 0.572).
+5. **No checkpoint promotion:** `stage16_park3_open.npz` (`4af773f4…`) remains global best. `baby_dog_step_0000983040.npz` (`18f6e629…`) remains learning restart. Newly saved checkpoints `baby_dog_step_0000999424.npz` (`d9f92de6…`) and `baby_dog.npz` (`2211476f…`) are preserved locally for comparison.
+
+Evidence is local (git-ignored):
+- `results/baby_dog_selflearn_approach_pilot/practice.json`: all four averaged evaluations;
+- `results/baby_dog_selflearn_approach_pilot/resume.json`: exact input identity and configuration;
+- `results/baby_dog_selflearn_approach_pilot/baby_dog.npz`, `baby_dog_step_0000491520.npz`, `baby_dog_step_0000983040.npz`, `baby_dog_step_0000999424.npz`, `log.txt`;
+- `results/kaggle/baby_dog_selflearn_approach_pilot/`: submit script, monitor and live streams.
+
+### Prior trial: longer recurrent history
 
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-selflearn-long-history-pilot (version 1).
 Same verified input and orientation configuration as the 32-tick control; only unroll/envs changed from 32/512
@@ -472,12 +525,12 @@ Numbered roughly in order; the logbook's §8 has more. Each item: what happened,
 
 ## 6. What I believe should happen next
 
-1. The longer-history trial is finished and fetched. Read its completed-result section above and full report;
+1. The approach outcome pilot is finished and fetched. Read its completed-result section above and full report;
    no notebook is awaiting tracking from this agent, and no output has been promoted.
-2. Investigate the measured perception/orientation stall before another GPU continuation. The charge path is
-   active in the existing static CPU probe; longer history did not produce useful orientation in this trial.
-3. Choose the next bounded free-cloud experiment using that evidence. Retain every sense, wiring, wobble and old
-   skill; movement help stays zero. No repeated `--open_senses`, local model checks or local checkpoint uploads.
+2. Investigate why visual features fail to drive locomotion:
+   - Visual projection weights (`vp_e`, `vp_l`) start at 0.0, and small shared brain lr (5e-6) may keep vision effectively disconnected from motor neurons.
+   - Investigate whether a targeted visual learning rate or closer target spawns (e.g. 0.5-1.0m instead of 2.5-3.5m) is needed for the baby dog to discover the correlation between visual heading and reward.
+3. Formulate the next bounded free Kaggle experiment. Retain every sense, wiring, wobble and old skill; movement help stays zero.
 4. Commit and push every future changed file separately on `main`, with no co-author trailer.
 5. **Then step 7:**
    - multi-step errands ("ball" then "come" said once, then silence: it must remember);
