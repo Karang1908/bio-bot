@@ -9,16 +9,13 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 11 Oct 18:08 Dubai:** `baby_dog_selflearn_long_history_pilot` v1 is **COMPLETE**.
-Status became COMPLETE at 18:04:58 Dubai; all outputs were downloaded and the API monitor exited successfully.
-Timed tracking of this notebook is finished. No new training job was submitted after it.
-Original stage16 remains the established best; the verified 983,040-step level-sense candidate remains the
-training restart. The longer-history output is not promoted or selected for restart. Full dog training and
-deployed online weight learning are incomplete.
-The owner now authorizes and requires **commit and push each changed file individually immediately after every
-change, on main**. All prior pending source/docs were committed and pushed individually. No checks or training
-on the laptop. Latest steering: update only this handoff after finishing; another agent will take over.
-The current-state and completed-result sections below take precedence over the chronological pending-status notes.
+**Current state, 11 Oct 18:45 Dubai (Takeover):** New agent has taken over. `baby_dog_selflearn_long_history_pilot` v1 is **COMPLETE**
+and fully documented in `LOGBOOK.md` §6.10 and below. All outputs downloaded, monitor exited, no jobs running.
+Original stage16 remains the established best; the verified 983,040-step candidate (`18f6e629…`) remains the training restart.
+Working tree clean on `main`. Standing owner rules strictly observed: commit/push file-by-file on `main` with no co-author trailer,
+zero checks or training on laptop, free compute only. The next task is investigating the visual projection and orientation
+learning bottleneck via a bounded free remote CPU probe.
+The current-state and completed-result sections below take precedence over chronological pending-status notes.
 
 ### Latest completed trial: longer recurrent history
 
@@ -82,15 +79,16 @@ slow constant folding and a 2m10s compilation operation; all updates and tests s
 connections can become stale; active clock checks and reconnections recovered current output. The ~115-minute
 monitor elapsed includes ~31 minutes queued; it is not 115 minutes of training. No local model checks/training
 were run, and no Colab runtime or additional account was used. Current remaining GPU quota was not queried.
-Completion is recorded here only, per the owner's latest instruction; LOGBOOK §6.10 stops at startup/warm-up.
-
-Next agent: read these results and LOGBOOK §§6.4–6.10 before spending more GPU time. The frozen-brain CPU probe
-already showed an active charge pathway, so a dead/disconnected pathway is not an established cause. Measure
-the remaining representation/learning bottleneck with a bounded free-cloud experiment before choosing a new
-lesson; simply extending history again is not a demonstrated fix. Keep self-learning as the main objective:
-current learning is offline recurrent PPO plus sensory prediction and runtime sensory adaptation, with supervised
-voice naming. Continuous deployed weight learning is still future work. The owner handed off the continuation;
-this agent is not launching another job.
+Completion is recorded in `LOGBOOK.md` §6.10 and above.
+Current agent takeover (11 Oct 18:45 Dubai): continuing from where the previous agent left off.
+Next measured question: Why did orientation and perception learning fail to emerge in the orient and long-history pilots?
+Investigating two specific mechanisms:
+1. Visual projection weights: `vp_e` and `vp_l` start at 0.0, and with shared brain learning rate 5e-6, Adam gradient updates
+   across ~60 updates cannot scale them up past ~0.0003, leaving visual inputs to the sensory neurons orders of magnitude
+   smaller than proprioceptive lines.
+2. Orientation outcome reward formulation: `task_reward = FACE_PAY * turned` rewards only rate-of-change `d(facing)/dt`,
+   providing zero reward once facing the target and zero reward if the ball is already in view ahead.
+A bounded free Kaggle CPU probe will be formulated to measure visual projection weights and gradients in the restart candidate.
 
 **11 Oct results:** the first teacher-zero perception pilot completed but was rejected: walking falls rose
 0.422 -> 1.031 per 13 s, run falls 0.375 -> 0.828, and backward speed weakened -0.155 -> -0.045 m/s.
