@@ -427,6 +427,85 @@ real tests from rest):
 - Brain: `results/baby_dog_stages/stage14_park.npz` (md5 4f41909f…). Next run: `baby_dog_park2`, the same plus drives
   and the voice.
 
+**The second park run** (`baby_dog_park2`, 60M steps, 8 h; with drives and the voice; the teacher stayed at zero):
+
+| what it says about itself (balanced accuracy, 0.5 = chance) | start | end | where the information comes from |
+|---|---|---|---|
+| ball left / ahead / right | 0.50 / 0.50 / 0.53 | 0.53 / 0.50 / 0.51 | eye, LiDAR: new neurons |
+| owner left / ahead / right | 0.50 / 0.50 / 0.52 | 0.55 / 0.50 / 0.50 | eye, LiDAR: new neurons |
+| hungry | 0.50 | 0.51 (peak 0.60) | battery: new endocrine neurons |
+| **moving** | 0.55 | **0.80** | joints and IMU: old neurons |
+
+- **No goals or drives were learned:**
+  - ball 2% → 0%, come 0% → 3%, hit 81% → 83%;
+  - a hungry dog went to its food 0% of the time;
+  - free-time exploring stayed at ~1–2 m² in 10 s.
+- **Gaits recovered some speed:** walk 0.20 → 0.29, pace 0.48 → 0.59, canter 0.36 → 0.41, turn-right 0.99 → 1.08 rad/s.
+  Their poses came back toward the real dog's (walk 0.067 → 0.026).
+- **Lost:** back (0.22 → 0.08 m/s) and lie-down (trunk 0.74 → 0.93). Falls rose to 0.06–0.20 per 13 s.
+
+**Why (bug 8.17):** the voice learned only what old neurons carry. The trained brain shows why:
+
+| new sense | connections into the old brain | strength after training |
+|---|---|---|
+| vision | 7,753 | 1.2% |
+| smell | 267 | 1.2% |
+| inner state | 27 | 1.2% |
+| body, hearing (old neurons) | | 92–96% |
+
+My growth rule started every new connection at ~1% "to keep the old skills". At that strength, learning can barely
+move them (gradient ~1%), so **the dog was blind, could not smell, and could not feel its hunger where it decides.**
+
+**Fix:** new connections start at full strength, and new neurons are silent at rest (bias 0), so they speak only when
+their sense drives them. `--open_senses` applies this to an already grown brain. Checked locally on the park2 brain,
+told "ball", 4 dogs: how much its commands differ with eyes open versus shut went from 0.0045 (3% of the command size)
+to **0.039 (22%)**, and the brain stays stable. Next run: `baby_dog_park3`, 35M steps (GPU budget), with the senses
+open.
+
+**The third park run** (`baby_dog_park3`, 35M steps, 5.3 h, from the park2 brain with the senses opened; no teacher):
+
+| measure | start | end |
+|---|---|---|
+| voice: ball-left / ball-right | 0.50 / 0.56 | **0.58 / 0.58** |
+| voice: owner-left / owner-right | 0.59 / 0.51 | 0.59 / 0.56 |
+| voice: hungry | 0.50 | 0.65 at best |
+| voice: ball-ahead, owner-ahead, hit | 0.50 | 0.50 (it always says "no") |
+| told "ball" / "come": got there | 0% / 2% | 0% / 2% |
+| object thrown: hit | 84% | 84% |
+| hungry, nobody speaks: went to its food | 0% | 0% |
+| walk / pace / canter / run (m/s) | 0.27 / 0.43 / 0.24 / 0.44 | 0.34 / 0.42 / 0.34 / 0.48 |
+| turn-left / turn-right / back | 0.91 / 0.74 / 0.01 | 1.47 / 1.10 / 0.16 |
+| falls per 13 s | 0.05–0.20 | **0.2–0.44** |
+
+- **What the fix did:**
+  - Opening the senses let what the eye and the battery carry into the central brain: the voice is above chance for
+    the first time.
+  - But only weakly (0.58–0.65), and not yet into what it does.
+- **The cost:** opening the senses first knocked its skills back (park2's end against this run's start: pace
+  0.59 → 0.43, canter 0.41 → 0.24, turn-left 1.42 → 0.91, back 0.08 → 0.01). Practice won most of it back, but falls
+  rose.
+- **"Ahead" and "hit" stay at exactly 0.50:** they are rare, and an unweighted naming loss lets "never" win.
+- Brain: `results/baby_dog_stages/stage16_park3_open.npz`.
+
+**What this says about the approach.** Everything is learned at once, by reward, through a 7,019-neuron recurrent brain:
+- seeing;
+- turning toward something;
+- walking to it;
+- dodging;
+- eating;
+- naming its state;
+- keeping 13 words.
+
+The reward for "ball" never gets a chance to train seeing, because nothing it does is ever caused by what it sees.
+
+**Next, a puppy's order:**
+1. **Seeing, through naming:** the naming loss weighted much more, with rare states weighted up, until "ball on the
+   left" is said reliably.
+2. **Looking:** "ball" pays for turning to face it before going there.
+3. **Going to it,** then dodging, then eating when hungry.
+
+Every lesson keeps rehearsing all the old words.
+
 **Step 6, built and smoke-tested** (`baby_dog_drives_smoke`, 2M steps from the grown let-go brain; it ran end to end):
 - **Free time:** nobody speaks, no word is heard.
 - **Hunger:** some lives start with a low battery. Charging on the pad pays FOOD_PAY × hunger, and a flat battery
@@ -450,6 +529,549 @@ real tests from rest):
 - Each line's next change, as in babbling.
 - Every eye point's next change, from the optic lobe and an efference copy of its motor neurons.
 - Each is scored against guessing "no change".
+
+### 6.4 Self-learning continuation (10 Oct): focused perception, then goals
+
+**Owner's constraints:** entirely free compute; no checks or training on the laptop. The primary goal is
+**self-learning**, not a controller whose movements or decisions are supplied by a teacher.
+
+**Prepared, not yet verified on Kaggle:**
+- Resume stage16_park3_open with teacher help fixed at zero (`--self_learning --let_go`). Never pass `--open_senses`
+  again. Abort on mismatched checkpoint history, wiring, vocabulary or parameter shapes instead of resetting learning.
+- Focus lessons in order: `perception`, `orient`, `approach`, then `all`. The environment, all senses, wobble, throws,
+  battery and heat remain. Every lesson rehearses standing, all gaits and poses. Only the new objectives' training
+  signals are staged; no motor demonstrations are added.
+- Naming targets describe the state the brain sensed **before** its action, not the next state or a new scene after
+  a fall reset. Predictions and naming gradients now respect the critic-only warm-up.
+- Measure naming on scripted test scenes separate from the training rollouts. A class absent from those scenes is
+  reported as not sampled, not as chance-level evidence. Tests reset recurrent state on the same new-life events as
+  training. Task success excludes the period before the task was requested.
+- Full evaluations are configurable; a short 2M-step pilot uses two to limit overhead, and saves its final checkpoint
+  even when the step count is not divisible by the evaluation interval.
+
+**Prediction before running:** stronger, balanced naming supervision may improve the weak visual representation.
+This is believed, not established. A 2M-step pilot establishes whether this path runs without resetting skills;
+it does not prove mastery. Do not advance to navigation until held-out ball bearings are reliable, and do not promote
+a checkpoint that materially loses locomotion or raises falls. Every promotion needs the real tests from rest.
+
+**Infrastructure:** the previous park3 job's status was COMPLETE and its output listing includes `baby_dog.npz`.
+Automatic approval review rejected a new upload of the local brain as an unapproved sensitive-file export. That upload
+did not happen. The continuation can attach the brain already on Kaggle through `kernel_sources`, without a local
+checkpoint upload or replacing `bio-bot-brains`. Input identity will be checked and hashed on Kaggle.
+
+**Self-learning scope:** this continuation learns from experience through PPO during Kaggle practice. Continuing to
+learn after deployment requires a separate online learning mechanism; autonomous inference alone is not that claim.
+
+**Submitted:** `karang1908/bio-bot-baby-dog-selflearn-perception-pilot`, version 1, 2M steps, 512 environments,
+two full post-start evaluations, lr 5e-5, lesson `perception`, all park flags on, `--self_learning --let_go`.
+Input is the prior park3 kernel output (no local model upload), with expected last checkpoint `after 35.0M steps`.
+Kaggle accepted the job and reported QUEUED. No training result is available yet. Live logs and the status waiter
+are remote API clients only; they do not run model checks or training on the laptop.
+
+While queued, the live-log endpoint returned `500 Server Error: Internal Server Error` for
+`/v1/kernels/logs/stream/karang1908/bio-bot-baby-dog-selflearn-perception-pilot`. This is a log-service failure,
+not a training result. A free CPU preflight (`train/dog_preflight.py`) is prepared to check source syntax, remote
+checkpoint identity, v2 parameter shapes, finite parameters and zero teacher help entirely on Kaggle.
+
+**CPU preflight verified on Kaggle:** COMPLETE, all checks passed. It loaded the prior job's actual file at
+`/kaggle/input/notebooks/karang1908/bio-bot-baby-dog-park3/baby_dog.npz`, 7,019 units and 502,438 connections;
+SHA256 `4af773f477e7a173e74904d66d82943227ab2b96b5e2ee1454dc7921a7f0bf41`. Sources compile, parameter shapes
+match the v2 core, all parameters are finite, and every recorded help value is zero. Report:
+`results/baby_dog_selflearn_preflight/preflight.json`. These are source/checkpoint checks, not evidence of new skills.
+
+**Free quota verified through the Kaggle API:** GPU used 0.00h, remaining 30.00h; TPU remaining 20.00h; next refresh
+17 Oct 2026 00:00 UTC. The GPU pilot is still QUEUED while this is written.
+
+After the T4 pilot remained queued for over 12 minutes, a second bounded trial was accepted in the free P100 queue:
+`karang1908/bio-bot-baby-dog-selflearn-perception-p100`, 2M steps, 256 environments, seed 1. Other learning settings
+and the already-hosted input are identical. Per-device environment count stays 256, as in the 2×T4 trial, to avoid
+doubling memory on a single GPU. This is an independent repeat, not a checkpoint promotion. Both trials together
+are a small initial expenditure of the verified free quota; no larger continuation is submitted before results.
+
+Code review found a further monitoring issue: the installed CLI prints a failure message **after** the ERROR status,
+but our waiter read only the last line. It could therefore wait forever on a failed job. `parse_status` now reads
+the actual status line and preserves the reported failure. Prepared for a Kaggle CPU test with representative
+QUEUED, COMPLETE, ERROR-with-message and CANCELLED responses; no tests run on the laptop.
+
+**Updated CPU preflight verified:** version 2 completed on Kaggle. The source checks, checkpoint checks and all
+four status-parser cases passed (`results/baby_dog_selflearn_preflight/preflight.json`). The original status clients
+were stopped to reload this correction; only API monitoring stopped, not the Kaggle jobs. Replacement monitors will
+fetch each trial's outputs after its terminal status, including failure logs. They run no model checks or training.
+
+At the latest status read the T4 trial had remained QUEUED for 20 minutes and the P100 repeat for over 5 minutes.
+No new learning or retention result can be claimed while Kaggle has not allocated either GPU worker.
+
+Replacement API-only monitors are running with logs under
+`results/kaggle/baby_dog_selflearn_perception_pilot/monitor.log` and
+`results/kaggle/baby_dog_selflearn_perception_p100/monitor.log`. Each waits for the remote terminal status and then
+fetches outputs, with overwrite enabled. There is no automatic promotion or larger training submission: the next
+lesson depends on inspecting these results and checking retention. The dog curriculum remains incomplete.
+
+Further static review caught a launch setting error before the P100 worker started: `--set seed=1` became
+`seed: 1.0`, because the generic settings parser converted every number to float and `JOB_ARGS` bypasses argparse's
+type conversion. JAX requires an integer random seed. Prepared `parse_value` to preserve integer literals and added
+Kaggle CPU cases for seed, negative integers, learning rate, scientific step count and a string. The T4 job uses the
+default integer seed and is unaffected.
+
+**Verified:** CPU preflight version 3 passed on Kaggle, including settings types. The corrected P100 submission was
+refused with `Kernel push error: Maximum batch GPU session count of 2 reached.` It was **not** accepted; the original
+P100 version still occupies its slot and must finish or be cancelled before replacement. The T4 job changed to
+RUNNING at about 17:48 UTC; a worker starting is not yet evidence of model updates or new learning. The attempted CLI
+transfer interrupted the local API monitors; they were restarted after the owner said to continue. No model work ran
+on the laptop. The launcher now treats a `Kernel push error:` as failure even when Kaggle exits zero.
+
+The live-log endpoint also returned `500 Server Error: Internal Server Error` after the T4 worker was RUNNING.
+The one-shot logs response was empty. Status monitoring still works; until outputs are persisted, neither model
+update counts nor evaluation scores are visible. RUNNING must not be reported as verified skill improvement.
+
+At 18:05 UTC, quota was GPU used 0.35h, remaining 29.65h; TPU remaining 20.00h. Both workers are now RUNNING.
+The P100 source pulled back from Kaggle still contains `seed: 1.0`, confirming the refused push did not apply the
+correction. JAX 0.7.2's official `threefry_seed` implementation rejects non-integer dtype. A temporary browser tab
+could not access the private job in that browser session and was closed; no browser cancellation occurred. API
+monitors remain responsible for fetching terminal logs. HANDOFF now records the stricter no-local-checks rule and
+pending continuation so another session does not repeat the old workflow.
+
+**Prepared: absolute drive levels, not yet verified.** Static review confirmed that `fresh_discovery` sets every
+input's mean to its initial value, then `sense` reports only deviations from that adaptive mean. Different steady
+initial charges are therefore identical on the battery nerve; steady motor temperatures have the same problem.
+This removes information a learner needs and is not solved by more PPO steps.
+
+The optional `--absolute_drives` appends 13 anonymous level nerves (charge plus 12 motor temperatures), preserving
+all original 62 nerves, their random draws, adaptive features and model parameters. Temperature's instrument unit
+is 100 °C; no hungry/hot label or threshold is an input. The additional levels use fixed smooth bounding rather
+than adaptive centring. They still pass through the same learned brain and participate in its causal self-map.
+The flag is saved in brain metadata and stays enabled on continuation once experienced. It is off in the running
+pilot, which remains a controlled test of the earlier source. Prediction: hungry/full and cool/hot will become
+distinguishable, but changes in attention may disturb existing skills. A new GPU trial and retention tests are
+required before promotion. CPU preflight will first check steady levels, signed/scaled levels and unchanged
+established adaptive features; no checks are run on the laptop.
+
+**CPU verification passed on Kaggle:** preflight version 4 completed. The actual `level_features` helper
+distinguishes steady charge and temperature, retains them over repeated samples, keeps established adaptive
+values exactly, and preserves distinctions through anonymous signed/scaled inputs. Source compilation, checkpoint
+identity, shapes, finite parameters, zero teacher help and launcher parser cases also passed. This verifies the
+input feature mathematics and source syntax, not the new body wiring at runtime or learned behavior; a GPU trial
+with full retention tests is still required. Current report: `results/baby_dog_selflearn_preflight/preflight.json`.
+
+**Actual wiring verified on Kaggle CPU (preflight version 5):** using JAX 0.7.2 and the actual source's
+`new_life`/`jnp_sign` functions, every established sensor's permutation, sign, scale, offset and modality matched
+bit-for-bit before/after adding the 13 nerves; motor signs/tags also matched. Added nerve indices are disjoint and
+retain different steady charges/temperatures through the actual anonymous wiring. The original seed problem was
+reproduced exactly: `PRNG key seed must be an integer; got JitTracer<~float32[]>`. Integer seed 1 works. These tests
+used only the Kaggle CPU, with no simulation or training. The full new body/brain behavior still needs a GPU trial.
+
+A 2M-step level-sense trial is prepared in `results/kaggle/baby_dog_selflearn_levels_pilot/submit.sh` from the same
+original stage16 and with the same seed/environment count as the legacy T4 pilot. It has **not been submitted**.
+The launcher now supports Kaggle's official `--timeout` option; this trial will be capped at 10,800 seconds (3h)
+so an unresponsive setup cannot use the whole weekly free quota. The existing sessions' limits were set at
+submission. A short CPU submission will verify the timeout option before the next GPU trial uses it.
+
+**Runtime-cap submission verified:** CPU preflight version 6 was accepted with `--timeout 600`, completed and passed
+source/checkpoint/feature/parser checks. The actual JAX wiring and seed reproduction report from version 5 is
+preserved separately as `results/baby_dog_selflearn_preflight/preflight_wiring_v5.json`; those unchanged wiring
+checks were not repeated in version 6. At 18:53 UTC both GPU jobs still reported RUNNING. The complete raw status
+responses contained no failure messages, and the live-log endpoint again returned 500 for both. No new learning
+result is available or promoted. GPU worker status alone does not show whether setup, compilation or updates are
+currently executing.
+
+### 6.6 Self-learning pilot results (11 Oct, Dubai): retain stage16
+
+**Verified, fetched with overwrite:** the legacy T4 perception pilot completed its 2M-step lesson. The input
+SHA256 matches the original stage16 above; every baseline and post-training help value is zero. At 1M steps,
+walking falls improved, but backward motion weakened. The final 2M result regressed substantially:
+
+| measure | before | after 1M | after 2M |
+|---|---:|---:|---:|
+| walk falls / 13 s | 0.422 | 0.266 | 1.031 |
+| run falls / 13 s | 0.375 | 0.297 | 0.828 |
+| canter falls / 13 s | 0.219 | 0.250 | 0.688 |
+| backward speed, m/s | -0.155 | -0.079 | -0.045 |
+| hungry balanced accuracy | 0.606 | 0.618 | 0.580 |
+| ball-ahead balanced accuracy | 0.500 | 0.597 | 0.548 |
+| owner-ahead balanced accuracy | 0.500 | 0.525 | 0.583 |
+| moving balanced accuracy | 0.679 | 0.712 | 0.745 |
+
+Hit naming reached 0.931, but this is not learned dodging: the dodge test still had 70% hits. Hungry food-seeking
+remained 0%; get-up remained 0% after 2–8 seconds; hot/fallen naming had no positive examples in these held-out
+scenes and remains unmeasured. Full results are in `results/baby_dog_selflearn_perception_pilot/practice.json`.
+**Rejected for promotion:** stronger naming did not preserve locomotion. The original stage16 remains best.
+Only the final NPZ was kept by that job, so its intermediate 1M brain cannot be recovered from its JSON scores.
+
+**P100-requested repeat failed before training**, as predicted from its saved source. Terminal log:
+`TypeError: PRNG key seed must be an integer; got JitTracer<~float32[]>`.
+There is no trained checkpoint in `results/baby_dog_selflearn_perception_p100`. The corrected parser is already
+verified on Kaggle CPU; no repeat of the invalid version is needed. Both previous GPU slots have terminated.
+
+**Next bounded trial:** restart the original hosted stage16, enable the previously CPU-verified absolute drive
+senses, reduce lr from 5e-5 to 1e-5, and limit training to 1M steps with tests at 0.5M/1M. Keep each tested checkpoint
+separately instead of overwriting the only earlier brain. This changes two factors, so it tests the combined path;
+it cannot assign improvements to either factor alone. Prediction: smaller updates should reduce forgetting and
+steady level inputs should make initial hunger distinguishable. Neither learned behavior is established yet.
+No promotion or advance to orientation/navigation without retention and reliable perception. The trial retains all
+old senses, wobble, teacher-zero rehearsal, park flags and the original input hash. Runtime cap remains 3h.
+CPU preflight is being rerun for the small checkpoint-preservation edit before submission. No laptop checks or
+training ran. Kaggle quota read at 22:12 UTC on 10 Oct: GPU 1.01h used / 28.99h remaining; TPU 20h remaining.
+
+CPU preflight version 7 failed with `KeyError: 'expect_checkpoint'`: the submission omitted its required setting.
+No GPU trial was started. Its failure log is saved as `results/baby_dog_selflearn_preflight/log_failed_v7.txt`.
+The old version-6 report was still present locally because an output download does not delete old files absent
+from a failed run. It was explicitly moved to `preflight_v6.json` so it cannot be mistaken for a current pass.
+The corrected CPU submission restores `expect_checkpoint=after 35.0M steps`.
+
+**Verified:** CPU preflight version 8 completed and passed. Current baby source SHA256:
+`76ec3e75236a78da35f266e7bde3fd84370e97d40bc969e9ea860faa95d6eb26`; brain/world/client hashes remain unchanged
+from version 6. Input identity, parameter preservation, zero help, feature mathematics and parser checks passed.
+GPU job `karang1908/bio-bot-baby-dog-selflearn-levels-pilot`, version 1, was then accepted: 1M steps, lr 1e-5,
+512 environments, integer seed 0, perception lesson, absolute drive senses, two post-start evaluations, timeout
+10,800 seconds. This is a submitted experiment, not a verified improvement. An API-only waiter will fetch its
+terminal outputs under `results/baby_dog_selflearn_levels_pilot`; monitor log is under `results/kaggle/`.
+
+At 22:20 UTC the new job was RUNNING, and unlike the previous jobs its live-log stream worked. It reports JAX 0.7.2
+on two CUDA devices; RESUME has the exact original input SHA256, integer seed 0, teacher-left stage, wobble 0.1,
+`open_senses: false`, and `absolute_drives: true`. Parameter carry-over reports `new parts: none`. Setup reference
+calibration has started. These are verified launch/preservation facts, not learned movement or perception results.
+
+**Live 0.5M result (23:00 UTC):** the level-sense pilot completed its baseline and half-million-step tests with
+every teacher-help value still zero. The new-sense baseline walk/back speeds were +0.333/-0.177 m/s; at 0.5M they
+were +0.353/-0.175 m/s. Walking falls changed 0.42 -> 0.39, pace 0.45 -> 0.41, canter 0.23 -> 0.25, run 0.25 -> 0.33,
+turn-left 0.23 -> 0.33, turn-right 0.31 -> 0.31, back 0.50 -> 0.50 per 13 s. This preserves backward motion much
+better than the legacy pilot so far, but does not establish lower falls across all skills. Held-out hungry accuracy
+was 0.57 -> 0.60; ball-ahead 0.50 -> 0.54; ball-right 0.64 -> 0.57; owner bearings remain weak. Hit naming improved
+to 0.82, while actual dodge hits were 84%. Food-seeking remains 0% hungry, recovery remains 0%, hot/fallen naming
+remains unsampled. The final 1M result and fetched JSON are pending; no checkpoint is promoted from live logs.
+
+**Colab fallback proposed by owner:** official VS Code extension `google.colab` 0.9.7 is installed (package metadata
+read only; no cells or laptop checks executed). No extra MCP/CLI is needed for ordinary remote notebook execution.
+Use one Colab account alongside the existing Kaggle account, keeping verified checkpoints between sessions.
+The proposal to rotate 4–5 Gmail accounts for uninterrupted quota is not adopted: the
+[official Colab FAQ](https://research.google.com/colaboratory/faq.html) expressly prohibits multiple accounts to
+work around access/resource limits, and free GPU availability/session lengths are variable (12h maximum, not a
+guarantee). [Kaggle's terms](https://www.kaggle.com/terms) also prohibit multiple active Kaggle accounts. Neither
+provider gives guaranteed nonstop free compute. A Colab notebook must use a remote GPU kernel and keep all
+experienced senses/flags; checkpoint identity and retention must be checked on cloud compute. No Colab runtime,
+model transfer or Colab training has been started. Quota at 23:00 UTC: GPU 1.77h used / 28.23h remaining; TPU 20h.
+
+### 6.7 Level-sense pilot completed; checkpoint selected for continuation (11 Oct)
+
+**Verified terminal result:** `baby_dog_selflearn_levels_pilot` completed; its API-only monitor fetched all outputs
+with overwrite. No laptop model checks ran. It kept checkpoints at 491,520, 983,040 and 999,424 steps, in addition
+to the final `baby_dog.npz`. Rounded test labels give both last checkpoints the text `after 1.0M steps`; use the
+exact filename, hash and partial count to distinguish them.
+
+| measure | new-sense baseline | 983,040 steps | final 999,424 steps |
+|---|---:|---:|---:|
+| walk falls / 13 s | 0.422 | 0.312 | 0.297 |
+| pace falls / 13 s | 0.453 | 0.359 | 0.406 |
+| canter falls / 13 s | 0.234 | 0.219 | 0.281 |
+| run falls / 13 s | 0.250 | 0.328 | 0.297 |
+| turn-left falls / 13 s | 0.234 | 0.266 | 0.359 |
+| turn-right falls / 13 s | 0.312 | 0.266 | 0.266 |
+| back falls / 13 s | 0.500 | 0.453 | 0.453 |
+| backward speed, m/s | -0.177 | -0.162 | -0.155 |
+| hungry balanced accuracy | 0.567 | 0.580 | 0.588 |
+| ball-ahead balanced accuracy | 0.500 | 0.550 | 0.540 |
+
+These are the same scripted validation scenes, not proof of generalization. Perception remains weak, food-seeking
+and ball/come success are ~0%, recovery after 2–8 s is 0%, and lie-down/jump remain unlearned. No navigation lesson
+or global-best promotion is justified. The smaller updates avoided the legacy pilot's broad collapse, but some
+fall rates still worsened. The original stage16 remains preserved as the established best.
+
+**Selected learning candidate:** `baby_dog_step_0000983040.npz`, the intermediate with the fewest aggregate falls
+across the seven known movement/turn/back skills. It also retains more backward motion than the final checkpoint.
+Free Kaggle CPU job `baby_dog_selflearn_levels_review` version 1 completed and passed: all learned parameters
+finite, v2 shapes/words/voice/wiring preserved, teacher help zero, `absolute_drives: true`, `partial: 60/61`.
+Its exact hosted path is
+`/kaggle/input/notebooks/karang1908/bio-bot-baby-dog-selflearn-levels-pilot/baby_dog_step_0000983040.npz`;
+SHA256 `18f6e62923d7b1c832fe6731784af830c37843d8fcd855b52d2944bd956b8dc1`.
+Report: `results/baby_dog_selflearn_levels_review/preflight.json`.
+
+**Prepared continuation, not yet submitted:** 2M more perception steps, lr 1e-5, 512 environments, integer seed 1,
+four evaluations and separate snapshots, 3h runtime cap. Seed changes only fresh draws/experience and the critic;
+all learned parameters are restored, and the body's wiring stays 20260927. It attaches the existing hosted pilot
+output and names the selected file explicitly; no local checkpoint upload. Prediction: more varied experience
+may improve naming without the previous broad forgetting. This remains an experiment; do not advance based on
+elapsed steps alone, and do not promote a regressed checkpoint. All experienced senses/flags remain enabled.
+
+The owner clarified the proposed resource pool as one Kaggle plus five Colab accounts. Colab has no fixed published
+30h weekly allowance, so one account of each does not guarantee 60h; the account-rotation restriction in the linked
+official FAQ still applies. No account rotation, Colab training or new MCP/CLI installation was performed.
+
+**Submitted after verification:** `karang1908/bio-bot-baby-dog-selflearn-levels-continue` version 1 accepted with
+the prepared settings above. Its API-only monitor waits and fetches under the matching `results/` job directory.
+This continues the learning candidate; it does not promote it over stage16 or claim that perception is mastered.
+
+**11 Oct 05:37 UTC status request:** the latest local monitor entry is RUNNING at 47.0 minutes (03:58:46 Dubai).
+The direct current status request was denied permission to read the private kernel; a separate quota read reports
+`Authentication required to call the Kaggle API.` No continuation output directory has been downloaded. Current
+completion/failure is therefore unverified, not RUNNING by assumption. Refresh the Kaggle login with
+`.venv/bin/kaggle auth login --force`, then check status and fetch terminal outputs; restart the API-only monitor
+if the job is still running. Authentication loss does not cancel a remote job. No model checks or training ran
+on the laptop during this status request.
+
+### 6.8 Continuation completed but rejected; outcome-update guard proposed (11 Oct)
+
+The owner renewed Kaggle authentication. `baby_dog_selflearn_levels_continue` is COMPLETE, and all outputs were
+downloaded with overwrite. Its resume hash is exactly `18f6e62923d7b1c832fe6731784af830c37843d8fcd855b52d2944bd956b8dc1`,
+seed 1 is an integer, absolute drive senses remain on, and teacher movement help is zero at every evaluation.
+
+| measure | before continuation | final 2M |
+|---|---:|---:|
+| walk falls / 13 s | 0.328 | 0.500 |
+| pace falls / 13 s | 0.406 | 0.484 |
+| canter falls / 13 s | 0.219 | 0.297 |
+| run falls / 13 s | 0.297 | 0.344 |
+| turn-left falls / 13 s | 0.297 | 0.375 |
+| turn-right falls / 13 s | 0.281 | 0.328 |
+| back falls / 13 s | 0.391 | 0.578 |
+| hungry balanced accuracy | 0.603 | 0.599 |
+| ball-ahead balanced accuracy | 0.534 | 0.525 |
+| owner-ahead balanced accuracy | 0.527 | 0.563 |
+
+All seven movement fall rates are worse at the end; intermediate back-fall rates also regressed (0.64–0.81).
+Ball success is 1/64, come success 0/64, hungry food-seeking 0/64, recovery 0%, and dodging still suffers 84% hits.
+**Rejected for promotion and continuation.** Keep the original stage16 and the previously checked 983,040-step
+level-sense candidate. Smaller learning rates slowed the broad forgetting but did not solve it. No new result
+establishes self-learning task mastery. Full evidence: `results/baby_dog_selflearn_levels_continue/practice.json`.
+
+**Prepared experiment: `--protect_skills`.** Hypothesis: the combined prediction/naming and outcome update can
+push the shared brain away from the rehearsal objective. This mechanism is not yet measured or established as
+the cause of the observed falls. A new optional rule obtains the outcome gradient and total gradient from the
+same forward pass, applies the usual Adam update, then removes only the brain-step component whose dot product
+with the outcome gradient is positive. Projection happens after Adam, so its rescaling/momentum cannot undo that
+local constraint. Critic updates are unchanged; every learned brain parameter remains plastic. Existing wiring,
+senses, wobble, reward meanings and zero teacher help remain. No movement demonstrations or runtime controller
+are introduced. The flag and conflicting-step statistics are recorded in checkpoints/logs.
+
+The constraint is only first-order on the current minibatch's estimated outcome loss. It does not guarantee
+retention on later lives or any held-out task. Prediction before running: it may reduce interference while naming
+learns in other directions; it may also stall naming, and it increases gradient computation. Test on the same
+hosted 983,040-step input, seed 1, lr 1e-5, 2M-step budget and four evaluations as the rejected continuation for
+a controlled comparison. Never promote from the mathematical constraint alone.
+
+Free CPU job `baby_dog_selflearn_guard_preflight` is submitted first. It will run the actual helper under JAX jit,
+check conflicting/tangent/descent/zero-gradient cases, exercise the two-pullback pattern and critic-only warm-up,
+compile the edited sources, and verify the already-hosted candidate's identity/finite parameters/zero help.
+All checks are on Kaggle CPU; no model checks or training run on the laptop. GPU experiment remains unsubmitted.
+
+**Verified:** guard preflight version 1 completed on Kaggle CPU with JAX 0.7.2. The actual helper under jit removed
+the conflicting component, kept tangent/descent/zero-gradient behavior, and the dual VJP equalled the direct total
+gradient. Critic warm-up left the brain unchanged. Source compilation, checkpoint identity, finite parameters,
+v2 shapes, words, voice and zero help also passed. Report:
+`results/baby_dog_selflearn_guard_preflight/preflight.json`. New baby source SHA256:
+`36cc62f4cc63e3e733c05b661f7737b9f7c4c46d4a9baba75941ce4ca22e44c9`;
+brain/world/client hashes remain unchanged. These tests use small gradient examples, not a full dog training run
+or proof of skill retention. Free quota read: GPU 2.99h used / 27.01h remaining; TPU 20h remaining.
+
+**Submitted after the pass:** `karang1908/bio-bot-baby-dog-selflearn-guard-pilot` version 1 accepted. It matches
+the rejected continuation's selected input, integer seed 1, lr 1e-5, 2M steps, 512 environments, four evaluations,
+all park flags and 3h cap, with `protect_skills` enabled. Checkpoints and conflict statistics will be retained.
+Its API-only monitor logs under `results/kaggle/baby_dog_selflearn_guard_pilot/monitor.log` and fetches terminal
+outputs. Actual GPU execution, interference measurements and retention are still pending. No promotion.
+
+**Live GPU observation, first 0.5M evaluation (11 Oct, about 11:05 Dubai):** the stream confirms the intended
+input hash, integer seed 1, `absolute_drives: true`, `protect_skills: true`, two CUDA devices, and `new parts: none`.
+All printed movement-help values remain zero. Rounded falls per 13 s are walk 0.23, pace 0.38, canter 0.25,
+run 0.28, turn-left 0.25, turn-right 0.31, back 0.52. Walking improved versus the matched 0.33 baseline, while
+backward motion worsened versus 0.39. Hungry naming is still 0.60; ball/food/recovery remain 0%, come is 1/64.
+The two printed update summaries show 0% conflicting steps; they do not establish that the guard has helped.
+Evidence is the live stream saved at `results/kaggle/baby_dog_selflearn_guard_pilot/live.log`. These are preliminary,
+rounded log values; full checkpoint JSON and the remaining evaluations are pending. No checkpoint is promoted.
+
+### 6.9 Guard trial completed; perception bottleneck and isolated voice lesson (11 Oct)
+
+**Verified:** `baby_dog_selflearn_guard_pilot` version 1 is COMPLETE; the monitor downloaded every output with
+overwrite. Input SHA256 is the intended `18f6e62923d7b1c832fe6731784af830c37843d8fcd855b52d2944bd956b8dc1`.
+Teacher movement help remains zero throughout. Full results: `results/baby_dog_selflearn_guard_pilot/practice.json`.
+
+| measure | this run's baseline | final 1,998,848 steps |
+|---|---:|---:|
+| walk falls / 13 s | 0.328 | 0.344 |
+| pace falls / 13 s | 0.375 | 0.297 |
+| canter falls / 13 s | 0.219 | 0.266 |
+| run falls / 13 s | 0.313 | 0.297 |
+| turn-left falls / 13 s | 0.266 | 0.297 |
+| turn-right falls / 13 s | 0.313 | 0.266 |
+| back falls / 13 s | 0.344 | 0.484 |
+| mean of seven movement fall rates | 0.308 | 0.321 |
+| hungry balanced accuracy | 0.591 | 0.601 |
+| ball-ahead balanced accuracy | 0.563 | 0.559 |
+| owner-ahead balanced accuracy | 0.517 | 0.525 |
+
+Movement retention is much better than the previous continuation's 0.317 -> 0.415 mean falls, but backward
+stability still worsens, and no tested checkpoint establishes a substantial perception improvement. The first
+and 1.5M snapshots both average 0.317 falls; the 1M snapshot is worse at 0.382. All checkpoints are kept; none is
+promoted. The logged 1.5M training update shows the guard active on 12% of its eight minibatch steps. This is not
+a whole-run conflict rate or proof that projection caused the retention difference. Baselines differ slightly
+between runs despite the same input/seed/settings; compare each result to its own baseline and do not treat
+small differences in these 64-life tests as established gains.
+
+**Correction to earlier interpretation of task scores:** `lesson=perception` deliberately disables approach,
+food reward and curiosity. This pilot also does not enable `get_up`, so falls in practice reset automatically.
+Final ball success 0/64, come 2/64, hungry food-seeking 0/64 and recovery 0% show unfinished goals, but are not
+evidence that the dog failed a focused training attempt on those goals. The actual lesson's unmet objective is
+improved perception. Hot/fallen labels are still absent from held-out positive states and remain unmeasured.
+
+**Next bounded training experiment, prepared before running:** a temporary voice-readout lesson from the
+previously verified 983,040-step level-sense candidate. The last pilots used only lr 1e-5 for both the large
+shared brain and its voice readout. Give only `say_w` and `say_b` lr 3e-4, with shared/motor lr 0.0 for this short
+lesson; the critic still learns at 3e-4. All senses, wobble, words, wiring, hazards and skill rehearsal remain.
+This is supervised naming from the brain's own activity, not proof of self-taught navigation or deployed online
+learning. No sensor-to-label bypass or external movement controller is added. The shared brain can resume
+plasticity in later action lessons; freezing it temporarily is a curriculum decision, not a runtime restriction.
+
+Prediction: if useful charge/location information already reaches central/descending activity, the faster voice
+readout may expose it without changing motor weights. If naming stays near chance, increasing readout learning
+alone is insufficient; investigate the representation/observation curriculum rather than repeating it blindly.
+Plan: integer seed 1, 1M steps, two evaluation intervals, 512 environments, T4 requested, 3h cap. The guard is off
+because shared updates are zero. Default optimizer behavior is preserved when `voice_lr` is omitted. Learning
+rates are stored in resume/checkpoint metadata. The remote run must write `voice_audit.json` proving every
+non-voice parameter array stayed exactly unchanged and all brain parameters remain finite.
+
+Free Kaggle CPU preflight `baby_dog_selflearn_voice_preflight` version 1 is accepted. It tests the actual optimizer
+under jit with nested motor parameters: zero shared updates, learning voice/critic, exact default-optimizer
+parity and rejection of a missing voice head. Source and input-identity checks also run there. GPU submission
+waits for that result. No checks or training are run on the laptop.
+
+**Verified CPU pass:** version 1 completed with JAX 0.7.2 and Optax 0.2.8. The actual optimizer under jit preserved
+nested non-voice weights exactly across four updates while both voice arrays and the critic changed. Default
+optimizer updates were bit-for-bit identical to the previous construction. Missing-voice rejection, source
+compilation, launcher types/statuses, exact input identity, finite parameters, wiring/words/voice/zero help passed.
+Report: `results/baby_dog_selflearn_voice_preflight/preflight.json`. Baby source SHA256:
+`63d575bad8d18004305e4f764c0fc0c3f2a5ce26bc01f323084c21e3b6cc9156`; brain/world/client sources unchanged.
+These are optimizer/source/input checks, not measured perception gains or full dog-training integration.
+
+**GPU submitted after the pass:** `karang1908/bio-bot-baby-dog-selflearn-voice-pilot` version 1 accepted with the
+prepared 1M-step configuration. Its API-only monitor fetches terminal outputs automatically; monitor and live
+stream logs are under `results/kaggle/baby_dog_selflearn_voice_pilot/`. Actual training, exact-weight audit and
+perception results are pending. No automatic promotion, no local training/checks, no Colab job or account rotation.
+
+### 6.10 Voice lesson complete; evaluation correction and active orientation (11 Oct)
+
+The user asked for timed monitoring. The voice job had already completed at 12:34 Dubai, and its API monitor
+downloaded every output. Reading the results at 14:23 showed:
+- the Kaggle `voice_audit.json` confirms all 55 non-voice parameter arrays stayed exactly unchanged;
+- both voice parameter arrays changed and all parameters are finite;
+- hungry balanced accuracy 0.596 -> 0.589; owner-ahead 0.522 -> 0.556; ball-ahead 0.549 -> 0.629 at the final
+  999,424-step snapshot, but intermediate ball-ahead scores are about 0.50. Faster readout training alone did
+  not establish consistent perception improvement. No promotion and no blind continuation.
+
+An important new observation: movement fall rates vary between evaluations despite unchanged motor/shared
+weights (e.g. pace 0.344 -> 0.469). Earlier single-group evaluations cannot justify strong claims from small
+differences. The cause of run-to-run numerical/simulation variability is not established. Do not infer that
+the unchanged brain forgot or improved movement from this voice lesson's fall fluctuations.
+
+**Confirmed source mismatch, corrected:** `make_scripted.life` reset the body at a new life but retained the
+old recurrent brain state. Actual practice and the park tests clear recurrent state on `new_life`. Scripted
+movement/pose/get-up tests now apply the same shared `reset_brain_state` before the brain tick. No senses,
+wobble, wiring or learned parameters change. This correction does not establish the cause of all numerical
+variability. Previous movement numbers used the older test protocol; compare future checkpoints to their
+own newly measured baseline rather than treating old numbers as directly interchangeable.
+
+The next run uses three independent 64-life cohorts per evaluation (seed offsets 0,100,200), averages test
+metrics, sums sampled class counts, and keeps absent-class accuracy null. The voice accuracy is a mean of
+cohort accuracies with both classes sampled, not a claim that adjacent frames are independent samples.
+Park task reports also record start/end facing cosine and the fraction aligned within 0.35 rad in the last
+second, so an orientation lesson is judged by the outcome it actually trains. Falls and distance remain.
+
+**Next bounded outcome-learning experiment:** `lesson=orient` from the established 983,040-step learning
+candidate (hash `18f6e62923d7b1c832fe6731784af830c37843d8fcd855b52d2944bd956b8dc1`), not the voice-only output.
+1M steps, seed 1, shared lr 5e-6 / voice lr 3e-4, outcome guard enabled, two evaluation intervals, three cohorts,
+512 environments, T4 requested, 3h cap. Shared brain plasticity resumes. Teacher movement help stays zero;
+every earlier skill is rehearsed. The existing orientation reward pays for turning to face the named object,
+without a demonstrated action. Approach, food reward and curiosity remain disabled in this focused lesson;
+do not claim it trains navigation/food/recovery. The voice labels are still taught. This also provides active
+sensory experience instead of holding all new task rewards off until naming passes an unvalidated threshold.
+
+Prediction before running: task-facing may improve through outcome learning even while verbal reports are
+weak; retention and new perception are uncertain. Judge facing alongside falls and paired baselines. Do not
+promote automatically. All checks and training remain on free Kaggle compute.
+
+Evaluation CPU preflight v1 had an incorrect input path; v2 corrected it before GPU training. The timer caught
+v2 COMPLETE. Its actual jit reset, scripted-call placement, aggregation, compilation and input checks must be
+read before GPU submission. The first source patch also failed to match the get-up line and made no edits;
+the subsequent patch used the correct context. These failures consumed no training GPU time.
+
+**Verified:** evaluation preflight v2 passed on Kaggle CPU with JAX 0.7.2. Actual reset behavior under jit,
+scripted reset-before-tick placement, fresh-cohort aggregation/class-count/null handling, source compilation,
+launcher checks and exact input identity/finite parameters/zero help passed. Report:
+`results/baby_dog_selflearn_eval_preflight/preflight.json`. Baby source SHA256:
+`a45385fe785db0ef0acee0c7a1659ca4aa4bab64514930a4f837754197d4bbcf`; brain/world/client unchanged.
+GPU integration and the new facing measurements are still pending. This pass is not proof of perception or
+orientation learning, and does not establish that GPU simulation is deterministic.
+
+**Submitted after the pass:** `karang1908/bio-bot-baby-dog-selflearn-orient-pilot` version 1 accepted with the
+prepared 1M-step orientation configuration. Status and live streams are under
+`results/kaggle/baby_dog_selflearn_orient_pilot/`; terminal results will be fetched automatically. The agent is
+staying active with clock-based checks about once a minute, as requested. Execution and learning results pending.
+
+**Timed monitoring outcome:** orientation job v1 completed at 15:52 Dubai after 77.3 minutes of monitor time
+(including queue/setup), and every checkpoint/report was downloaded automatically. Initial log streaming
+returned HTTP 500 while queued, then worked after RUNNING. A later live connection stopped advancing after
+warm-up while status polling continued; reconnecting recovered the 0.5M and 1M evaluations. Fresh connections
+were used for remaining checks. One-shot persisted logs were empty during RUNNING. Treat a quiet live stream
+as potentially stale; compare against fresh status and reconnect rather than declaring the training stalled.
+
+| averaged metric, three 64-life cohorts | fresh baseline | final 999,424 steps |
+|---|---:|---:|
+| mean seven movement falls / 13 s | 0.298 | 0.303 |
+| walk falls / 13 s | 0.297 | 0.307 |
+| pace falls / 13 s | 0.359 | 0.328 |
+| back falls / 13 s | 0.391 | 0.391 |
+| ball aligned in final second | 8.93% | 10.79% |
+| owner aligned in final second | 9.96% | 10.18% |
+| ball final facing cosine | -0.075 | +0.003 |
+| owner final facing cosine | -0.078 | -0.067 |
+| hungry balanced accuracy | 0.572 | 0.572 |
+| ball-ahead balanced accuracy | 0.545 | 0.541 |
+| owner-ahead balanced accuracy | 0.508 | 0.537 |
+
+All movement help is zero at all evaluations. Retention is largely stable, but target-facing remains weak;
+small alignment changes do not establish a useful learned orientation skill. No checkpoint is promoted or
+selected for restart. The established stage16 and the verified pre-voice 983,040-step learning candidate remain.
+The two final curve labels both round to 1M; snapshots are 983,040 and 999,424 steps. Full evidence:
+`results/baby_dog_selflearn_orient_pilot/practice.json`. The final generic help-deadline log line says “since update
+42”, but the loaded let-go branch had help zero from the start, confirmed by every help dictionary and summary.
+
+**Next measured question, before more GPU training:** do anonymous steady charge levels alter the sensory and
+central/descending activity used by the voice? Free CPU job `baby_dog_selflearn_sensor_path` is prepared with a
+20-minute cap. It runs the actual frozen recurrent brain for 200 ticks, with its real wiring and learned weights,
+four charge levels (0.1,0.2,0.4,1.0), and stand/quiet word contexts. Other body features are synthetic adapted
+zeros; camera is black and LiDAR has no returns. The added heat levels stay at ambient. It measures paired
+internal-sense/central/voice/motor responses. No body, actions, optimizer or weight updates are run.
+
+Hypotheses, not conclusions: charge may fail to activate usable pathways, or usable information may be drowned
+out by other activity/learning noise. A weak response in this controlled static probe does not prove absent
+information in moving scenes or establish a causal learning defect. Do not alter activation functions, reset
+learned senses or repeat long GPU runs based on an unmeasured explanation. Probe results are pending.
+
+**Verified CPU response:** the probe completed and its report is in
+`results/baby_dog_selflearn_sensor_path/preflight.json`. All 30 internal-sense neurons were active at 4 s in both
+contexts. Charge input contrast is 0.357; inner-neuron rate contrast is 0.128 (stand) / 0.148 (quiet). Central
+rate contrast grows with time: at 0.2 s max 0.00063 / 0.00039; at 4 s max 0.0101 / 0.2097. Hungry voice-logit
+differences at 4 s are only ~0.0002 / 0.0072, and all four charge levels are reported as not hungry then.
+Thus charge reaches the actual neural circuit in this static probe. A completely disconnected or wholly silent
+internal-sense path is not supported by these observations. Do not “fix” it by resetting gains/biases or changing
+activation functions on that assumption. Probe inputs are synthetic; these are not real-scene classification
+accuracy or proof of a causal training bottleneck. No weight changes or physics were run.
+
+**Next controlled training hypothesis:** the default recurrent backpropagation window is only 32 ticks = 0.64 s.
+Test 128 ticks = 2.56 s, reducing environments from 512 to 128 so each update still has 16,384 total samples.
+Same verified starting brain, integer seed, orientation lesson, 1M budget, lr 5e-6 / voice 3e-4, guard, zero help,
+three evaluation cohorts and 3h cap. This changes sequence length and the number of concurrent lives, not brain
+wiring, activation, senses, wobble or training-source code. Longer response development suggests investigating
+credit assignment, but does not prove that a short window caused the stall. Longer history may help, may leave
+results unchanged, may cost more wall time, and may still exceed memory despite constant samples/update.
+Plan is in `results/kaggle/baby_dog_selflearn_long_history_pilot/submit.sh`; no automatic promotion.
+
+**Submitted:** `karang1908/bio-bot-baby-dog-selflearn-long-history-pilot` version 1 accepted. Its API status
+monitor fetches terminal outputs; the agent continues active clock checks. Source/input/seed/lesson/rates/evaluation
+protocol are unchanged from the verified orientation run; only unroll/envs differ. Execution/results pending.
+
+**Owner's version-control instruction, 11 Oct:** “also commit and push file by file after every chnage”.
+From now on, every changed source/document file is committed individually and pushed to `main` immediately.
+The existing pending files are being published the same way. No co-author trailer; generated results, learned
+checkpoints and credentials remain ignored. Reading diffs and Git operations do not run source/model checks;
+all model validation and training remain on free Kaggle compute. Notebook monitoring continues during Git work.
 
 ## 7. Open problems and next steps
 
@@ -524,6 +1146,11 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
     - Lesson: run a check past every timer in the code under test.
 16. **A job too big for Kaggle.** Embedding the 1.8 MB `core_v2.npz` made the job script 3.25 MB, and Kaggle refused
     it with a bare `400 Bad Request`. The cores now travel in the private dataset `bio-bot-cores`.
+17. **New senses wired in at 1% strength.** To keep the grown brain's skills, every connection v1 never had started
+    at ~1% gain. The eye, the nose and the battery then never reached the old brain: after 120M steps of practice
+    their gains were still 1.2%. The voice stayed at chance for everything they carry, and was 0.80 for what the old
+    body neurons carry. Lesson: a weak start is a closed door, not a gentle one, when the gradient through it is just
+    as weak.
 
 
 ---
