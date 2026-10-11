@@ -9,13 +9,14 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 11 Oct 22:05 Dubai:** `baby_dog_selflearn_approach_pilot` v1 is **COMPLETE** and fetched.
-Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-selflearn-approach-pilot (version 1).
-All 61 updates (999,424 steps) completed on 2x T4. All 11 movement skills retained; approach outcome reward reduced distance drift but arrival success stayed ~0-1%. No promotion to global best.
+**Current state, 12 Oct 00:15 Dubai:** `baby_dog_selflearn_vision_approach_pilot` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-selflearn-vision-approach-pilot (version 1).
+Configured with dedicated `vision_lr = 3e-4` (optic lobe convs, receptive fields, visual projections `vp_e`, `vp_l`), `voice_lr = 3e-4`, connectome rate-model and motor readouts protected at `brain_lr = 5e-6`, 50% rollout task share (25% ball, 25% come), 50% motor rehearsal (10% stand, 28% across 7 gaits, 12% across 2 rest poses), task duration `p_task = 0.0025` (~8 s) to match distance travel time, 1M steps (61 updates), 512 envs, 3 cohorts, 3h cap. Teacher movement help zero from rest.
+Preflight `bio-bot-baby-dog-selflearn-vision-preflight` v2 passed remotely on free Kaggle CPU (all 11 checks passed, finite params, SHA256 `18f6e629…` verified, optimizer under JIT learns vision/voice/critic while freezing motor weights).
 Original stage16 (`4af773f4…`) remains the established global best; candidate `18f6e629…` is the learning restart.
-Active monitor has terminated; no background jobs are running.
+Active API monitor is running in background (`task-1518`).
 All source commits pushed individually on `main`; zero laptop compute checks.
-The current-state and completed-result sections below take precedence over chronological pending-status notes.
+The current-state and active-job sections take precedence over chronological pending-status notes.
 
 ### Latest completed trial: approach outcome pilot
 
