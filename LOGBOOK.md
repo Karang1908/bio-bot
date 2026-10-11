@@ -1079,6 +1079,13 @@ integer seed 1, orientation/self-learning/level-sense/guard flags, three evaluat
 learning rates. Carry-over reports `new parts: none`. Package resolver and optional Warp-import warnings appeared;
 execution continued through weight carry-over. Fresh baselines, training integration and outcomes remain pending.
 
+**Live milestone, 17:29 Dubai:** all three baseline cohorts finished, followed by six critic-only warm-up updates.
+The runtime explicitly says the teacher already left, and every printed help value is 0.00; guide loss is 0.0000.
+First-cohort ball/owner alignment was 7%/9%, second-cohort 14%/13%, third-cohort 7%/9% (rounded live values).
+This starting variation reinforces the need for paired cohort averages. Hungry naming is still weak, lie-down
+and recovery remain unfinished. XLA reported constant-folding/slow-compile warnings, including a 2m10s operation;
+execution subsequently reached the warm-up report. The 0.5M/final held-out results and checkpoint selection are pending.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
