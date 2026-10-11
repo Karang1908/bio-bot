@@ -1073,6 +1073,12 @@ The existing pending files are being published the same way. No co-author traile
 checkpoints and credentials remain ignored. Reading diffs and Git operations do not run source/model checks;
 all model validation and training remain on free Kaggle compute. Notebook monitoring continues during Git work.
 
+**Longer-history startup:** status changed from QUEUED to RUNNING at 16:40 Dubai, after about 31 minutes of
+queue/monitor time. The live log confirms JAX 0.7.2 on two CUDA devices, the exact `18f6e629…` input hash,
+integer seed 1, orientation/self-learning/level-sense/guard flags, three evaluation cohorts and the prepared
+learning rates. Carry-over reports `new parts: none`. Package resolver and optional Warp-import warnings appeared;
+execution continued through weight carry-over. Fresh baselines, training integration and outcomes remain pending.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
