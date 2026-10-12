@@ -1304,10 +1304,22 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
 **Vision approach round 3 trial (3x TASK_PAY / REACH_PAY and extended unroll) (12 Oct 22:25 Dubai):**
 - **Hypothesis:** In Round 2, snapshot `1e164e63…` demonstrated the first net distance closure toward the ball (-0.007 m) and positive heading (+0.0508 facing cosine), but dogs often stopped short of the 0.35m ball / 1.0m owner arrival thresholds within the 8-second episode window (`p_task = 0.0025`). Tripling `TASK_PAY` and `REACH_PAY` from 1.0 to 3.0 provides a 3x steeper reward gradient for closing distance, while extending `p_task` to 0.0018 (~11 s) gives dogs adequate time to traverse up to 3.5 m.
 - **Preflight:** Remote CPU preflight `bio-bot-baby-dog-vision-round3-preflight` verified (10/10 assertions passed; JIT vision optimizer, SHA256 `1e164e63…`, and 7019 units verified).
-- **GPU Run:** [`bio-bot-baby-dog-vision-approach-round3`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round3) (version 1) launched on 2x Nvidia Tesla T4 GPU.
+- **GPU Run:** [`bio-bot-baby-dog-vision-approach-round3`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round3) (version 1) completed all 61 updates (999,424 actual steps) on 2x Nvidia Tesla T4 GPU (queued 19.7 min, ran ~76 min). All outputs fetched to `results/baby_dog_vision_approach_round3/`.
+- **Measured Outcomes across 3 fresh cohorts (192 lives per eval):**
+  - **Record Visual Alignment:** Final second heading alignment toward the ball reached **13.14%** in `baby_dog.npz` (`6679c91e…`), the highest in project history.
+  - **"Come" Arrival:** Scaled to **2.08% (4/192)** at 0.5M steps (`e5e63595…`), retaining 1.56% at 1.0M steps.
+  - **Motor Skills & Poses Preserved:** Mean 7-gait falls remained rock-solid at 0.3095 per 13s; nominal speeds (+0.346 walk, +0.458 pace, +0.504 run) and stable rest poses (sit +0.503 pitch, lie-down +0.049 pitch) maintained with zero teacher help.
+  - **Perception Progress:** Balanced accuracy rose to 0.606 for ball-right, 0.585 for ball-left, 0.612 for owner-left, 0.544 for owner-ahead, and 0.718 for moving.
+- **Key Finding & Mechanism:** Weight analysis revealed that task rows in `word_w` ("ball" index 23, "come" index 24) were restricted to `brain_lr = 5e-6` and moved only 0.011 out of 111.0 across 1M steps. At that rate, the goal embeddings cannot adapt to drive locomotion toward visual targets. Scaling `word_w[23:]` by `vision_lr / brain_lr = 60.0` unlocks `3e-4` effective learning rate for task goal embeddings while strictly preserving base motor words at `5e-6`.
+- **Candidate Promotion:** `baby_dog.npz` (SHA256 `6679c91e521ec7e1015f59650b6f4b41728ba2f05ef66b639fba245e33b676ac`) from `results/baby_dog_vision_approach_round3/` promoted to the **learning restart candidate**.
+
+**Vision approach round 4 trial (task word goal embedding scaling) (13 Oct 00:40 Dubai):**
+- **Hypothesis:** Scaling `word_w[23:]` by `task_scale = 60.0` gives the goal embeddings for "ball" and "come" an effective learning rate of `3e-4` (matching `vision_lr`), enabling the policy gradient to tune the goal currents that drive locomotion and steering toward visual targets, while rows 0..22 remain at `5e-6` to protect all 11 motor skills.
+- **Preflight:** Remote CPU preflight `bio-bot-baby-dog-vision-round4-preflight` verified (10/10 assertions passed; JIT vision optimizer, task word scaling, and candidate SHA256 `6679c91e…` verified).
+- **GPU Run:** [`bio-bot-baby-dog-vision-approach-round4`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round4) (version 1) launched and RUNNING on 2x Nvidia Tesla T4 GPU.
   - Setup: 1M steps, 61 updates, 512 envs, 2 evals (0.5M, 1.0M), 3 cohorts (192 lives per eval), 3h cap.
-  - Parameters: Resuming from candidate `baby_dog_step_0000983040.npz` (`1e164e63…`), `vision_lr = 3e-4`, `voice_lr = 3e-4`, `brain_lr = 5e-6`, teacher movement help 0.0 from rest.
-- **Monitoring:** Active background monitor (`task-2102`) tracking execution.
+  - Resuming from candidate `baby_dog.npz` (`6679c91e…`).
+- **Monitoring:** Active background monitor (`task-2273`) tracking execution.
 
 ## 7. Open problems and next steps
 
