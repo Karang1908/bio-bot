@@ -9,12 +9,12 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 12 Oct 18:50 Dubai:** `baby_dog_vision_approach_round2` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+**Current state, 12 Oct 21:45 Dubai:** `baby_dog_vision_approach_round2` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round2 (version 1).
 Configured with dedicated `vision_lr = 3e-4`, `voice_lr = 3e-4`, connectome rate-model and motor readouts protected at `brain_lr = 5e-6`, clean distance-closing reward (`TASK_PAY * closer + FACE_PAY * turned + REACH_PAY * there`, with `ALIGN_PAY` reverted), 50% rollout task share (25% ball, 25% come), 50% motor rehearsal (10% stand, 28% across 7 gaits, 12% across 2 rest poses), task duration `p_task = 0.0025` (~8 s), 1M steps (61 updates), 512 envs, 2 evals (0.5M, 1.0M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
 Resumed directly from candidate `baby_dog.npz` (`1452d51e…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-selflearn-vision-approach-pilot`.
 Original stage16 (`4af773f4…`) remains the established global best; candidate `baby_dog.npz` (`1452d51e…`) is the **active learning restart candidate**.
-Active API monitor is running in background (`task-1966`).
+Active API monitor is running in background (`task-1995`).
 Kaggle CLI OAuth renewed and verified (`karang1908`).
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
