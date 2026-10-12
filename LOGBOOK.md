@@ -1301,9 +1301,13 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
 3. **Arrival retention:** Target arrival on "come" was retained at 1.56% (3 of 192 dogs reached owner).
 4. **Candidate Promotion:** Intermediate checkpoint `baby_dog_step_0000983040.npz` (`1e164e63…`) achieved the lowest fall rate to date, first net distance closure toward the ball, and positive target facing. It is promoted to the **learning restart candidate**. `stage16_park3_open.npz` (`4af773f4…`) remains the established global best.
 
-
-
-
+**Vision approach round 3 trial (3x TASK_PAY / REACH_PAY and extended unroll) (12 Oct 22:25 Dubai):**
+- **Hypothesis:** In Round 2, snapshot `1e164e63…` demonstrated the first net distance closure toward the ball (-0.007 m) and positive heading (+0.0508 facing cosine), but dogs often stopped short of the 0.35m ball / 1.0m owner arrival thresholds within the 8-second episode window (`p_task = 0.0025`). Tripling `TASK_PAY` and `REACH_PAY` from 1.0 to 3.0 provides a 3x steeper reward gradient for closing distance, while extending `p_task` to 0.0018 (~11 s) gives dogs adequate time to traverse up to 3.5 m.
+- **Preflight:** Remote CPU preflight `bio-bot-baby-dog-vision-round3-preflight` verified (10/10 assertions passed; JIT vision optimizer, SHA256 `1e164e63…`, and 7019 units verified).
+- **GPU Run:** [`bio-bot-baby-dog-vision-approach-round3`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round3) (version 1) launched on 2x Nvidia Tesla T4 GPU.
+  - Setup: 1M steps, 61 updates, 512 envs, 2 evals (0.5M, 1.0M), 3 cohorts (192 lives per eval), 3h cap.
+  - Parameters: Resuming from candidate `baby_dog_step_0000983040.npz` (`1e164e63…`), `vision_lr = 3e-4`, `voice_lr = 3e-4`, `brain_lr = 5e-6`, teacher movement help 0.0 from rest.
+- **Monitoring:** Active background monitor (`task-2102`) tracking execution.
 
 ## 7. Open problems and next steps
 
