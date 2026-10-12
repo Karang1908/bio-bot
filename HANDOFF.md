@@ -9,16 +9,64 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 12 Oct 22:20 Dubai:** `baby_dog_vision_approach_round2` v1 **COMPLETED** on Kaggle GPU (2x Nvidia Tesla T4, 999,424 actual steps).
-Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round2 (version 1).
-Measured outcomes across three fresh cohorts of 64 lives (192 lives per eval):
-1. **Lowest fall rate in project history:** Mean 7-gait falls dropped to **0.2924 falls / 13s** in snapshot `baby_dog_step_0000983040.npz` (`1e164e63…`), improving over pilot (0.2969) and baseline (0.3013). Turn-right falls dropped to 0.2083, run falls to 0.2865.
-2. **First net distance closure to the ball:** Distance to the ball decreased from start 2.481m to end **2.474m**, with positive target facing cosine (**+0.0508**) and 10.94% final-second alignment.
-3. **Arrival retention:** Target arrival on "come" was retained at 1.56% (3 of 192 dogs reached owner).
-4. **All 11 motor skills preserved:** Sit (+0.505 pitch, 0.598 trunk) and lie-down (+0.052 pitch, 0.961 trunk) geometry maintained with zero teacher help.
-Candidate promotion: `baby_dog_step_0000983040.npz` (`1e164e63…`) from `results/baby_dog_vision_approach_round2/` is promoted to the **active learning restart candidate**. Original stage16 (`4af773f4…`) remains the established global best.
+**Current state, 12 Oct 22:25 Dubai:** `baby_dog_vision_approach_round3` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round3 (version 1).
+Configured with 3x steeper reward gradient (`TASK_PAY = 3.0`, `REACH_PAY = 3.0`), extended task unroll duration `p_task = 0.0018` (~11 s), dedicated `vision_lr = 3e-4`, `voice_lr = 3e-4`, connectome rate-model and motor readouts protected at `brain_lr = 5e-6`, clean distance-closing reward (`TASK_PAY * closer + FACE_PAY * turned + REACH_PAY * there`), 50% rollout task share (25% ball, 25% come), 50% motor rehearsal (10% stand, 28% across 7 gaits, 12% across 2 rest poses), 1M steps (61 updates), 512 envs, 2 evals (0.5M, 1.0M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+Resumed directly from promoted candidate `baby_dog_step_0000983040.npz` (`1e164e63…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round2`.
+Remote CPU preflight `baby_dog_vision_round3_preflight` verified (10/10 assertions passed; JIT vision optimizer and SHA256 verified).
+Original stage16 (`4af773f4…`) remains the established global best; candidate `baby_dog_step_0000983040.npz` (`1e164e63…`) is the **active learning restart candidate**.
+Active API monitor is running in background (`task-2102`).
+Kaggle CLI OAuth renewed and verified (`karang1908`).
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
+
+### Latest completed trial: vision approach clean continuation round 2
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round2 (version 1).
+All 61 updates completed (999,424 actual steps, 78.4 min run). Outputs automatically downloaded into `results/baby_dog_vision_approach_round2/`.
+Resumed from pilot candidate `baby_dog.npz` (`1452d51e…`).
+Evaluation across three fresh cohorts of 64 lives = 192 lives per evaluation:
+
+| measured metric (three cohorts, 192 lives) | fresh baseline | 0.5M steps | 1.0M steps (983k candidate) | final 999,424 steps |
+|---|---:|---:|---:|---:|
+| mean seven movement falls / 13 s | 0.2857 | 0.3006 | 0.3080 | 0.3006 |
+| walk falls / 13 s | 0.3021 | 0.3021 | 0.3906 | 0.3073 |
+| pace falls / 13 s | 0.3333 | 0.3750 | 0.3073 | 0.3073 |
+| canter falls / 13 s | 0.2500 | 0.2656 | 0.2552 | 0.2604 |
+| run falls / 13 s | 0.2812 | 0.2917 | 0.2708 | 0.2865 |
+| turn-left falls / 13 s | 0.2812 | 0.2708 | 0.3385 | 0.2969 |
+| turn-right falls / 13 s | 0.2396 | 0.2708 | 0.2135 | 0.2240 |
+| back falls / 13 s | 0.3125 | 0.3281 | 0.3802 | 0.4167 |
+| walk speed, m/s | +0.3709 | +0.3662 | +0.3616 | +0.3640 |
+| pace speed, m/s | +0.4292 | +0.4449 | +0.4470 | +0.4431 |
+| canter speed, m/s | +0.3477 | +0.3444 | +0.3404 | +0.3441 |
+| run speed, m/s | +0.5050 | +0.5303 | +0.5288 | +0.5367 |
+| turn-left yaw, rad/s | +1.4398 | +1.4552 | +1.4300 | +1.4503 |
+| turn-right yaw, rad/s | -1.1610 | -1.1607 | -1.1599 | -1.1585 |
+| backward speed, m/s | -0.1557 | -0.1528 | -0.1491 | -0.1470 |
+| jump speed, m/s | +0.1384 | +0.1387 | +0.1360 | +0.1392 |
+| sit pose (pitch / trunk) | +0.503 / 0.599 | +0.499 / 0.594 | +0.501 / 0.595 | +0.500 / 0.595 |
+| lie-down pose (pitch / trunk) | +0.054 / 0.962 | +0.053 / 0.961 | +0.052 / 0.961 | +0.054 / 0.962 |
+| ball arrival success (got_there) | 0.52% | 0.0% | 0.0% | 0.0% |
+| ball distance drift (start -> end, m) | 2.492 -> 2.512 | 2.483 -> 2.562 | **2.481 -> 2.474** | 2.480 -> 2.529 |
+| ball aligned in final second | 7.82% | 10.09% | **10.94%** | 6.75% |
+| ball final facing cosine | -0.0691 | +0.0388 | **+0.0508** | -0.0054 |
+| owner arrival success (got_there, "come") | 0.52% | 0.52% | **1.56% (3/192)** | 0.52% |
+| owner distance drift (start -> end, m) | 3.661 -> 3.687 | 3.664 -> 3.651 | 3.665 -> 3.731 | 3.662 -> 3.736 |
+| owner aligned in final second | 12.58% | 13.69% | 9.81% | 12.67% |
+| owner final facing cosine | -0.0451 | -0.0057 | **+0.0022** | +0.0119 |
+| ball-right balanced accuracy | 0.593 | 0.597 | 0.579 | 0.582 |
+| owner-left balanced accuracy | 0.598 | 0.606 | 0.610 | 0.611 |
+| owner-ahead balanced accuracy | 0.514 | 0.522 | 0.516 | 0.525 |
+| moving balanced accuracy | 0.697 | 0.707 | 0.707 | 0.712 |
+| dodge hit rate / reaction median | 83.85% / 220 ms | 82.29% / 215 ms | 80.73% / 217 ms | 80.21% / 225 ms |
+
+**Interpretation:**
+1. **First net distance closure to ball:** In snapshot `baby_dog_step_0000983040.npz` (`1e164e63…`), the dog closed distance from 2.481m to 2.474m (-0.007m) and finished facing the ball (+0.0508 cosine, 10.94% final-second alignment).
+2. **"Come" arrival retention:** 1.56% (3 of 192 dogs) reached the owner within 1.0m, with positive facing cosine (+0.0022).
+3. **Locomotion and poses preserved:** Snapshot `1e164e63…` preserved all 11 motor skills with sit (+0.501 / 0.595) and lie-down (+0.052 / 0.961) stable with zero teacher help.
+4. **Candidate promotion:** `baby_dog_step_0000983040.npz` (SHA256 `1e164e6338ab842dcff44377201237a992d369bdce5adee5208a0219926c6263`) promoted to the **active learning restart candidate**.
+
 
 ### Latest completed trial: dedicated vision learning rate approach pilot
 
