@@ -79,7 +79,6 @@ SAY = ["ball-left", "ball-ahead", "ball-right", "owner-left", "owner-ahead", "ow
        "hungry", "hot", "hit", "fallen", "moving"]
 VOICE = 3.0              # how much learning to say what is true counts (at 0.5 it barely trained seeing)
 FACE_PAY = 0.5           # "ball" / "come": reward per rad/s of turning to face what was asked (looking before going)
-ALIGN_PAY = 0.2          # "ball" / "come": reward per second for keeping target in forward field of view (cos > 0)
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
@@ -1519,11 +1518,10 @@ def practice(args, bd, out: Path) -> dict:
                     Rh = d.xmat[:, base]
                     to = goal - d.xpos[:, base, :2]
                     return jp.sum(Rh[:, :2, 0] * to, -1) / (jp.linalg.norm(Rh[:, :2, 0], axis=-1) * jp.linalg.norm(to, axis=-1) + 1e-6)
-                facing_now = facing(env["d"], goal1)
-                turned = jp.where(done, 0.0, jp.clip((facing_now - facing_before) / bd.CTRL_DT, -2.0, 2.0))
+                turned = jp.where(done, 0.0, jp.clip((facing(env["d"], goal1) - facing_before) / bd.CTRL_DT, -2.0, 2.0))
                 # the body scores "stand still" when no motion is asked; a task word asks it to go somewhere
                 still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
-                task_reward = FACE_PAY * turned if lesson == "orient" else TASK_PAY * closer + FACE_PAY * turned + ALIGN_PAY * jp.maximum(0.0, facing_now) + REACH_PAY * there
+                task_reward = FACE_PAY * turned if lesson == "orient" else TASK_PAY * closer + FACE_PAY * turned + REACH_PAY * there
                 if lesson == "perception":
                     task_reward = jp.zeros_like(closer)
                 r = r + is_task[ins] * (task_reward - still + 0.1 * jp.abs(st["wz"])) * bd.CTRL_DT
