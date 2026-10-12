@@ -219,7 +219,25 @@ def make_practice_optimizer(params, brain_lr, voice_lr=None, vision_lr=None, ox=
             return "brain"
         labels["brain"] = {k: label_key(k) for k in params["brain"]}
 
-    return ox.chain(ox.clip_by_global_norm(1.0), ox.multi_transform(transforms, labels))
+    chain = [ox.clip_by_global_norm(1.0), ox.multi_transform(transforms, labels)]
+    if vision_lr is not None and brain_lr > 0:
+        task_scale = float(vision_lr / brain_lr)
+        def scale_task_words(scale: float, task_start_idx: int = 23):
+            def init_fn(p):
+                return ()
+            def update_fn(updates, state, p=None):
+                if isinstance(updates, dict) and "brain" in updates and isinstance(updates["brain"], dict):
+                    if "word_w" in updates["brain"]:
+                        import jax.numpy as jnp
+                        uw = updates["brain"]["word_w"]
+                        if uw.ndim == 2 and uw.shape[0] > task_start_idx:
+                            mult = jnp.ones((uw.shape[0], 1), dtype=uw.dtype).at[task_start_idx:].set(scale)
+                            updates = {**updates, "brain": {**updates["brain"], "word_w": uw * mult}}
+                return updates, state
+            return ox.GradientTransformation(init_fn, update_fn)
+        chain.append(scale_task_words(task_scale))
+
+    return ox.chain(*chain)
 
 
 def protect_outcome_update(updates, outcome_gradient, xp, tree):
