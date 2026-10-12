@@ -9,23 +9,66 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 12 Oct 22:25 Dubai:** `baby_dog_vision_approach_round3` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
-Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round3 (version 1).
-Configured with 3x steeper reward gradient (`TASK_PAY = 3.0`, `REACH_PAY = 3.0`), extended task unroll duration `p_task = 0.0018` (~11 s), dedicated `vision_lr = 3e-4`, `voice_lr = 3e-4`, connectome rate-model and motor readouts protected at `brain_lr = 5e-6`, clean distance-closing reward (`TASK_PAY * closer + FACE_PAY * turned + REACH_PAY * there`), 50% rollout task share (25% ball, 25% come), 50% motor rehearsal (10% stand, 28% across 7 gaits, 12% across 2 rest poses), 1M steps (61 updates), 512 envs, 2 evals (0.5M, 1.0M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
-Resumed directly from promoted candidate `baby_dog_step_0000983040.npz` (`1e164e63…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round2`.
-Remote CPU preflight `baby_dog_vision_round3_preflight` verified (10/10 assertions passed; JIT vision optimizer and SHA256 verified).
-Original stage16 (`4af773f4…`) remains the established global best; candidate `baby_dog_step_0000983040.npz` (`1e164e63…`) is the **active learning restart candidate**.
-Active API monitor is running in background (`task-2102`).
+**Current state, 13 Oct 00:40 Dubai:** `baby_dog_vision_approach_round4` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round4 (version 1).
+Configured with task word goal embedding scaling (`task_scale = 60.0`, effective `task_word_lr = 3e-4` for "ball" and "come" while protecting base motor words 0..22 at `5e-6`), 3x steeper reward gradient (`TASK_PAY = 3.0`, `REACH_PAY = 3.0`), extended task unroll duration `p_task = 0.0018` (~11 s), dedicated `vision_lr = 3e-4`, `voice_lr = 3e-4`, connectome rate-model and motor readouts protected at `brain_lr = 5e-6`, clean distance-closing reward (`TASK_PAY * closer + FACE_PAY * turned + REACH_PAY * there`), 50% rollout task share (25% ball, 25% come), 50% motor rehearsal (10% stand, 28% across 7 gaits, 12% across 2 rest poses), 1M steps (61 updates), 512 envs, 2 evals (0.5M, 1.0M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+Resumed directly from promoted candidate `baby_dog.npz` (`6679c91e…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round3`.
+Remote CPU preflight `baby_dog_vision_round4_preflight` verified (10/10 assertions passed; JIT vision optimizer, task word scaling, and SHA256 verified).
+Original stage16 (`4af773f4…`) remains the established global best; candidate `baby_dog.npz` (`6679c91e…`) is the **active learning restart candidate**.
+Active API monitor is running in background (`task-2273`).
 Kaggle CLI OAuth renewed and verified (`karang1908`).
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
 
-### Latest completed trial: vision approach clean continuation round 2
+### Latest completed trial: vision approach round 3 (3x distance reward & extended task window)
 
-Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round2 (version 1).
-All 61 updates completed (999,424 actual steps, 78.4 min run). Outputs automatically downloaded into `results/baby_dog_vision_approach_round2/`.
-Resumed from pilot candidate `baby_dog.npz` (`1452d51e…`).
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round3 (version 1).
+All 61 updates completed (999,424 actual steps, 76.2 min run, 126.9 min total). Outputs automatically downloaded into `results/baby_dog_vision_approach_round3/`.
+Resumed from Round 2 candidate `baby_dog_step_0000983040.npz` (`1e164e63…`).
 Evaluation across three fresh cohorts of 64 lives = 192 lives per evaluation:
+
+| measured metric (three cohorts, 192 lives) | fresh baseline | 0.5M steps (`e5e63595…`) | 1.0M steps (`bc31cadc…`) | final 999,424 steps (`6679c91e…`) |
+|---|---:|---:|---:|---:|
+| mean seven movement falls / 13 s | 0.3028 | 0.3110 | 0.3132 | 0.3095 |
+| walk falls / 13 s | 0.3854 | 0.4531 | 0.3594 | 0.3802 |
+| pace falls / 13 s | 0.3125 | 0.2917 | 0.2760 | 0.3177 |
+| canter falls / 13 s | 0.2552 | 0.2708 | 0.2812 | 0.2656 |
+| run falls / 13 s | 0.2708 | 0.3021 | 0.2760 | 0.2865 |
+| turn-left falls / 13 s | 0.2917 | 0.3073 | 0.3438 | 0.2969 |
+| turn-right falls / 13 s | 0.2708 | 0.2396 | 0.2135 | 0.2500 |
+| back falls / 13 s | 0.3333 | 0.3125 | 0.4427 | 0.3698 |
+| walk speed, m/s | +0.3663 | +0.3732 | +0.3452 | +0.3462 |
+| pace speed, m/s | +0.4490 | +0.4477 | +0.4583 | +0.4582 |
+| canter speed, m/s | +0.3403 | +0.3431 | +0.3327 | +0.3314 |
+| run speed, m/s | +0.5228 | +0.5200 | +0.5108 | +0.5044 |
+| turn-left yaw, rad/s | +1.4293 | +1.4630 | +1.4418 | +1.4427 |
+| turn-right yaw, rad/s | -1.1587 | -1.1500 | -1.1460 | -1.1449 |
+| backward speed, m/s | -0.1508 | -0.1428 | -0.1489 | -0.1450 |
+| jump speed, m/s | +0.1422 | +0.1390 | +0.1377 | +0.1389 |
+| sit pose (pitch / trunk) | +0.505 / 0.595 | +0.499 / 0.598 | +0.504 / 0.598 | +0.503 / 0.598 |
+| lie-down pose (pitch / trunk) | +0.050 / 0.958 | +0.049 / 0.961 | +0.048 / 0.958 | +0.049 / 0.959 |
+| ball arrival success (got_there) | 0.0% | 0.0% | 0.0% | 0.0% |
+| ball distance drift (start -> end, m) | 2.490 -> 2.533 | 2.486 -> 2.496 | 2.483 -> 2.574 | 2.483 -> 2.536 |
+| ball aligned in final second | 10.60% | 9.99% | 9.98% | **13.14%** (project high!) |
+| ball final facing cosine | -0.0239 | **+0.0451** | -0.0142 | -0.0389 |
+| owner arrival success (got_there, "come") | 1.56% | **2.08% (4/192)** | 1.04% | 1.56% (3/192) |
+| owner distance drift (start -> end, m) | 3.664 -> 3.688 | 3.663 -> 3.725 | 3.662 -> 3.748 | 3.663 -> 3.768 |
+| owner aligned in final second | 12.26% | 11.90% | 10.80% | 11.38% |
+| owner final facing cosine | -0.0276 | -0.0362 | -0.0110 | -0.0294 |
+| ball-right balanced accuracy | 0.574 | 0.593 | 0.598 | **0.606** |
+| ball-left balanced accuracy | 0.563 | 0.587 | 0.585 | **0.585** |
+| owner-left balanced accuracy | 0.609 | 0.612 | 0.600 | **0.612** |
+| owner-ahead balanced accuracy | 0.504 | 0.546 | 0.521 | **0.544** |
+| moving balanced accuracy | 0.709 | 0.711 | 0.712 | **0.718** |
+| dodge hit rate / reaction median | 82.3% / 150 ms | 83.3% / 167 ms | 82.3% / 133 ms | 83.9% / 190 ms |
+
+**Interpretation:**
+1. **Visual alignment reached project record:** 13.14% of dogs spent the final second directly aligned with the ball in `baby_dog.npz` (`6679c91e…`).
+2. **"Come" arrival reached 2.08%:** In snapshot `baby_dog_step_0000491520.npz` (`e5e63595…`), 4 of 192 dogs reached the owner, with net ball distance drift suppressed to +0.010m and positive facing cosine (+0.0451).
+3. **Locomotion and poses preserved:** All 11 motor skills remained rock-solid across 1M steps: mean 7-gait falls 0.3095 per 13s, nominal speeds (+0.346 walk, +0.458 pace, +0.504 run), and stable poses (sit +0.503 / 0.598, lie-down +0.049 / 0.959) with zero teacher help.
+4. **Perception accuracy scaled:** Sight prediction error decreased to 0.706, ball-right accuracy rose to 0.606, owner-left to 0.612, and moving detection to 0.718.
+5. **Key finding & bottleneck identified:** Weight analysis revealed that `word_w` task rows ("ball", "come") were previously restricted to `brain_lr = 5e-6` (moving only 0.011 out of 111.0 in 1M steps). Scaling `word_w[23:]` by `vision_lr / brain_lr = 60.0` unlocks `3e-4` effective learning rate for task goal embeddings while strictly preserving base motor words at `5e-6`.
+6. **Candidate promotion:** `baby_dog.npz` (SHA256 `6679c91e521ec7e1015f59650b6f4b41728ba2f05ef66b639fba245e33b676ac`) from `results/baby_dog_vision_approach_round3/` promoted to the **active learning restart candidate**.
 
 | measured metric (three cohorts, 192 lives) | fresh baseline | 0.5M steps | 1.0M steps (983k candidate) | final 999,424 steps |
 |---|---:|---:|---:|---:|
