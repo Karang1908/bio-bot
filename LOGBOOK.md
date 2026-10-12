@@ -1261,6 +1261,14 @@ To scale "come" arrival from 2.6% to >15% and break through "ball" arrival (stal
 3. **Reversion and Rejection:** `ALIGN_PAY` was immediately reverted from `train/baby_dog.py`. Checkpoints from this trial are **REJECTED**.
 4. **Active Checkpoints:** `baby_dog.npz` (`1452d51e…`) from `baby_dog_selflearn_vision_approach_pilot` remains the promoted active learning restart candidate. `stage16_park3_open.npz` (`4af773f4…`) remains the global best.
 
+**Clean vision approach round 2 submission (12 Oct 18:45 Dubai):**
+With `ALIGN_PAY` removed to restore clean distance-closing reinforcement (`TASK_PAY * closer + FACE_PAY * turned + REACH_PAY * there`), round 2 was launched directly from candidate `baby_dog.npz` (`1452d51e…`):
+- Kernel: [`bio-bot-baby-dog-vision-approach-round2`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round2) (version 1) on 2x Nvidia Tesla T4.
+- Configuration: `lesson=approach`, `brain_lr=5e-6`, `voice_lr=3e-4`, `vision_lr=3e-4`, `--protect_skills`, 1M steps (61 updates), 512 envs, 2 evals (0.5M, 1.0M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+- Checkpoint: resumed from candidate `baby_dog.npz` (`1452d51e…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-selflearn-vision-approach-pilot`.
+- Status: QUEUED / RUNNING; background API monitor active (`task-1966`).
+
+
 
 
 
