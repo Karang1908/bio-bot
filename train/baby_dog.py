@@ -65,8 +65,8 @@ JUMP_REWARD = 1.0        # reward per second with all four feet off the ground w
 SELF_MODEL = 0.5         # in the park: how much predicting its own senses counts (its model of itself)
 # goals in the park (DogMind step 5), scored by outcome only: nobody shows it how
 TASKS = ["ball", "come"]  # "ball": go to the ball; "come": go to the owner
-TASK_PAY = 1.0           # reward per m/s of getting closer to what was asked
-REACH_PAY = 1.0          # reward per second with its nose at the ball (or by the owner)
+TASK_PAY = 3.0           # reward per m/s of getting closer to what was asked
+REACH_PAY = 3.0          # reward per second with its nose at the ball (or by the owner)
 NEAR = {"ball": 0.35, "come": 1.0}   # m: at the ball, by the owner
 HIT_COST = 2.0           # being hit by a thrown thing costs about as much as a fall
 # drives (DogMind step 6): free time when nobody speaks, hunger (the battery) and curiosity
@@ -1433,7 +1433,7 @@ def practice(args, bd, out: Path) -> dict:
         def one(carry, k):
             env, s, ins, air_ema = carry
             k_new, k_sw, k_wob, k_push, k_size, k_act = jax.random.split(k, 6)
-            p_task = 0.0025 if lesson in ("orient", "approach") else 0.008
+            p_task = 0.0018 if lesson in ("orient", "approach") else 0.008
             switch = jax.random.uniform(k_sw, (B,)) < jp.where(is_task[ins], p_task, jp.where(is_gait[ins], 0.006, 0.008))
             new_ins = jp.where(switch, jax.random.choice(k_new, n_i, (B,), p=choose), ins)
             spoke = (new_ins != ins) & ~is_free[new_ins]  # the owner said something new (the ears hear the voice)
