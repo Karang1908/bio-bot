@@ -1220,10 +1220,46 @@ GPU trial `baby_dog_selflearn_vision_approach_pilot` (version 1) completed on 2x
 To scale "come" arrival from 2.6% to >15% and break through "ball" arrival (stalled at 0.0% due to the 0.35m arrival threshold vs smaller 0.11m target radius):
 1. Enhanced heading alignment reward: Added `ALIGN_PAY = 0.2` in `train/baby_dog.py`, rewarding continuous target facing (`ALIGN_PAY * jp.maximum(0.0, facing_now)`) during approach lessons. This provides a continuous potential field reinforcing forward locomotion whenever the target is maintained in the forward field of view, while standing still remains strictly penalized by the `-still` penalty (-1.0/s).
 2. Remote CPU preflight `bio-bot-baby-dog-vision-continue-preflight` verified on free Kaggle CPU (version 1, 7,019 units, 502,438 connections, SHA256 `1452d51e…` verified, optimizer under JIT verified to train vision frontend while keeping motor weights frozen, all 10 checks passed).
-3. GPU trial `baby_dog_vision_approach_continue` submitted to 2x Nvidia Tesla T4 (https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-continue):
-   - Configuration: `lesson=approach`, `brain_lr=5e-6`, `voice_lr=3e-4`, `vision_lr=3e-4`, `--protect_skills`, 1.5M steps (91 updates), 512 envs, 3 evals (~0.5M, ~1.0M, ~1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
-   - Resuming directly from the promoted candidate `baby_dog.npz` (`1452d51e…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-selflearn-vision-approach-pilot`.
-   - Status: RUNNING; background API monitor active (`task-1852`).
+3. GPU trial `baby_dog_vision_approach_continue` completed on 2x Nvidia Tesla T4 (https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-continue, 12 Oct Dubai):
+   - Configuration: `lesson=approach`, `brain_lr=5e-6`, `voice_lr=3e-4`, `vision_lr=3e-4`, `--protect_skills`, 1.5M steps (91 updates), 512 envs, 3 evals, 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+   - Resumed from candidate `baby_dog.npz` (`1452d51e…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-selflearn-vision-approach-pilot`.
+   - All terminal outputs fetched to `results/baby_dog_vision_approach_continue/`.
+
+| measured metric (three cohorts, 192 lives) | fresh baseline | final 1,490,944 steps |
+|---|---:|---:|
+| mean seven movement falls / 13 s | 0.3036 | 0.3155 |
+| walk falls / 13 s | 0.3385 | 0.4167 |
+| pace falls / 13 s | 0.3333 | 0.2969 |
+| canter falls / 13 s | 0.2292 | 0.2448 |
+| run falls / 13 s | 0.2813 | 0.3021 |
+| turn-left falls / 13 s | 0.2865 | 0.3229 |
+| turn-right falls / 13 s | 0.2500 | 0.2396 |
+| back falls / 13 s | 0.4063 | 0.3854 |
+| walk speed, m/s | +0.3630 | +0.3643 |
+| pace speed, m/s | +0.4244 | +0.4334 |
+| canter speed, m/s | +0.3509 | +0.3502 |
+| run speed, m/s | +0.4995 | +0.5076 |
+| turn-left yaw, rad/s | +1.5206 | +1.4477 |
+| turn-right yaw, rad/s | -1.1816 | -1.1784 |
+| backward speed, m/s | -0.1436 | -0.1524 |
+| jump speed, m/s | +0.1538 | +0.1381 |
+| sit pose (pitch / trunk) | +0.507 / 0.599 | +0.509 / 0.602 |
+| lie-down pose (pitch / trunk) | +0.055 / 0.962 | +0.051 / 0.964 |
+| ball arrival success (got_there) | 0.0% | 0.0% |
+| ball distance drift (start -> end, m) | 2.481 -> 2.580 | 2.491 -> 2.576 |
+| ball aligned in final second | 7.22% | 8.54% |
+| ball final facing cosine | -0.092 | -0.029 |
+| owner arrival success (got_there, "come") | 2.60% (5/192) | 0.0% (0/192) |
+| owner distance drift (start -> end, m) | 3.666 -> 3.655 | 3.664 -> 3.756 |
+| owner aligned in final second | 10.57% | 8.23% |
+| owner final facing cosine | -0.056 | +0.003 |
+| dodge hit rate / reaction median | 77.08% / 277 ms | 82.29% / 117 ms |
+
+**Interpretation and Decision:**
+1. **ALIGN_PAY acted as a distractor:** While facing cosine improved slightly (-0.056 -> +0.003 for owner, -0.092 -> -0.029 for ball), paying continuous reward for maintaining line-of-sight disincentivized physical forward distance travel. "Come" target arrival success dropped from 2.60% (at 0 steps) to 1.56% (at 0.5M), 0.52% (at 1.0M), and 0.0% (at 1.5M).
+2. **Motor stability degraded:** Mean falls across the 7 gaits rose from 0.3036 to 0.3155, with walking falls regressing sharply from 0.3385 to 0.4167 per 13s.
+3. **Reversion and Rejection:** `ALIGN_PAY` was immediately reverted from `train/baby_dog.py`. Checkpoints from this trial are **REJECTED**.
+4. **Active Checkpoints:** `baby_dog.npz` (`1452d51e…`) from `baby_dog_selflearn_vision_approach_pilot` remains the promoted active learning restart candidate. `stage16_park3_open.npz` (`4af773f4…`) remains the global best.
 
 
 
