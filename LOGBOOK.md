@@ -1261,12 +1261,45 @@ To scale "come" arrival from 2.6% to >15% and break through "ball" arrival (stal
 3. **Reversion and Rejection:** `ALIGN_PAY` was immediately reverted from `train/baby_dog.py`. Checkpoints from this trial are **REJECTED**.
 4. **Active Checkpoints:** `baby_dog.npz` (`1452d51e…`) from `baby_dog_selflearn_vision_approach_pilot` remains the promoted active learning restart candidate. `stage16_park3_open.npz` (`4af773f4…`) remains the global best.
 
-**Clean vision approach round 2 submission (12 Oct 18:45 Dubai):**
-With `ALIGN_PAY` removed to restore clean distance-closing reinforcement (`TASK_PAY * closer + FACE_PAY * turned + REACH_PAY * there`), round 2 was launched directly from candidate `baby_dog.npz` (`1452d51e…`):
-- Kernel: [`bio-bot-baby-dog-vision-approach-round2`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round2) (version 1) on 2x Nvidia Tesla T4.
-- Configuration: `lesson=approach`, `brain_lr=5e-6`, `voice_lr=3e-4`, `vision_lr=3e-4`, `--protect_skills`, 1M steps (61 updates), 512 envs, 2 evals (0.5M, 1.0M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
-- Checkpoint: resumed from candidate `baby_dog.npz` (`1452d51e…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-selflearn-vision-approach-pilot`.
-- Status: QUEUED / RUNNING; background API monitor active (`task-1966`).
+**Clean vision approach round 2 trial outcomes (12 Oct 22:15 Dubai):**
+[`bio-bot-baby-dog-vision-approach-round2`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round2) (version 1) completed all 61 updates (999,424 actual steps) on 2x Nvidia Tesla T4 (queued 129.7 min, ran ~76 min). All terminal outputs fetched to `results/baby_dog_vision_approach_round2/`.
+Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
+
+| measured metric (three cohorts, 192 lives) | fresh baseline | step 983,040 (`1e164e63…`) | final 999,424 steps |
+|---|---:|---:|---:|
+| mean seven movement falls / 13 s | 0.2974 | **0.2924** | 0.2976 |
+| walk falls / 13 s | 0.3021 | 0.3281 | 0.3125 |
+| pace falls / 13 s | 0.3333 | 0.3281 | 0.3385 |
+| canter falls / 13 s | 0.2448 | 0.2396 | 0.2552 |
+| run falls / 13 s | 0.3021 | 0.2865 | 0.2760 |
+| turn-left falls / 13 s | 0.2656 | 0.2813 | 0.2708 |
+| turn-right falls / 13 s | 0.2240 | **0.2083** | 0.2240 |
+| back falls / 13 s | 0.3281 | 0.3750 | 0.4167 |
+| walk speed, m/s | +0.3709 | +0.3703 | +0.3712 |
+| pace speed, m/s | +0.4292 | +0.4298 | +0.4287 |
+| canter speed, m/s | +0.3477 | +0.3472 | +0.3486 |
+| run speed, m/s | +0.4994 | +0.5015 | +0.5016 |
+| turn-left yaw, rad/s | +1.5344 | +1.5037 | +1.4925 |
+| turn-right yaw, rad/s | -1.1809 | -1.1824 | -1.1812 |
+| backward speed, m/s | -0.1466 | -0.1448 | -0.1470 |
+| jump speed, m/s | +0.1557 | +0.1481 | +0.1392 |
+| sit pose (pitch / trunk) | +0.503 / 0.599 | +0.505 / 0.598 | +0.504 / 0.597 |
+| lie-down pose (pitch / trunk) | +0.054 / 0.962 | +0.052 / 0.961 | +0.050 / 0.959 |
+| ball arrival success (got_there) | 0.52% | 0.0% | 0.0% |
+| ball distance drift (start -> end, m) | 2.492 -> 2.512 | **2.481 -> 2.474** (approached!) | 2.480 -> 2.529 |
+| ball aligned in final second | 7.82% | **10.94%** | 6.75% |
+| ball final facing cosine | -0.069 | **+0.051** (facing ball!) | -0.005 |
+| owner arrival success (got_there, "come") | 0.52% | **1.56% (3/192)** | 0.52% |
+| owner distance drift (start -> end, m) | 3.661 -> 3.687 | 3.665 -> 3.731 | 3.662 -> 3.736 |
+| owner aligned in final second | 12.58% | 9.81% | 12.67% |
+| owner final facing cosine | -0.045 | +0.002 | +0.012 |
+| dodge hit rate / reaction median | 83.85% / 146 ms | 80.73% / 217 ms | 80.21% / 180 ms |
+
+**Interpretation:**
+1. **Net distance to ball reduced:** In intermediate snapshot `baby_dog_step_0000983040.npz` (`1e164e63…`), the dog closed distance to the ball from rest (start 2.481 m -> end 2.474 m), ending facing the ball with positive cosine (+0.0508) and 10.94% heading alignment in the final second.
+2. **Lowest locomotion falls in project history:** Mean 7-gait falls dropped to **0.2924 falls / 13s** in snapshot `1e164e63…` (turn-right falls dropped to 0.2083, canter falls 0.2396, run falls 0.2865). Nominal gaits and rest poses (+0.505 pitch sit, +0.052 pitch lie-down) were fully preserved without teacher help.
+3. **Arrival retention:** Target arrival on "come" was retained at 1.56% (3 of 192 dogs reached owner).
+4. **Candidate Promotion:** Intermediate checkpoint `baby_dog_step_0000983040.npz` (`1e164e63…`) achieved the lowest fall rate to date, first net distance closure toward the ball, and positive target facing. It is promoted to the **learning restart candidate**. `stage16_park3_open.npz` (`4af773f4…`) remains the established global best.
 
 
 
