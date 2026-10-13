@@ -65,8 +65,8 @@ JUMP_REWARD = 1.0        # reward per second with all four feet off the ground w
 SELF_MODEL = 0.5         # in the park: how much predicting its own senses counts (its model of itself)
 # goals in the park (DogMind step 5), scored by outcome only: nobody shows it how
 TASKS = ["ball", "come"]  # "ball": go to the ball; "come": go to the owner
-TASK_PAY = 6.0           # reward per m/s of getting closer to what was asked
-REACH_PAY = 10.0         # reward per second with its nose at the ball (or by the owner)
+TASK_PAY = 16.0          # reward per m/s of getting closer to what was asked
+REACH_PAY = 25.0         # reward per second with its nose at the ball (or by the owner)
 NEAR = {"ball": 0.35, "come": 1.0}   # m: at the ball, by the owner
 HIT_COST = 2.0           # being hit by a thrown thing costs about as much as a fall
 # drives (DogMind step 6): free time when nobody speaks, hunger (the battery) and curiosity
@@ -78,9 +78,9 @@ CURIOSITY = 2.0          # reward per unit of learning progress (its sight surpr
 SAY = ["ball-left", "ball-ahead", "ball-right", "owner-left", "owner-ahead", "owner-right",
        "hungry", "hot", "hit", "fallen", "moving"]
 VOICE = 3.0              # how much learning to say what is true counts (at 0.5 it barely trained seeing)
-FACE_PAY = 1.5           # "ball" / "come": reward per rad/s of turning to face what was asked (looking before going)
-FWD_PAY = 6.0            # "ball" / "come": reward for forward speed aligned with task target
-YAW_PAY = 2.0            # "ball" / "come": reward for yaw rate directed towards task target
+FACE_PAY = 4.0           # "ball" / "come": reward per rad/s of turning to face what was asked (looking before going)
+FWD_PAY = 16.0           # "ball" / "come": reward for forward speed aligned with task target
+YAW_PAY = 0.0            # "ball" / "come": reward for yaw rate directed towards task target (0: eliminate spinning bonus)
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
@@ -1552,7 +1552,7 @@ def practice(args, bd, out: Path) -> dict:
                 fwd_toward = jp.maximum(0.0, st["v_fwd"]) * jp.clip(cos_facing, 0.0, 1.0)
                 yaw_toward = st["wz"] * jp.clip(sin_lat, -1.0, 1.0)
                 # the body scores "stand still" when no motion is asked; a task word asks it to go somewhere (turning or walking)
-                still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2 + st["wz"] ** 2) / 0.05)
+                still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
                 face_pay = getattr(args, "face_pay", FACE_PAY)
                 task_pay = getattr(args, "task_pay", TASK_PAY)
                 reach_pay = getattr(args, "reach_pay", REACH_PAY)
@@ -1561,7 +1561,7 @@ def practice(args, bd, out: Path) -> dict:
                 task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + fwd_pay * fwd_toward + yaw_pay * yaw_toward
                 if lesson == "perception":
                     task_reward = jp.zeros_like(closer)
-                r = r + is_task[ins] * (task_reward - still + 0.1 * jp.abs(st["wz"])) * bd.CTRL_DT
+                r = r + is_task[ins] * (task_reward - still) * bd.CTRL_DT
             if free:                                     # free time is its own: nothing asks it to stand still
                 still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
                 curiosity = CURIOSITY * progress if lesson == "all" else jp.zeros_like(progress)
