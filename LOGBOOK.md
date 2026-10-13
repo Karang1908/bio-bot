@@ -1781,6 +1781,59 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
 3. **The Rotational Opportunity Cost Trap:** Summing `turned * dt` over a life yields only $\cos_T - \cos_0$, earning at most $+12.0$ total reward for a 180° turn, whereas forward walking earns $+79.2$ over the same window. Turning on the spot forfeited $+7.92\text{/s}$ of forward propulsion while paying the stillness penalty, deterring on-the-spot orientation before forward stepping. Directional yaw rate drive (`yaw_toward = wz * lateral`) and exempting active turning from stillness penalties are required to unlock on-the-spot orientation.
 4. **Candidate Promotion:** Snapshot `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10) remains the active **learning restart candidate** (highest arrival 3.12%, lowest 7-gait falls 0.2649), with snapshot `43c754b0…` (Round 11) preserved for peak perception (0.667).
 
+**Vision approach round 12 trial (directional yaw rate drive, rotation-aware stillness penalty, and terminal reach scaling) (13-14 Oct Dubai):**
+- **Hypothesis:** In Round 11, turning on the spot was penalized by the stillness penalty (`still = exp(-v^2/0.05)` when $v_{fwd}=0$), and rotational orientation was capped by the opportunity cost against forward propulsion. In Round 12, adding a directional yaw rate drive (`yaw_toward = wz * clip(sin_lat, -1, 1) * yaw_pay`), making stillness rotation-aware (`still = exp(-(v_fwd^2 + v_side^2 + wz^2)/0.05)`), and increasing terminal arrival reward (`REACH_PAY = 25.0`) should incentivize dogs to actively swivel toward the visual target without incurring stillness penalties.
+- **Preflight:** Remote CPU preflight `bio-bot-baby-dog-vision-round12-preflight` verified (14/14 assertions passed on Kaggle CPU; lateral projection, yaw rate drive, rotation-aware stillness, and candidate SHA256 `5a534b32…` verified).
+- **GPU Run:** [`bio-bot-baby-dog-vision-approach-round12`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round12) (version 1) completed all 91 updates (1,490,944 actual steps, 98.9 min run time) on 2x Nvidia Tesla T4 GPU.
+  - Setup: 1.5M steps, 91 updates, 512 envs, 3 evals (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+  - Resumed from candidate `baby_dog_step_0000491520.npz` (`5a534b32…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`.
+  - All outputs fetched to `results/baby_dog_vision_approach_round12/`: `baby_dog.npz`, snapshots at 491k, 983k, 1.47M, 1.49M steps, `practice.json`, and `log.txt`.
+  - Checkpoint SHA256 hashes:
+    - `baby_dog_step_0000491520.npz`: `ecfd902fa15417aaa2e263b3d406961c9c70146d3f61c63270576f0f1c8934dc`
+    - `baby_dog_step_0000983040.npz`: `f78dd9310dff5ff4f30d0225842a1575803a2271499e3f2d1d8976c7b83eeb73`
+    - `baby_dog_step_0001474560.npz`: `cbfed3d9a9ecdb0eb53b5fe0881152efd52aea0d15a7c65b86d5eb8127158096`
+    - `baby_dog_step_0001490944.npz`: `b7af75e59beb07b660d81dd8e8fdc7befe9df5432fe9f6f15655499f0d7c6d68`
+    - `baby_dog.npz`: `fbc61de75d451d460510d7d65c0fe009f7b91d7ae0805a0ccc1a3612af52ab83`
+
+**Measured Outcomes across 3 fresh cohorts (192 lives per evaluation):**
+
+| measured metric (three cohorts, 192 lives) | baseline (0M) | 0.5M (`ecfd902f…`) | 1.0M (`f78dd931…`) | 1.5M snap (`cbfed3d9…`) | final 1.49M (`b7af75e5…`) |
+|---|---:|---:|---:|---:|---:|
+| **owner arrival success (got_there, 'come')** | 1.04% (2/192) | **2.08% (4/192)** | 1.04% (2/192) | 0.52% (1/192) | 0.52% (1/192) |
+| owner distance drift (start -> end, m) | 3.663 -> 3.623 (-4.0 cm) | 3.662 -> 3.742 (+8.0 cm) | 3.663 -> 3.643 (-2.0 cm) | 3.662 -> 3.736 (+7.4 cm) | 3.663 -> 3.694 (+3.1 cm) |
+| owner aligned in final second | 12.19% | 9.72% | 11.98% | 10.27% | 9.38% |
+| owner final facing cosine | -0.0210 | -0.0435 | +0.0044 | +0.0051 | +0.0040 |
+| owner task falls / 13 s | **0.1823** | 0.1875 | 0.2083 | 0.2396 | 0.2448 |
+| **ball arrival success (got_there)** | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) |
+| ball distance drift (start -> end, m) | 2.481 -> 2.518 (+3.7 cm) | 2.492 -> 2.486 (-0.6 cm) | 2.482 -> 2.544 (+6.2 cm) | 2.481 -> 2.543 (+6.2 cm) | 2.488 -> 2.493 (+0.5 cm) |
+| ball aligned in final second | 9.60% | 10.56% | 10.89% | 10.76% | 8.29% |
+| ball final facing cosine | -0.0081 | **+0.0613** | +0.0264 | +0.0367 | +0.0349 |
+| ball task falls / 13 s | 0.1615 | **0.1510** | 0.1667 | 0.1875 | 0.1771 |
+| **mean seven movement falls / 13 s** | 0.2768 | **0.2693** | 0.2768 | 0.2865 | 0.2812 |
+| walk falls / 13 s | 0.4115 | 0.4115 | 0.4427 | 0.4479 | 0.4271 |
+| pace falls / 13 s | 0.2708 | **0.2292** | 0.2396 | 0.2448 | 0.2604 |
+| canter falls / 13 s | **0.2188** | 0.2344 | 0.2292 | 0.2448 | 0.2396 |
+| run falls / 13 s | 0.2448 | 0.2604 | 0.2812 | 0.2708 | **0.2448** |
+| turn-left falls / 13 s | 0.2500 | 0.2552 | **0.2188** | 0.2448 | 0.2500 |
+| turn-right falls / 13 s | **0.1771** | 0.1927 | 0.1927 | 0.2031 | 0.2083 |
+| back falls / 13 s | 0.3646 | **0.3021** | 0.3333 | 0.3490 | 0.3385 |
+| walk speed, m/s | +0.3319 | +0.3226 | +0.3142 | +0.3152 | +0.3174 |
+| pace speed, m/s | +0.4646 | +0.4513 | +0.4488 | +0.4590 | +0.4552 |
+| canter speed, m/s | +0.3094 | +0.3007 | +0.3020 | +0.3043 | +0.2984 |
+| run speed, m/s | **+0.4910** | +0.4807 | +0.4700 | +0.4735 | +0.4668 |
+| **ball-left balanced accuracy** | 0.653 | 0.636 | 0.653 | **0.656** | 0.653 |
+| **ball-ahead balanced accuracy** | 0.630 | 0.632 | **0.655** | 0.641 | 0.607 |
+| **ball-right balanced accuracy** | 0.642 | **0.648** | 0.646 | 0.641 | 0.644 |
+| **owner-left balanced accuracy** | 0.639 | 0.639 | **0.647** | 0.642 | **0.647** |
+| **owner-ahead balanced accuracy** | 0.619 | 0.597 | 0.602 | **0.635** | 0.610 |
+| **owner-right balanced accuracy** | 0.606 | 0.616 | **0.619** | 0.615 | 0.615 |
+| **object dodge balanced accuracy** | 0.871 | 0.872 | 0.880 | 0.850 | **0.889** |
+
+**Key Findings & Mechanism:**
+1. **Locomotion Stability & Perception Preserved:** All 11 nominal motor skills and 7 gaits remained stable throughout fine-tuning (mean movement falls 0.2693 to 0.2865 falls / 13s). Perception balanced accuracy remained high across all categories (0.61–0.66, dodging reaction 0.889).
+2. **Rotational Turning Trade-off with Forward Translation:** Introducing high yaw rate incentive (`yaw_pay = 4.0`, `wz * sin_lat`) created positive facing cosines (ball facing cosine peaked at $+0.0613$ at 0.5M steps), but incentivized excessive turning and lateral stepping over forward translation. In a strictly bounded 10-second test window, turning consumes precious time; without sustained high-speed forward translation ($v_{fwd} > 0.40\text{ m/s}$), the dog cannot cover the 3.66m spawn distance. Owner arrival peaked at 2.08% at 0.5M steps and fell to 0.52% by 1.5M steps.
+3. **Candidate Promotion:** Snapshot `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10) remains the active **learning restart candidate** (highest arrival 3.12%, lowest 7-gait falls 0.2649). None of the Round 12 checkpoints supersede it.
+
 
 ## 7. Open problems and next steps
 
