@@ -65,8 +65,8 @@ JUMP_REWARD = 1.0        # reward per second with all four feet off the ground w
 SELF_MODEL = 0.5         # in the park: how much predicting its own senses counts (its model of itself)
 # goals in the park (DogMind step 5), scored by outcome only: nobody shows it how
 TASKS = ["ball", "come"]  # "ball": go to the ball; "come": go to the owner
-TASK_PAY = 3.0           # reward per m/s of getting closer to what was asked
-REACH_PAY = 5.0          # reward per second with its nose at the ball (or by the owner)
+TASK_PAY = 6.0           # reward per m/s of getting closer to what was asked
+REACH_PAY = 10.0         # reward per second with its nose at the ball (or by the owner)
 NEAR = {"ball": 0.35, "come": 1.0}   # m: at the ball, by the owner
 HIT_COST = 2.0           # being hit by a thrown thing costs about as much as a fall
 # drives (DogMind step 6): free time when nobody speaks, hunger (the battery) and curiosity
