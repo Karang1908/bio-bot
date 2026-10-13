@@ -79,6 +79,7 @@ SAY = ["ball-left", "ball-ahead", "ball-right", "owner-left", "owner-ahead", "ow
        "hungry", "hot", "hit", "fallen", "moving"]
 VOICE = 3.0              # how much learning to say what is true counts (at 0.5 it barely trained seeing)
 FACE_PAY = 1.5           # "ball" / "come": reward per rad/s of turning to face what was asked (looking before going)
+FWD_PAY = 6.0            # "ball" / "come": reward for forward speed aligned with task target
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
@@ -1493,6 +1494,7 @@ def practice(args, bd, out: Path) -> dict:
                 guide = jp.where(has_style[ins][:, None], v_lines(env, dog_next), guide)
             if args.park:
                 w0, head0 = v_where(env["d"]), head_of(env["d"])
+                trunk0 = env["d"].xpos[:, base, :2]
                 battery0 = env["world"]["battery"]
                 if tasks:
                     goal_b = jp.where(to_ball[ins][:, None], w0["ball"][:, :2], w0["owner"][:, :2])
@@ -1528,23 +1530,27 @@ def practice(args, bd, out: Path) -> dict:
                     r = r + (ins == said.index("jump")) * JUMP_REWARD * flying * bd.CTRL_DT
             if tasks:                                    # going to what was asked: getting closer, and getting there
                 w1, head1 = v_where(env["d"]), head_of(env["d"])
+                trunk1 = env["d"].xpos[:, base, :2]
                 goal0 = jp.where(to_ball[ins][:, None], w0["ball"][:, :2], w0["owner"][:, :2])
                 goal1 = jp.where(to_ball[ins][:, None], w1["ball"][:, :2], w1["owner"][:, :2])
-                gap0 = jp.linalg.norm(head0[:, :2] - goal0, axis=-1)
-                gap1 = jp.linalg.norm(head1[:, :2] - goal1, axis=-1)
+                gap0 = jp.linalg.norm(trunk0 - goal0, axis=-1)
+                gap1 = jp.linalg.norm(trunk1 - goal1, axis=-1)
                 closer = jp.where(done, 0.0, jp.clip((gap0 - gap1) / bd.CTRL_DT, -1.0, 1.0))
-                there = gap1 < near_of[ins]
+                there = (gap1 < near_of[ins]) | (jp.linalg.norm(head1[:, :2] - goal1, axis=-1) < near_of[ins])
                 def facing(d, goal):                     # cosine of the angle between its heading and the goal
                     Rh = d.xmat[:, base]
                     to = goal - d.xpos[:, base, :2]
                     return jp.sum(Rh[:, :2, 0] * to, -1) / (jp.linalg.norm(Rh[:, :2, 0], axis=-1) * jp.linalg.norm(to, axis=-1) + 1e-6)
-                turned = jp.where(done, 0.0, jp.clip((facing(env["d"], goal1) - facing_before) / bd.CTRL_DT, -2.0, 2.0))
+                cos_facing = facing(env["d"], goal1)
+                turned = jp.where(done, 0.0, jp.clip((cos_facing - facing_before) / bd.CTRL_DT, -2.0, 2.0))
+                fwd_toward = jp.maximum(0.0, st["v_fwd"]) * jp.clip(cos_facing, 0.0, 1.0)
                 # the body scores "stand still" when no motion is asked; a task word asks it to go somewhere
                 still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
                 face_pay = getattr(args, "face_pay", FACE_PAY)
                 task_pay = getattr(args, "task_pay", TASK_PAY)
                 reach_pay = getattr(args, "reach_pay", REACH_PAY)
-                task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there
+                fwd_pay = getattr(args, "fwd_pay", FWD_PAY)
+                task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + fwd_pay * fwd_toward
                 if lesson == "perception":
                     task_reward = jp.zeros_like(closer)
                 r = r + is_task[ins] * (task_reward - still + 0.1 * jp.abs(st["wz"])) * bd.CTRL_DT
@@ -2302,6 +2308,7 @@ def main() -> None:
     ap.add_argument("--task_pay", type=float, default=TASK_PAY, help="practice: reward per m/s closing distance to task target")
     ap.add_argument("--reach_pay", type=float, default=REACH_PAY, help="practice: reward per second within arrival radius")
     ap.add_argument("--face_pay", type=float, default=FACE_PAY, help="practice: reward per rad/s turning towards task target")
+    ap.add_argument("--fwd_pay", type=float, default=FWD_PAY, help="practice: reward for forward speed aligned with task target")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--bias0", type=float, default=0.3)
     ap.add_argument("--goal_scale", type=float, default=2.0)
