@@ -9,15 +9,13 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 13 Oct 12:40 Dubai:** `baby_dog_vision_approach_round6` completed all 91 updates (1,490,944 steps, 80.2 min) on Kaggle GPU (2x Nvidia Tesla T4).
-Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round6 (version 1).
-All outputs downloaded to `results/baby_dog_vision_approach_round6/`.
-- **All-Time Lowest Locomotion Falls in Project History:** Mean 7-gait falls dropped to **0.2582 falls / 13s** in final checkpoint `a44e1f60…` (breaking Round 4's record 0.2835). Pace falls 0.1979, canter falls 0.1823, turn-right falls 0.1823.
-- **All-Time Lowest Task Falls:** At 1.0M steps (`41d72631…`), ball falls dropped to **0.1354 / 13s** and owner falls dropped to **0.1562 / 13s** (both all-time project lows for task episodes).
-- **Record Target Facing & Distance Closure:** Snapshot `41d72631…` achieved record facing cosine on "come" (**+0.0741**, project high), 12.91% final-second visual alignment, and net distance closure from 3.663m to **3.581m (-8.2 cm)**. Facing cosine on "ball" reached **+0.0585** with 11.46% alignment and drift suppressed to +2.2 cm.
-- **Active Checkpoint Promotion:** Promoted snapshot `baby_dog_step_0000983040.npz` (`41d72631…`) as the **active learning restart candidate**; preserved `baby_dog.npz` (`a44e1f60…`) as all-time locomotion stability record holder (0.2582 falls). Original stage16 (`4af773f4…`) remains the established global best.
-- Free Kaggle GPU quota: **11.50h remaining** (sufficient for ~8 full trials).
-- Preparing Round 7 formulation (`task_scale = 600.0`) and remote preflight.
+**Current state, 13 Oct 12:45 Dubai:** `baby_dog_vision_approach_round7` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round7 (version 1).
+Configured with accelerated goal word scaling (`task_scale = 600.0`, effective lr `3e-3` for "ball" and "come" while protecting base motor words 0..22 at `5e-6`), forward distance reward `TASK_PAY = 6.0`, arrival reward `REACH_PAY = 10.0`, orientation incentive `FACE_PAY = 1.5`, 1.5M steps (91 updates), 3 evaluations (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+Resumed from candidate `baby_dog_step_0000983040.npz` (`41d72631…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round6`.
+Remote CPU preflight `baby_dog_vision_round7_preflight` verified (11/11 assertions passed; JIT vision optimizer, task word scaling, and candidate SHA256 `41d72631…` verified).
+Original stage16 (`4af773f4…`) remains the established global best; candidate snapshot `baby_dog_step_0000983040.npz` (`41d72631…`) is the **active learning restart candidate**.
+Free Kaggle GPU quota verified via `kaggle quota`: **11.50h remaining** (sufficient for ~8 full trials).
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
 
