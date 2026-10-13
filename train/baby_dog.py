@@ -1502,6 +1502,11 @@ def practice(args, bd, out: Path) -> dict:
                     Rh0 = env["d"].xmat[:, base]
                     to0 = goal_b - env["d"].xpos[:, base, :2]
                     facing_before = jp.sum(Rh0[:, :2, 0] * to0, -1) / (jp.linalg.norm(Rh0[:, :2, 0], axis=-1) * jp.linalg.norm(to0, axis=-1) + 1e-6)
+                    lateral_before = jp.sum(Rh0[:, :2, 1] * to0, -1) / (jp.linalg.norm(Rh0[:, :2, 1], axis=-1) * jp.linalg.norm(to0, axis=-1) + 1e-6)
+                    task_cmd = jp.stack([0.5 * jp.clip(facing_before, 0.0, 1.0),
+                                         jp.zeros_like(facing_before),
+                                         jp.clip(lateral_before, -1.0, 1.0)], -1)
+                    env = {**env, "info": {**env["info"], "cmd": jp.where(is_task[ins][:, None], task_cmd, env["info"]["cmd"])}}
             env, r, done, st = v_act(env, a, jax.random.split(k_act, B), 0.0)
             r = r - (FALL_COST - 0.2) * st["fell"]                                          # the body's own 0.2 plus this
             hp = help_[ins]                              # the teacher's share for this word (always 1 unless letting go)
