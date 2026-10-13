@@ -15,7 +15,7 @@ Dynamic velocity command injection in `rollout` `info["cmd"]` (`task_cmd = [0.5 
 In `baby_dog.py`, `every = max(1, iters // args.evals) = 40 // 2 = 20`. Update 20 triggered the intermediate evaluation at 45.4 min; while executing cohort 1, the 2,800s timeout expired before evaluation completion. No intermediate `.npz` was written to disk.
 Active restart candidate remains `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 all-time 3.12% arrival record, lowest 7-gait falls 0.2649).
 Free Kaggle GPU quota: **0.08h remaining** (29.92h / 30.00h used; weekly quota exhausted until refresh on 17 Oct).
-Next action: Transition to Google Colab ($0 budget, free tier) for extended 1.5M+ step continuation using standalone script `results/kaggle/baby_dog_vision_approach_round14/baby_dog.py`.
+Next action: Transition to Google Colab ($0 budget, free tier) for extended 1.5M+ step continuation using `notebooks/bio_bot_colab_training.ipynb` (`cdeb77a`) or standalone script `results/kaggle/baby_dog_vision_approach_round14/baby_dog.py`, resuming from verified candidate `baby_dog_step_0000491520.npz` (`5a534b32…`).
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
 
