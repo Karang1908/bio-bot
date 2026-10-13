@@ -9,17 +9,59 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 13 Oct 20:58 Dubai:** `baby_dog_vision_approach_round11` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+**Current state, 13 Oct 22:30 Dubai:** `baby_dog_vision_approach_round11` v1 is **COMPLETE** on Kaggle GPU (2x Nvidia Tesla T4, 89.6 min compute).
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round11 (version 1).
-Configured with tripled visual orientation incentive `FACE_PAY = 6.0` (to break the stillness trap on dogs spawning facing away), full forward locomotion propulsion `FWD_PAY = 12.0` (matching `TASK_PAY = 12.0`), steady fine-tuning scale `task_scale = 800.0` (effective lr `4e-3` for "ball" and "come" while protecting base motor words 0..22 at `5e-6`), amplified terminal arrival reward `REACH_PAY = 25.0`, 1.5M steps (91 updates), 3 evaluations (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help strictly zero from rest.
-Resumed from all-time record candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, 3.12% arrival record) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`.
-Remote CPU preflight `baby_dog_vision_round11_preflight` verified (14/14 assertions passed; JIT vision optimizer, task word scaling, and candidate SHA256 `5a534b32…` verified on Kaggle CPU).
-Active background monitor tracking execution. Original stage16 (`4af773f4…`) remains the established global best; checkpoint `5a534b32…` is the active learning restart candidate.
-Free Kaggle GPU quota: **~5.48h remaining** (sufficient for Round 11).
+Configured with tripled visual orientation incentive `FACE_PAY = 6.0`, full forward locomotion propulsion `FWD_PAY = 12.0` (matching `TASK_PAY = 12.0`), steady fine-tuning scale `task_scale = 800.0` (effective lr `4e-3`), amplified terminal arrival reward `REACH_PAY = 25.0`, 1.5M steps (91 updates), 3 evaluations (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help strictly zero from rest.
+Resumed from candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, 3.12% arrival record) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`.
+Remote CPU preflight `baby_dog_vision_round11_preflight` verified (14/14 assertions passed on Kaggle CPU).
+Outputs fetched to `results/baby_dog_vision_approach_round11/`.
+**Results:** Snapshot `43c754b0…` (1.5M steps) achieved **2.60% (5/192 lives)** arrival success on owner, closing distance by **-6.7 cm** (from 3.664m to 3.596m), with facing cosine reaching **+0.053**. Visual perception reached a new all-time project peak on `ball-left` (**0.667**) and dodging reaction accuracy (`hit` **0.945**).
+Discovered the physical speed horizon: in the 10-second test (effective 9.0s), walking at $+0.334\text{ m/s}$ covers at most 3.0m, making any owner spawn $>4.0\text{ m}$ mathematically unreachable; the policy must engage fast locomotion (`run`, $+0.487\text{ m/s}$) to reach $>15\%$ arrival.
+Original stage16 (`4af773f4…`) remains the established global best; checkpoint `5a534b32…` (`baby_dog_step_0000491520.npz`, Round 10) remains the active **learning restart candidate** (highest arrival 3.12%, lowest 7-gait falls 0.2649), with snapshot `43c754b0…` (Round 11) preserved for peak perception (0.667).
+Free Kaggle GPU quota: **~4.0h remaining** (sufficient for ~2-3 full trials).
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
 
-### Latest completed trial: vision approach round 10 (full forward propulsion FWD_PAY=12.0 and snappy orientation FACE_PAY=2.0)
+### Latest completed trial: vision approach round 11 (tripled orientation incentive FACE_PAY=6.0 and steady fine-tuning task_scale=800.0)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round11 (version 1).
+All 91 updates completed (1,490,944 actual steps, 89.6 min run). Outputs downloaded into `results/baby_dog_vision_approach_round11/`.
+Resumed from candidate `baby_dog_step_0000491520.npz` (`5a534b32…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`.
+Evaluation across three fresh cohorts of 64 lives = 192 lives per evaluation:
+
+| measured metric (three cohorts, 192 lives) | baseline (0M) | 0.5M steps (`778a908c…`) | 1.0M steps (`a6e62bf7…`) | 1.5M snap (`43c754b0…`) | final 1.49M (`e97e887c…`) |
+|---|---:|---:|---:|---:|---:|
+| **owner arrival success (got_there, 'come')** | 2.60% (5/192) | 1.56% (3/192) | 1.56% (3/192) | **2.60% (5/192)** | 1.56% (3/192) |
+| owner distance drift (start -> end, m) | 3.664 -> 3.700 | 3.664 -> 3.684 | 3.662 -> 3.618 | **3.664 -> 3.596** (-6.7 cm closure) | 3.661 -> 3.715 |
+| owner aligned in final second | 7.22% | 10.36% | 11.19% | **12.67%** | 12.07% |
+| owner final facing cosine | -0.042 | +0.034 | +0.000 | **+0.053** | +0.008 |
+| owner task falls / 13 s | **0.2031** | 0.2292 | **0.1927** | 0.2240 | 0.2500 |
+| **ball arrival success (got_there)** | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) |
+| ball distance drift (start -> end, m) | 2.482 -> 2.525 | 2.482 -> 2.446 (-3.6 cm) | **2.482 -> 2.446** (-3.6 cm) | 2.482 -> 2.503 | 2.485 -> 2.499 |
+| ball aligned in final second | 10.19% | 12.59% | 11.34% | **12.53%** | 10.99% |
+| ball final facing cosine | +0.005 | +0.038 | **+0.054** | +0.030 | +0.013 |
+| ball task falls / 13 s | 0.1771 | 0.1667 | **0.1510** | 0.1875 | 0.1771 |
+| **mean seven movement falls / 13 s** | **0.2686** | 0.3132 | **0.2798** | 0.2976 | 0.3043 |
+| walk falls / 13 s | 0.3802 | 0.4688 | 0.4323 | 0.4583 | 0.4948 |
+| pace falls / 13 s | 0.2396 | 0.2760 | **0.2188** | 0.2708 | 0.2500 |
+| canter falls / 13 s | **0.2188** | 0.2656 | 0.2292 | 0.2240 | 0.2448 |
+| run falls / 13 s | **0.2448** | 0.3281 | 0.2812 | 0.2760 | 0.2656 |
+| turn-left falls / 13 s | 0.2865 | 0.2969 | **0.2552** | 0.2760 | 0.2969 |
+| turn-right falls / 13 s | **0.1875** | 0.2083 | 0.1979 | 0.2188 | 0.2135 |
+| back falls / 13 s | **0.3229** | 0.3490 | 0.3438 | 0.3594 | 0.3646 |
+| walk speed, m/s | +0.3376 | +0.3259 | +0.3294 | +0.3341 | +0.3332 |
+| pace speed, m/s | +0.4597 | +0.4608 | +0.4637 | +0.4660 | +0.4654 |
+| canter speed, m/s | +0.3082 | +0.3045 | +0.3001 | +0.3096 | +0.3120 |
+| run speed, m/s | +0.4928 | +0.4801 | +0.4851 | +0.4867 | +0.4880 |
+| **ball-left balanced accuracy** | 0.642 | 0.642 | 0.640 | **0.667** (all-time peak!) | 0.663 |
+| **ball-ahead balanced accuracy** | 0.647 | 0.638 | 0.647 | 0.647 | 0.624 |
+| **ball-right balanced accuracy** | 0.641 | 0.641 | 0.631 | **0.654** | 0.649 |
+| **owner-left balanced accuracy** | 0.648 | 0.648 | 0.636 | **0.650** | 0.641 |
+| **owner-ahead balanced accuracy** | 0.607 | 0.607 | 0.567 | **0.611** | 0.611 |
+| **owner-right balanced accuracy** | 0.617 | 0.617 | 0.615 | 0.612 | 0.608 |
+| **object dodge balanced accuracy** | 0.862 | 0.862 | 0.881 | **0.945** (all-time peak!) | 0.855 |
+
+### Prior completed trial: vision approach round 10 (full forward propulsion FWD_PAY=12.0 and snappy orientation FACE_PAY=2.0)
 
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round10 (version 1).
 All 91 updates completed (1,490,944 actual steps, 88.1 min run). Outputs downloaded into `results/baby_dog_vision_approach_round10/`.
