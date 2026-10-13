@@ -9,10 +9,10 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 14 Oct 02:25 Dubai:** `baby_dog_vision_approach_round14` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
-Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round14 (version 1).
+**Current state, 14 Oct 02:27 Dubai:** `baby_dog_vision_approach_round14` v2 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round14 (version 2).
 Configured with dynamic forward locomotion and lateral steering velocity command injection in `rollout` `info["cmd"]` (`task_cmd = [0.5 * clip(cos_facing, 0, 1), 0, clip(sin_lat, -1, 1)]`) in `train/baby_dog.py` (`eec0202`), unblocking `v_act`'s internal locomotion reward and eliminating the standing-still local attractor where dogs only tilted their heads forward by 6.8 cm without stepping.
-Resumed from candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 all-time 3.12% arrival record) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`.
+Resumed explicitly from candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 all-time 3.12% arrival record) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`. (Version 1 aborted at step 0 via safety check `expect_checkpoint` when brain path was omitted; zero GPU quota spent).
 Remote CPU preflight `baby_dog_vision_round14_preflight` verified (14/14 assertions passed on Kaggle CPU; input SHA256 `5a534b32…` verified).
 Job parameters: 650k steps (~40 updates), 2 evaluations (baseline 0M and final 650k), 3 fresh cohorts (192 lives per eval), runtime cap 2,800s (~46 min, fits within the remaining 52 min Kaggle GPU quota). Teacher movement help strictly zero from rest (`help_ = 0.0`).
 Prior completed trial `baby_dog_vision_approach_round13` outputs in `results/baby_dog_vision_approach_round13/`.
