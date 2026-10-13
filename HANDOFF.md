@@ -9,15 +9,14 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 14 Oct 02:00 Dubai:** `baby_dog_vision_approach_round13` v1 is **COMPLETE** on Kaggle GPU (2x Nvidia Tesla T4, 86.2 min run time).
-Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round13 (version 1).
-Configured with amplified forward approach propulsion `FWD_PAY = 16.0` (matching `TASK_PAY = 16.0`), eliminated spinning bonus `YAW_PAY = 0.0` (removed artificial `+ 0.1 * |wz|` bonus), exact baseline stillness cancellation (`still = exp(-(vx^2 + vy^2)/0.05)`), balanced orientation incentive `FACE_PAY = 4.0`, steady fine-tuning scale `task_scale = 800.0` (effective lr `4e-3`), amplified terminal arrival reward `REACH_PAY = 25.0`, 1.5M steps (91 updates), 3 evaluations (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help strictly zero from rest.
-Resumed from candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, 3.12% arrival record) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`.
-Remote CPU preflight `baby_dog_vision_round13_preflight` verified (14/14 assertions passed on Kaggle CPU).
-Outputs fetched to `results/baby_dog_vision_approach_round13/`.
-**Results:** Eliminating `yaw_pay` and the `+ 0.1 * |wz|` bonus successfully removed the spinning local attractor seen in Round 12. Ball facing cosine reached **+0.0758** at 1.5M steps (`6de2c9f0…`), closing distance by $-2.8\text{ cm}$. Owner arrival held at **2.08% (4/192 lives)** throughout. Locomotion stability remained solid across all gaits (mean 7 movement falls 0.2612 to 0.3348 falls / 13s; walk speed $+0.315\text{ m/s}$, run speed $+0.477\text{ m/s}$).
-Candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10) retains the all-time project arrival record (**3.12%**, 6/192) and **remains the active learning restart candidate**. Original stage16 (`4af773f4…`) remains the established global best.
-Free Kaggle GPU quota: **~0.9h remaining** (~55 min left; Colab accounts ready for migration).
+**Current state, 14 Oct 02:25 Dubai:** `baby_dog_vision_approach_round14` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round14 (version 1).
+Configured with dynamic forward locomotion and lateral steering velocity command injection in `rollout` `info["cmd"]` (`task_cmd = [0.5 * clip(cos_facing, 0, 1), 0, clip(sin_lat, -1, 1)]`) in `train/baby_dog.py` (`eec0202`), unblocking `v_act`'s internal locomotion reward and eliminating the standing-still local attractor where dogs only tilted their heads forward by 6.8 cm without stepping.
+Resumed from candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 all-time 3.12% arrival record) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`.
+Remote CPU preflight `baby_dog_vision_round14_preflight` verified (14/14 assertions passed on Kaggle CPU; input SHA256 `5a534b32…` verified).
+Job parameters: 650k steps (~40 updates), 2 evaluations (baseline 0M and final 650k), 3 fresh cohorts (192 lives per eval), runtime cap 2,800s (~46 min, fits within the remaining 52 min Kaggle GPU quota). Teacher movement help strictly zero from rest (`help_ = 0.0`).
+Prior completed trial `baby_dog_vision_approach_round13` outputs in `results/baby_dog_vision_approach_round13/`.
+Free Kaggle GPU quota: **0.87h remaining** at launch (~52 min); Colab fallback accounts prepared for post-Kaggle migration.
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
 
