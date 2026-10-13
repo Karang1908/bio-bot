@@ -224,6 +224,7 @@ def main() -> None:
         v_keys = {"ol_e1", "ol_e2", "ol_l1", "ol_l2", "rf_e", "rf_l", "vp_e", "vp_l", "sp_eff", "sp_1", "sp_2"}
         ps = {"brain": {"gamma": jp.array([0.2, -0.3]), "o2": {"w1": jp.array([[0.4, -0.5]])},
                         "say_w": jp.array([[0.1, 0.2]]), "say_b": jp.array([0.0, 0.0]),
+                        "word_w": jp.ones((25, 4)) * 0.1,
                         **{k: jp.ones((2, 2)) * 0.1 for k in v_keys}},
               "critic": [{"w": jp.array([0.7]), "b": jp.array([0.0])}]}
         grad = jax.tree_util.tree_map(lambda x: jp.ones_like(x) * 2, ps)
@@ -236,16 +237,27 @@ def main() -> None:
         trained = ps
         for _ in range(4):
             trained, state = step(trained, state, grad)
-        for name in ("gamma", "o2"):
+        for name in ("gamma", "o2", "word_w"):
             assert all(np.array_equal(a, b) for a, b in zip(jax.tree_util.tree_leaves(ps["brain"][name]),
-                                                             jax.tree_util.tree_leaves(trained["brain"][name]))), "vision/voice lesson changed motor weights"
+                                                             jax.tree_util.tree_leaves(trained["brain"][name]))), f"vision/voice lesson changed motor weight {name}"
         for name in ("say_w", "say_b"):
             assert not np.array_equal(ps["brain"][name], trained["brain"][name]), "voice head did not learn"
         for name in v_keys:
             assert not np.array_equal(ps["brain"][name], trained["brain"][name]), f"vision param {name} did not learn"
         assert not np.array_equal(ps["critic"][0]["w"], trained["critic"][0]["w"]), "critic did not learn"
+
+        # Also test task_scale with non-zero brain_lr
+        opt_scale = make_opt(ps, 5e-6, 3e-4, 3e-4, optax, task_scale=120.0)
+        state_s = opt_scale.init(ps)
+        u_s, _ = opt_scale.update(grad, state_s, ps)
+        trained_s = optax.apply_updates(ps, u_s)
+        diff_base = float(np.max(np.abs(ps["brain"]["word_w"][:23] - trained_s["brain"]["word_w"][:23])))
+        diff_task = float(np.max(np.abs(ps["brain"]["word_w"][23:] - trained_s["brain"]["word_w"][23:])))
+        assert diff_base > 0, "base words did not update at brain_lr"
+        assert diff_task > 50 * diff_base, "task words did not scale by task_scale"
         report["optax"] = optax.__version__
-        report["checks"] += ["actual vision optimizer under jit learns vision frontend, voice and critic while freezing motor weights"]
+        report["checks"] += ["actual vision optimizer under jit learns vision frontend, voice and critic while freezing motor weights",
+                             "task word scaling verified under JIT: task words 23+ scaled by task_scale relative to base words"]
     if JOB_ARGS.get("check_wiring"):
         body_fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "make_body")
         wiring_fns = [n for n in body_fn.body if isinstance(n, ast.FunctionDef) and n.name in ("new_life", "jnp_sign")]
