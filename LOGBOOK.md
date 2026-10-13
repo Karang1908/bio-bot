@@ -1432,6 +1432,13 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
 4. **Active Goal Embedding & Optic Adaptation:** `task_scale = 120.0` drove strong goal adaptation: `diff_ball = 1.745` and `diff_come = 1.646` from Round 4 input, while base motor words 0..22 moved only 0.031 across 23 words. Optic projections adapted significantly (`vp_e` moved 0.543, `vp_l` moved 0.492).
 5. **Candidate Promotion:** `baby_dog.npz` (SHA256 `e9e4e399dc25c57577932d68b0154ee2859a6dde4858d3e9734ea118585b0520`) from `results/baby_dog_vision_approach_round5/` is promoted to the **learning restart candidate** (maximum net closure to owner -8.8 cm, lowest task falls 0.1771, deepest goal embedding adaptation), while `baby_dog_step_0000491520.npz` (`71cf4974…`) is preserved as the intermediate ball arrival pioneer. `stage16_park3_open.npz` (`4af773f4…`) remains the established global best.
 
+**Vision approach round 6 trial (doubled forward distance reward and arrival payoff) (13 Oct Dubai):**
+- **Hypothesis:** In Round 5, dogs successfully learned rapid visual orientation (+0.0752 cosine on ball, +0.0270 on come) under `FACE_PAY = 1.5`, and closed distance monotonically toward the owner (-8.8 cm), while ball falls hit an all-time low of 0.1771/13s. However, turning paid up to +2.25/s while walking forward at 0.35 m/s paid only +1.05/s (`TASK_PAY = 3.0`), creating an incentive imbalance where dogs turned and then stood cautiously to avoid falls. Doubling `TASK_PAY` to 6.0 makes forward motion pay +2.10/s (10x mechanical power cost, matching the turning reward), decisively driving forward strides once aligned. Doubling `REACH_PAY` to 10.0 provides a steep terminal arrival cliff (+10.0/s) to pull dogs through the final arrival threshold.
+- **Preflight:** Remote CPU preflight `bio-bot-baby-dog-vision-round6-preflight` verified (11/11 assertions passed; JIT vision optimizer, task word scaling, and candidate SHA256 `e9e4e399…` verified in Kaggle CPU).
+- **GPU Run:** [`bio-bot-baby-dog-vision-approach-round6`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round6) (version 1) launched and RUNNING on 2x Nvidia Tesla T4 GPU.
+  - Setup: 1.5M steps, 91 updates, 512 envs, 3 evals (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+  - Resumed from candidate `baby_dog.npz` (`e9e4e399…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round5`.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
