@@ -9,16 +9,13 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 14 Oct 00:25 Dubai:** `baby_dog_vision_approach_round12` v1 is **COMPLETE** on Kaggle GPU (2x Nvidia Tesla T4, 98.9 min run time).
-Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round12 (version 1).
-Configured with directional yaw rate drive `yaw_pay = 4.0` (`yaw_toward = wz * sin_lat`), rotation-aware stillness penalty (`still = exp(-(vx^2 + vy^2 + wz^2)/0.05)`), full forward locomotion propulsion `FWD_PAY = 12.0` (matching `TASK_PAY = 12.0`), steady fine-tuning scale `task_scale = 800.0` (effective lr `4e-3`), amplified terminal arrival reward `REACH_PAY = 25.0`, 1.5M steps (91 updates), 3 evaluations (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help strictly zero from rest.
+**Current state, 14 Oct 00:33 Dubai:** `baby_dog_vision_approach_round13` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round13 (version 1).
+Configured with amplified forward approach propulsion `FWD_PAY = 16.0` (matching `TASK_PAY = 16.0`), eliminated spinning bonus `YAW_PAY = 0.0` (removed artificial `+ 0.1 * |wz|` bonus), exact baseline stillness cancellation (`still = exp(-(vx^2 + vy^2)/0.05)`), balanced orientation incentive `FACE_PAY = 4.0`, steady fine-tuning scale `task_scale = 800.0` (effective lr `4e-3`), amplified terminal arrival reward `REACH_PAY = 25.0`, 1.5M steps (91 updates), 3 evaluations (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help strictly zero from rest.
 Resumed from candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, 3.12% arrival record) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`.
-Remote CPU preflight `baby_dog_vision_round12_preflight` verified (14/14 assertions passed on Kaggle CPU).
-Outputs fetched to `results/baby_dog_vision_approach_round12/`.
-**Results:** Owner arrival peaked at **2.08% (4/192 lives)** in snapshot `ecfd902f…` at 0.5M steps, with ball facing cosine reaching **+0.0613**. Locomotion stability remained strong across all gaits (mean 7 movement falls 0.2693 to 0.2865 falls / 13s; walk speed $+0.32\text{ m/s}$, run speed $+0.47\text{ m/s}$).
-Key finding: High yaw rate drive (`yaw_pay = 4.0`) incentivized on-the-spot twisting and lateral stepping over forward translation, which depleted the strictly bounded 10-second travel window.
-Candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10) retains the all-time project arrival record (**3.12%**, 6/192) and **remains the active learning restart candidate**. Original stage16 (`4af773f4…`) remains the established global best.
-Free Kaggle GPU quota: **~2.35h remaining** (~1 full trial remaining; Colab 4-5 accounts ready as fallback).
+Remote CPU preflight `baby_dog_vision_round13_preflight` verified (14/14 assertions passed on Kaggle CPU).
+Active background monitor `task-4398` tracking execution. Original stage16 (`4af773f4…`) remains the established global best; checkpoint `5a534b32…` is the active learning restart candidate.
+Free Kaggle GPU quota: **~2.35h remaining** (sufficient for Round 13; Colab 4-5 accounts ready as fallback).
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
 
