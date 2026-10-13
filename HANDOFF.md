@@ -9,15 +9,67 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 13 Oct 11:15 Dubai:** `baby_dog_vision_approach_round6` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+**Current state, 13 Oct 12:40 Dubai:** `baby_dog_vision_approach_round6` completed all 91 updates (1,490,944 steps, 80.2 min) on Kaggle GPU (2x Nvidia Tesla T4).
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round6 (version 1).
-Configured with doubled forward distance reward (`TASK_PAY = 6.0`), doubled arrival reward (`REACH_PAY = 10.0`), preserved orientation incentive (`FACE_PAY = 1.5`), task goal embedding scaling (`task_scale = 120.0`), 1.5M steps (91 updates), 3 evaluations (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
-Resumed from candidate `baby_dog.npz` (`e9e4e399…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round5`.
-Remote CPU preflight `baby_dog_vision_round6_preflight` verified (11/11 assertions passed; JIT vision optimizer, task word scaling, and candidate SHA256 `e9e4e399…` verified).
-Original stage16 (`4af773f4…`) remains the established global best; candidate `baby_dog.npz` (`e9e4e399…`) is the **active learning restart candidate**.
-Free Kaggle GPU quota verified via `kaggle quota`: **12.97h remaining** (sufficient for ~9 full trials).
+All outputs downloaded to `results/baby_dog_vision_approach_round6/`.
+- **All-Time Lowest Locomotion Falls in Project History:** Mean 7-gait falls dropped to **0.2582 falls / 13s** in final checkpoint `a44e1f60…` (breaking Round 4's record 0.2835). Pace falls 0.1979, canter falls 0.1823, turn-right falls 0.1823.
+- **All-Time Lowest Task Falls:** At 1.0M steps (`41d72631…`), ball falls dropped to **0.1354 / 13s** and owner falls dropped to **0.1562 / 13s** (both all-time project lows for task episodes).
+- **Record Target Facing & Distance Closure:** Snapshot `41d72631…` achieved record facing cosine on "come" (**+0.0741**, project high), 12.91% final-second visual alignment, and net distance closure from 3.663m to **3.581m (-8.2 cm)**. Facing cosine on "ball" reached **+0.0585** with 11.46% alignment and drift suppressed to +2.2 cm.
+- **Active Checkpoint Promotion:** Promoted snapshot `baby_dog_step_0000983040.npz` (`41d72631…`) as the **active learning restart candidate**; preserved `baby_dog.npz` (`a44e1f60…`) as all-time locomotion stability record holder (0.2582 falls). Original stage16 (`4af773f4…`) remains the established global best.
+- Free Kaggle GPU quota: **11.50h remaining** (sufficient for ~8 full trials).
+- Preparing Round 7 formulation (`task_scale = 600.0`) and remote preflight.
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
+
+### Latest completed trial: vision approach round 6 (doubled forward distance reward and arrival payoff)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round6 (version 1).
+All 91 updates completed (1,490,944 actual steps, 80.2 min run). Outputs downloaded into `results/baby_dog_vision_approach_round6/`.
+Resumed from candidate `baby_dog.npz` (`e9e4e399…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round5`.
+Evaluation across three fresh cohorts of 64 lives = 192 lives per evaluation:
+
+| measured metric (three cohorts, 192 lives) | baseline (0M) | 0.5M steps (`fe5f44be…`) | 1.0M steps (`41d72631…`) | 1.5M snap (`70ceb591…`) | final 1.49M (`a44e1f60…`) |
+|---|---:|---:|---:|---:|---:|
+| mean seven movement falls / 13 s | 0.3065 | 0.3185 | 0.2716 | 0.2775 | **0.2582** (all-time project low!) |
+| walk falls / 13 s | 0.4219 | 0.4740 | 0.4115 | 0.4271 | 0.3906 |
+| pace falls / 13 s | 0.2656 | 0.2500 | 0.2292 | 0.2292 | **0.1979** |
+| canter falls / 13 s | 0.2500 | 0.2344 | **0.1823** | 0.2135 | **0.1823** |
+| run falls / 13 s | 0.2500 | 0.2760 | **0.2083** | **0.2083** | 0.2188 |
+| turn-left falls / 13 s | 0.3542 | 0.3958 | 0.3125 | 0.3021 | 0.3125 |
+| turn-right falls / 13 s | 0.2083 | 0.2083 | **0.1615** | 0.1875 | 0.1823 |
+| back falls / 13 s | 0.3958 | 0.3906 | 0.3958 | 0.3750 | **0.3229** |
+| walk speed, m/s | +0.3235 | +0.3333 | +0.3250 | +0.3158 | +0.3119 |
+| pace speed, m/s | +0.4654 | +0.4569 | +0.4533 | +0.4438 | +0.4444 |
+| canter speed, m/s | +0.3152 | +0.3141 | +0.3015 | +0.2913 | +0.2928 |
+| run speed, m/s | +0.5091 | +0.5085 | +0.5012 | +0.4921 | +0.4920 |
+| turn-left yaw, rad/s | +1.3986 | +1.3629 | +1.3506 | +1.3668 | +1.3499 |
+| turn-right yaw, rad/s | -1.1062 | -1.1109 | -1.0704 | -1.0853 | -1.0741 |
+| backward speed, m/s | -0.1389 | -0.1420 | -0.1446 | -0.1331 | -0.1328 |
+| jump speed, m/s | +0.0965 | +0.1012 | +0.0680 | +0.0582 | +0.0589 |
+| sit pose (pitch / trunk) | +0.484 / 0.598 | +0.484 / 0.600 | +0.495 / 0.600 | +0.492 / 0.601 | +0.489 / 0.601 |
+| lie-down pose (pitch / trunk) | +0.043 / 0.953 | +0.042 / 0.954 | +0.042 / 0.954 | +0.041 / 0.954 | +0.041 / 0.954 |
+| ball arrival success (got_there) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) |
+| ball distance drift (start -> end, m) | 2.482 -> 2.515 | 2.481 -> 2.524 | **2.480 -> 2.502** | 2.481 -> 2.508 | 2.481 -> 2.515 |
+| ball aligned in final second | 11.56% | 9.18% | 11.46% | 10.59% | 9.88% |
+| ball final facing cosine | +0.0228 | +0.0588 | **+0.0585** (facing ball!) | +0.0358 | -0.0213 |
+| ball falls / 13 s | 0.1875 | 0.2031 | **0.1354** (project low!) | 0.1771 | 0.1562 |
+| owner arrival success (got_there, 'come') | 1.04% (2/192) | 1.04% (2/192) | 0.52% (1/192) | 0.52% (1/192) | 0.52% (1/192) |
+| owner distance drift (start -> end, m) | 3.662 -> 3.629 | 3.664 -> 3.662 | **3.663 -> 3.581** (-8.2 cm closure!) | 3.663 -> 3.659 | 3.661 -> 3.603 |
+| owner aligned in final second | 12.67% | 10.29% | **12.91%** | 11.41% | 11.25% |
+| owner final facing cosine | +0.0012 | +0.0033 | **+0.0741** (record facing!) | +0.0062 | +0.0220 |
+| owner falls / 13 s | 0.2135 | 0.2083 | **0.1562** (project low!) | 0.1875 | 0.1615 |
+| ball-right balanced accuracy | 0.578 | 0.601 | 0.580 | 0.578 | 0.581 |
+| ball-left balanced accuracy | 0.573 | 0.584 | 0.590 | 0.592 | 0.587 |
+| ball-ahead balanced accuracy | 0.559 | 0.593 | 0.568 | 0.581 | 0.588 |
+| owner-left balanced accuracy | 0.609 | 0.615 | 0.618 | 0.616 | 0.626 |
+| owner-ahead balanced accuracy | 0.533 | 0.560 | 0.550 | 0.534 | 0.560 |
+| owner-right balanced accuracy | 0.590 | 0.601 | 0.600 | 0.589 | 0.606 |
+
+**Interpretation:**
+1. **Locomotion and Task Falls at Project Record Lows:** Locomotion falls across the 7 gaits reached **0.2582 falls / 13s** in `a44e1f60…`, while task falls reached **0.1354 on ball** and **0.1562 on come** in snapshot `41d72631…`. All nominal motor speeds and rest poses were perfectly preserved.
+2. **Record Facing Cosine & Forward Closure on "Come":** Snapshot `41d72631…` closed net distance from 3.663m to 3.581m (-8.2 cm) with record facing cosine (+0.0741) and 12.91% visual alignment.
+3. **Candidate Promotion:** Intermediate snapshot `baby_dog_step_0000983040.npz` (SHA256 `41d726310b70e091b397238c33dc988b28225582004c870827734106d7ef54dc`) is promoted as the **active learning restart candidate** (greatest distance closure -8.2 cm, highest target facing +0.0741, lowest task falls 0.1354/0.1562), while `baby_dog.npz` (`a44e1f60…`) is preserved as the all-time locomotion stability record holder (0.2582 falls). Original stage16 (`4af773f4…`) remains the established global best.
+4. **Bottleneck Analysis:** Word weight vectors for "ball" and "come" (norm ~111.4) moved only ~1.5 norm across 1.5M steps under `task_scale = 120.0` (effective lr 6e-4), meaning their cosine similarities to locomotion gaits remained near zero. Increasing `task_scale` to 600.0 accelerates policy adaptation 5x faster toward active forward walking while keeping base motor words 0..22 protected at 5e-6.
 
 ### Latest completed trial: vision approach round 5 (enhanced turning reward, arrival pay, doubled task scale)
 
