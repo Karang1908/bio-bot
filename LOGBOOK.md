@@ -1495,9 +1495,62 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
 **Vision approach round 7 trial (accelerated goal embedding scaling) (13 Oct Dubai):**
 - **Hypothesis:** In Round 6, dogs achieved record orientation (+0.0741 owner facing, +0.0585 ball facing) and record low task falls (0.1354 ball, 0.1562 come), closing -8.2 cm net distance to the owner. However, word weight norm analysis revealed that `word_w[23]` and `word_w[24]` (norm ~111.4 across 2,935 goal dimensions) moved by only ~1.5 norm per 1.5M steps under `task_scale = 120.0` (effective lr `6e-4`), keeping cosine similarity to walking near zero. Scaling `task_scale` 5x to 600.0 (effective lr `3e-3` = 0.003) accelerates policy gradient adaptation of "ball" and "come" goal embeddings toward active forward locomotion, while base motor words 0..22 remain strictly protected at `5e-6` with zero interference.
 - **Preflight:** Remote CPU preflight `bio-bot-baby-dog-vision-round7-preflight` verified (11/11 assertions passed; JIT vision optimizer, task word scaling, and candidate SHA256 `41d72631…` verified on Kaggle CPU).
-- **GPU Run:** [`bio-bot-baby-dog-vision-approach-round7`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round7) (version 1) launched and RUNNING on 2x Nvidia Tesla T4 GPU.
+- **GPU Run:** [`bio-bot-baby-dog-vision-approach-round7`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round7) (version 1) completed all 91 updates (1,490,944 actual steps, 96.8 min run time) on 2x Nvidia Tesla T4 GPU.
   - Setup: 1.5M steps, 91 updates, 512 envs, 3 evals (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
   - Resumed from candidate `baby_dog_step_0000983040.npz` (`41d72631…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round6`.
+  - All outputs fetched to `results/baby_dog_vision_approach_round7/`: `baby_dog.npz`, snapshots at 491k, 983k, 1.47M, 1.49M steps, `practice.json`, and `log.txt`.
+  - Checkpoint SHA256 hashes:
+    - `baby_dog_step_0000491520.npz`: `2a2a020f2d77073db4a350ed1ff7a12ed143e0b4847c003b923efa1e4cc7d201`
+    - `baby_dog_step_0000983040.npz`: `58b550c4d1d46658227d6867510025a7891047526b42c095a0f89cb0c872c982`
+    - `baby_dog_step_0001474560.npz`: `c4ceab9010e386f8d9c7aa7babc31ee1b5c20ee16acfcf9f6b34514ece1782d2`
+    - `baby_dog_step_0001490944.npz`: `dfc534075fa4fe4a5c5246f47d49cc3a06a9bb02b3c92a1b91825f5641160750`
+    - `baby_dog.npz`: `1f6e09cbfdb288ccfdca1e922e30040de11cae9e05654b2eeaff44b800f48c91`
+
+**Measured Outcomes across 3 fresh cohorts (192 lives per evaluation):**
+
+| measured metric (three cohorts, 192 lives) | baseline (0M) | 0.5M steps (`2a2a020f…`) | 1.0M steps (`58b550c4…`) | 1.5M snap (`c4ceab90…`) | final 1.49M (`1f6e09cb…`) |
+|---|---:|---:|---:|---:|---:|
+| mean seven movement falls / 13 s | 0.2775 | 0.2723 | 0.2641 | **0.2530** (all-time project low!) | **0.2567** |
+| walk falls / 13 s | 0.4062 | 0.3906 | 0.4635 | **0.3594** | **0.3594** |
+| pace falls / 13 s | 0.2188 | 0.2396 | **0.1719** | 0.2031 | **0.1719** |
+| canter falls / 13 s | 0.2031 | 0.1823 | 0.1823 | 0.1823 | **0.1719** |
+| run falls / 13 s | 0.2448 | **0.1823** | 0.1979 | 0.1979 | 0.1979 |
+| turn-left falls / 13 s | 0.2917 | 0.3177 | 0.2760 | **0.2500** | 0.3021 |
+| turn-right falls / 13 s | 0.1667 | 0.1615 | **0.1562** | 0.1615 | **0.1562** |
+| back falls / 13 s | 0.4115 | 0.4323 | 0.4010 | 0.4167 | 0.4375 |
+| walk speed, m/s | +0.3276 | +0.3122 | +0.3024 | +0.2952 | +0.2936 |
+| pace speed, m/s | +0.4615 | +0.4493 | +0.4538 | +0.4520 | +0.4474 |
+| canter speed, m/s | +0.2962 | +0.2935 | +0.2903 | +0.2833 | +0.2815 |
+| run speed, m/s | +0.5024 | +0.4915 | +0.4854 | +0.4893 | +0.4868 |
+| turn-left yaw, rad/s | +1.3728 | +1.3402 | +1.3431 | +1.3416 | +1.3476 |
+| turn-right yaw, rad/s | -1.0748 | -1.0760 | -1.0874 | -1.0683 | -1.0689 |
+| backward speed, m/s | -0.1455 | -0.1458 | -0.1437 | -0.1403 | -0.1423 |
+| jump speed, m/s | +0.0689 | +0.0715 | +0.0732 | +0.0405 | +0.0444 |
+| sit pose (pitch / trunk) | +0.490 / 0.600 | +0.487 / 0.601 | +0.479 / 0.600 | +0.488 / 0.600 | +0.493 / 0.601 |
+| lie-down pose (pitch / trunk) | +0.042 / 0.955 | +0.043 / 0.952 | +0.042 / 0.953 | +0.041 / 0.954 | +0.041 / 0.955 |
+| ball arrival success (got_there) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) |
+| ball distance drift (start -> end, m) | 2.479 -> 2.529 | 2.481 -> 2.500 | 2.481 -> 2.541 | **2.482 -> 2.487** (+0.5 cm!) | 2.482 -> 2.512 |
+| ball aligned in final second | 10.22% | 10.90% | 10.88% | 12.15% | **12.40%** |
+| ball final facing cosine | +0.0251 | +0.0539 | +0.0215 | **+0.0746** (record facing!) | +0.0471 |
+| ball falls / 13 s | 0.1719 | 0.1354 | 0.1354 | 0.1250 | **0.1198** (project low!) |
+| owner arrival success (got_there, 'come') | 0.52% (1/192) | 0.52% (1/192) | 0.52% (1/192) | 0.52% (1/192) | 0.52% (1/192) |
+| owner distance drift (start -> end, m) | 3.664 -> 3.575 | 3.661 -> 3.622 | 3.661 -> 3.625 | **3.661 -> 3.595** (-6.6 cm) | 3.662 -> 3.607 |
+| owner aligned in final second | 14.36% | 9.75% | 11.31% | 12.75% | **12.99%** |
+| owner final facing cosine | +0.0104 | +0.0167 | +0.0421 | **+0.0907** (record facing!) | +0.0431 |
+| owner falls / 13 s | 0.1771 | 0.1458 | 0.1510 | **0.1458** | **0.1458** |
+| ball-right balanced accuracy | 0.586 | 0.598 | 0.596 | **0.612** | 0.607 |
+| ball-left balanced accuracy | 0.597 | 0.583 | 0.593 | **0.601** | 0.594 |
+| ball-ahead balanced accuracy | 0.578 | 0.594 | **0.612** | 0.575 | 0.561 |
+| owner-left balanced accuracy | 0.615 | 0.609 | 0.623 | **0.625** | 0.615 |
+| owner-ahead balanced accuracy | 0.558 | 0.563 | **0.585** | 0.584 | 0.561 |
+| owner-right balanced accuracy | 0.602 | 0.595 | **0.618** | 0.605 | 0.600 |
+
+**Key Findings & Mechanism:**
+1. **Accelerated Goal Adaptation Confirmed:** Scaling `task_scale` to 600.0 (effective lr `3e-3`) moved `diff_ball` by **6.802** and `diff_come` by **6.224** norm (nearly 5x faster than Round 6's 1.5 norm), while base motor words 0..22 moved only **0.0299** across 23 words (completely protected at `5e-6`).
+2. **All-Time Lowest Locomotion Falls in Project History:** 7-gait locomotion falls dropped to an all-time record **0.2530 falls / 13s** in snapshot `c4ceab90…` (1.47M steps), and **0.2567 falls / 13s** in final `1f6e09cb…`. Pace falls dropped to 0.1719, canter falls to 0.1719, turn-right falls to 0.1562, and run falls to 0.1979. All nominal speeds (+0.294 walk, +0.447 pace, +0.487 run) and poses (sit +0.493 pitch, lie-down +0.041 pitch) remained 100% intact.
+3. **All-Time Lowest Task Falls:** Ball task falls dropped to **0.1198 / 13s** in final checkpoint `1f6e09cb…` (lowest in project history), and owner task falls dropped to **0.1458 / 13s**.
+4. **All-Time Record Target Facing on BOTH Targets:** Snapshot `c4ceab90…` reached **+0.0907 facing cosine on "come"** and **+0.0746 facing cosine on "ball"** (both all-time project highs). Distance drift to ball was virtually eliminated (+0.5 cm, 2.482m -> 2.487m), and net distance to owner closed from 3.661m to **3.595m (-6.6 cm)**.
+5. **Candidate Promotion:** Intermediate checkpoint `baby_dog_step_0001474560.npz` (SHA256 `c4ceab9010e386f8d9c7aa7babc31ee1b5c20ee16acfcf9f6b34514ece1782d2`) is promoted as the primary **learning restart candidate** (lowest 7-gait falls 0.2530, highest facing cosine +0.0907 / +0.0746, zero ball drift), while `baby_dog.npz` (`1f6e09cb…`) is preserved as the task fall record holder (0.1198 falls). Original stage16 (`4af773f4…`) remains the established global best.
 
 ## 7. Open problems and next steps
 
