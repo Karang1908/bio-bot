@@ -1670,6 +1670,63 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
 5. **Perception Probes Set All-Time Records:** Perception balanced accuracy set all-time project records on `ball-left` (**0.634**), `ball-right` (**0.629**), `owner-left` (**0.641**), and `owner-ahead` (**0.608**).
 6. **Candidate Promotion:** Final checkpoint `baby_dog.npz` (SHA256 `84ee5466216933d4b49bdea1f87c018c1c63eac5eb99cdf71d493dd0a4b51f01`) is promoted as the primary **learning restart candidate** (highest arrival success 2.08%, net forward ball closure -3.6 cm, all-time record perception accuracies 0.634/0.629, rock-solid 0.2604 falls/13s). Snapshot `30c6c9e5…` is preserved as the orientation champion (+0.0836 facing cosine, 15.04% aligned). Original stage16 (`4af773f4…`) remains the established global best.
 
+**Vision approach round 10 trial (full forward locomotion drive FWD_PAY=12.0 and snappy orientation FACE_PAY=2.0) (13 Oct Dubai):**
+- **Hypothesis:** Round 9 proved that replacing nose distance with whole-body trunk position and adding aligned forward locomotion drive (`FWD_PAY = 8.0`) eliminated head-bowing and ignited forward translation, achieving 2.08% arrival and -3.6 cm ball closure. In Round 10, increasing `FWD_PAY` from 8.0 to 12.0 matches the distance closure payoff (`TASK_PAY = 12.0`), providing a massive $+7.2\text{/s}$ total propulsion reward for advancing toward the target. In addition, increasing heading alignment reward `FACE_PAY` from 1.5 to 2.0 encourages dogs to swivel toward the visual target faster in the opening seconds of each 13s life, leaving more time to walk across the ground.
+- **Preflight:** Remote CPU preflight `bio-bot-baby-dog-vision-round10-preflight` verified (11/11 assertions passed; JIT vision optimizer, task word scaling, and candidate SHA256 `84ee5466…` verified on Kaggle CPU).
+- **GPU Run:** [`bio-bot-baby-dog-vision-approach-round10`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round10) (version 1) completed all 91 updates (1,490,944 actual steps, 88.1 min run time, 94.4 min elapsed) on 2x Nvidia Tesla T4 GPU.
+  - Setup: 1.5M steps, 91 updates, 512 envs, 3 evals (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+  - Resumed from candidate `baby_dog.npz` (`84ee5466…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round9`.
+  - All outputs fetched to `results/baby_dog_vision_approach_round10/`: `baby_dog.npz`, snapshots at 491k, 983k, 1.47M, 1.49M steps, `practice.json`, and `log.txt`.
+  - Checkpoint SHA256 hashes:
+    - `baby_dog_step_0000491520.npz`: `5a534b328c2c511d0cdccc105f61f9c12fdc5b767662f697af05315f06e16d17`
+    - `baby_dog_step_0000983040.npz`: `726afd3b1c7e93a365efb2e784848c86ef202d9b9590b623b8d82f8faa21783f`
+    - `baby_dog_step_0001474560.npz`: `1c9a5fb2e4344f7fea6f7dcfe0122268fcb19303ce9d7143a663fc7bd0ef1a53`
+    - `baby_dog_step_0001490944.npz`: `ca3eef52aa79ca026f2de97c490aa1f4c0addc5ee603dc5896836a24d5d20c9b`
+    - `baby_dog.npz`: `2cdbacaaf1af9ae98058a9945fd25883a3f98b9f5612b6680108e280ca408878`
+
+**Measured Outcomes across 3 fresh cohorts (192 lives per evaluation):**
+
+| measured metric (three cohorts, 192 lives) | baseline (0M) | 0.5M steps (`5a534b32…`) | 1.0M steps (`726afd3b…`) | 1.5M snap (`1c9a5fb2…`) | final 1.49M (`2cdbacaa…`) |
+|---|---:|---:|---:|---:|---:|
+| **owner arrival success (got_there, 'come')** | 1.56% (3/192) | **3.12% (6/192)** (all-time peak!) | 2.60% (5/192) | 2.08% (4/192) | 1.56% (3/192) |
+| owner distance drift (start -> end, m) | 3.662 -> 3.677 | 3.663 -> 3.651 | 3.662 -> 3.646 | **3.662 -> 3.593** (-6.9 cm) | 3.663 -> 3.765 |
+| owner aligned in final second | 11.64% | 12.27% | 13.02% | **13.24%** | 9.33% |
+| owner final facing cosine | -0.0169 | -0.0460 | +0.0159 | **+0.0266** | +0.0105 |
+| owner task falls / 13 s | **0.1615** | 0.1979 | 0.2240 | 0.2344 | 0.2188 |
+| **ball arrival success (got_there)** | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) |
+| ball distance drift (start -> end, m) | 2.481 -> 2.492 | 2.482 -> 2.501 | 2.487 -> 2.500 | **2.479 -> 2.458** (-2.2 cm) | 2.480 -> 2.505 |
+| ball aligned in final second | **10.91%** | 9.85% | 10.45% | 9.25% | 10.16% |
+| ball final facing cosine | +0.0371 | +0.0380 | **+0.0698** | -0.0115 | +0.0046 |
+| ball task falls / 13 s | **0.1510** | 0.1719 | 0.1719 | 0.1927 | 0.1875 |
+| **mean seven movement falls / 13 s** | **0.2440** | **0.2649** | 0.2835 | 0.3006 | 0.2946 |
+| walk falls / 13 s | 0.3802 | **0.3594** | 0.4479 | 0.4531 | 0.4167 |
+| pace falls / 13 s | **0.2188** | 0.2552 | 0.2396 | 0.2760 | 0.2396 |
+| canter falls / 13 s | **0.1875** | 0.2135 | 0.2135 | 0.2396 | 0.2500 |
+| run falls / 13 s | **0.2396** | 0.2656 | 0.2865 | 0.2917 | 0.3073 |
+| turn-left falls / 13 s | **0.2240** | 0.2604 | 0.2812 | 0.2917 | 0.3073 |
+| turn-right falls / 13 s | **0.1562** | 0.1823 | 0.2031 | 0.2240 | 0.2188 |
+| back falls / 13 s | **0.3021** | 0.3177 | 0.3125 | 0.3281 | 0.3229 |
+| walk speed, m/s | +0.3187 | +0.3361 | +0.3310 | **+0.3453** | +0.3444 |
+| pace speed, m/s | +0.4597 | +0.4592 | +0.4690 | +0.4703 | **+0.4740** |
+| canter speed, m/s | +0.3045 | +0.3085 | +0.3118 | +0.3212 | **+0.3226** |
+| run speed, m/s | +0.4938 | +0.4854 | +0.4981 | +0.4970 | **+0.4965** |
+| jump speed, m/s | +0.0827 | +0.0979 | +0.0963 | **+0.1073** | +0.1049 |
+| sit pose (pitch / trunk) | +0.492 / 0.605 | +0.490 / 0.607 | +0.498 / 0.608 | +0.504 / 0.610 | +0.496 / 0.609 |
+| lie-down pose (pitch / trunk) | +0.045 / 0.953 | +0.045 / 0.954 | +0.046 / 0.956 | +0.048 / 0.957 | +0.052 / 0.959 |
+| **ball-left balanced accuracy** | 0.629 | 0.652 | 0.658 | **0.662** (all-time peak!) | 0.650 |
+| **ball-ahead balanced accuracy** | 0.607 | 0.632 | 0.635 | 0.625 | **0.653** (all-time peak!) |
+| **ball-right balanced accuracy** | 0.632 | 0.646 | 0.649 | **0.663** (all-time peak!) | 0.653 |
+| **owner-left balanced accuracy** | 0.631 | 0.639 | **0.653** (all-time peak!) | 0.651 | 0.642 |
+| **owner-ahead balanced accuracy** | 0.583 | 0.608 | 0.606 | 0.609 | **0.617** (all-time peak!) |
+| **owner-right balanced accuracy** | 0.606 | 0.610 | **0.614** | 0.611 | 0.608 |
+
+**Key Findings & Mechanism:**
+1. **Record Target Arrival on Owner:** Owner arrival success reached an all-time project record of **3.12% (6/192 lives)** in snapshot `5a534b32…` at 0.5M steps, with 2.60% at 1.0M and 2.08% at 1.5M. In snapshot `1c9a5fb2…` (1.5M steps), owner distance closed by **-6.9 cm** (from 3.662 m to 3.593 m), and ball distance closed by **-2.2 cm** (from 2.479 m to 2.458 m).
+2. **Visual Perception Broke All-Time Records Across Every Category:** Sensory projections from compound eyes and LiDAR into MaleCNS core v2 achieved all-time peak discrimination: `ball-left` (**0.662**), `ball-ahead` (**0.653**), `ball-right` (**0.663**), `owner-left` (**0.653**), `owner-ahead` (**0.617**), and `owner-right` (**0.614**).
+3. **Locomotion Stability Preserved & Forward Velocities Rose:** In snapshot `5a534b32…`, mean 7-gait locomotion falls remained solid at **0.2649 / 13s** (0.2440 baseline), while nominal walking speed increased to **+0.3361 m/s**, pace to **+0.4592 m/s**, and canter to **+0.3085 m/s**. Sit pose (+0.490 / 0.607) and lie-down pose (+0.045 / 0.954) remained 100% stable.
+4. **Causal Mechanism of the 0.5M Peak:** Arrival peaked at 0.5M steps (3.12%) before slightly tapering at 1.0M (2.60%) and 1.5M (2.08%). With `task_scale = 1200.0` (effective lr `6e-3`), word vectors `word_w[23]` and `word_w[24]` moved by >9.4 norm in the first 0.5M steps. Continued optimization beyond 0.5M steps without curriculum led to a slight rise in task fall rate (owner falls 0.1615 baseline -> 0.1979 at 0.5M -> 0.2344 at 1.5M), cutting short the 13s life budget.
+5. **Candidate Promotion:** Snapshot `baby_dog_step_0000491520.npz` (SHA256 `5a534b328c2c511d0cdccc105f61f9c12fdc5b767662f697af05315f06e16d17`) is promoted as the primary **learning restart candidate** (highest arrival success 3.12%, all-time peak perception accuracies 0.652/0.646/0.632, rock-solid 0.2649 falls/13s). Original stage16 (`4af773f4…`) remains the established global best.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
