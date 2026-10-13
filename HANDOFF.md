@@ -9,12 +9,12 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 13 Oct 15:10 Dubai:** `baby_dog_vision_approach_round7` completed all 91 updates on Kaggle GPU (2x Nvidia Tesla T4, 96.8 min run).
-Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round7 (version 1).
-Configured with accelerated goal word scaling (`task_scale = 600.0`, effective lr `3e-3` for "ball" and "come" while protecting base motor words 0..22 at `5e-6`), forward distance reward `TASK_PAY = 6.0`, arrival reward `REACH_PAY = 10.0`, orientation incentive `FACE_PAY = 1.5`, 1.5M steps (91 updates), 3 evaluations (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
-Resumed from candidate `baby_dog_step_0000983040.npz` (`41d72631…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round6`.
-All outputs fetched to `results/baby_dog_vision_approach_round7/`: `baby_dog.npz`, snapshots at 491k, 983k, 1.47M, 1.49M steps, `practice.json`, and `log.txt`.
-Original stage16 (`4af773f4…`) remains the established global best; intermediate snapshot `baby_dog_step_0001474560.npz` (`c4ceab90…`) is promoted as the **active learning restart candidate** (lowest 7-gait locomotion falls 0.2530/13s in project history, record target facing +0.0907 owner / +0.0746 ball, zero ball distance drift +0.5 cm).
+**Current state, 13 Oct 15:20 Dubai:** `baby_dog_vision_approach_round8` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round8 (version 1).
+Configured with doubled task scale (`task_scale = 1200.0`, effective lr `6e-3` = 0.006 for "ball" and "come" while protecting base motor words 0..22 at `5e-6`), doubled forward distance reward `TASK_PAY = 12.0`, doubled arrival reward `REACH_PAY = 20.0`, orientation incentive `FACE_PAY = 1.5`, 1.5M steps (91 updates), 3 evaluations (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+Resumed from candidate `baby_dog_step_0001474560.npz` (`c4ceab90…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round7`.
+Remote CPU preflight `baby_dog_vision_round8_preflight` verified (11/11 assertions passed; JIT vision optimizer, task word scaling, and candidate SHA256 `c4ceab90…` verified).
+Active background monitor tracking execution. Original stage16 (`4af773f4…`) remains the established global best; snapshot `c4ceab90…` is the active learning restart candidate.
 Free Kaggle GPU quota: **~9.88h remaining** (sufficient for ~6 full trials).
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
