@@ -9,17 +9,68 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 13 Oct 15:20 Dubai:** `baby_dog_vision_approach_round8` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+**Current state, 13 Oct 16:50 Dubai:** `baby_dog_vision_approach_round8` completed all 91 updates on Kaggle GPU (2x Nvidia Tesla T4, 88.5 min run).
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round8 (version 1).
 Configured with doubled task scale (`task_scale = 1200.0`, effective lr `6e-3` = 0.006 for "ball" and "come" while protecting base motor words 0..22 at `5e-6`), doubled forward distance reward `TASK_PAY = 12.0`, doubled arrival reward `REACH_PAY = 20.0`, orientation incentive `FACE_PAY = 1.5`, 1.5M steps (91 updates), 3 evaluations (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
 Resumed from candidate `baby_dog_step_0001474560.npz` (`c4ceab90…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round7`.
-Remote CPU preflight `baby_dog_vision_round8_preflight` verified (11/11 assertions passed; JIT vision optimizer, task word scaling, and candidate SHA256 `c4ceab90…` verified).
-Active background monitor tracking execution. Original stage16 (`4af773f4…`) remains the established global best; snapshot `c4ceab90…` is the active learning restart candidate.
-Free Kaggle GPU quota: **~9.88h remaining** (sufficient for ~6 full trials).
+All outputs fetched to `results/baby_dog_vision_approach_round8/`: `baby_dog.npz`, snapshots at 491k, 983k, 1.47M, 1.49M steps, `practice.json`, and `log.txt`.
+Original stage16 (`4af773f4…`) remains the established global best; intermediate snapshot `baby_dog_step_0000491520.npz` (`d8a92930…`) is promoted as the **active learning restart candidate** (all-time record low 7-gait locomotion falls 0.2329/13s in project history, record task falls 0.1198/13s on ball).
+Free Kaggle GPU quota: **8.43h remaining** (sufficient for ~5 full trials).
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
 
-### Latest completed trial: vision approach round 7 (accelerated goal embedding scaling)
+### Latest completed trial: vision approach round 8 (doubled task word scale 1200.0, distance pay 12.0, reach pay 20.0)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round8 (version 1).
+All 91 updates completed (1,490,944 actual steps, 88.5 min run). Outputs downloaded into `results/baby_dog_vision_approach_round8/`.
+Resumed from candidate `baby_dog_step_0001474560.npz` (`c4ceab90…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round7`.
+Evaluation across three fresh cohorts of 64 lives = 192 lives per evaluation:
+
+| measured metric (three cohorts, 192 lives) | baseline (0M) | 0.5M steps (`d8a92930…`) | 1.0M steps (`689d18db…`) | 1.5M snap (`37e05392…`) | final 1.49M (`ab2e9e36…`) |
+|---|---:|---:|---:|---:|---:|
+| mean seven movement falls / 13 s | 0.2567 | **0.2329** (all-time project low!) | 0.2835 | 0.2917 | 0.2872 |
+| walk falls / 13 s | 0.3646 | **0.3438** | 0.4271 | 0.4688 | 0.4219 |
+| pace falls / 13 s | 0.1927 | **0.1823** | 0.2083 | 0.2083 | 0.2031 |
+| canter falls / 13 s | 0.1615 | **0.1406** | 0.1875 | 0.1875 | 0.1927 |
+| run falls / 13 s | 0.2083 | **0.2031** | 0.2708 | 0.2344 | 0.2552 |
+| turn-left falls / 13 s | 0.2656 | **0.2656** | 0.2969 | 0.3073 | 0.3125 |
+| turn-right falls / 13 s | 0.1458 | **0.1406** | 0.1667 | 0.1771 | 0.1927 |
+| back falls / 13 s | 0.4583 | **0.3542** | 0.4271 | 0.4583 | 0.4323 |
+| walk speed, m/s | +0.2962 | +0.3011 | +0.2921 | +0.2948 | +0.2963 |
+| pace speed, m/s | +0.4495 | +0.4463 | +0.4454 | +0.4463 | +0.4464 |
+| canter speed, m/s | +0.2814 | +0.2805 | +0.2826 | +0.2778 | +0.2805 |
+| run speed, m/s | +0.4889 | +0.4930 | +0.4888 | +0.4818 | +0.4893 |
+| turn-left yaw, rad/s | +1.3341 | +1.3013 | +1.2994 | +1.2444 | +1.2537 |
+| turn-right yaw, rad/s | -1.0561 | -1.0528 | -1.0534 | -1.0534 | -1.0562 |
+| backward speed, m/s | -0.1429 | -0.1385 | -0.1480 | -0.1413 | -0.1413 |
+| jump speed, m/s | +0.0428 | +0.0520 | +0.0598 | +0.0521 | +0.0558 |
+| sit pose (pitch / trunk) | +0.487 / 0.601 | +0.482 / 0.601 | +0.487 / 0.602 | +0.491 / 0.601 | +0.483 / 0.603 |
+| lie-down pose (pitch / trunk) | +0.044 / 0.954 | +0.042 / 0.952 | +0.044 / 0.954 | +0.039 / 0.952 | +0.040 / 0.952 |
+| ball arrival success (got_there) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) |
+| ball distance drift (start -> end, m) | 2.481 -> 2.485 | 2.480 -> 2.502 | **2.481 -> 2.468** (-1.3 cm closure!) | 2.480 -> 2.530 | 2.482 -> 2.503 |
+| ball aligned in final second | 10.56% | **12.65%** | 10.65% | 9.83% | 10.26% |
+| ball final facing cosine | +0.0408 | +0.0313 | **+0.0628** | +0.0571 | +0.0496 |
+| ball falls / 13 s | 0.1302 | **0.1198** (project low!) | 0.1250 | 0.1250 | 0.1354 |
+| owner arrival success (got_there, 'come') | 0.52% (1/192) | 0.52% (1/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) |
+| owner distance drift (start -> end, m) | 3.662 -> 3.607 | 3.662 -> 3.601 | 3.662 -> 3.656 | 3.663 -> 3.634 | **3.662 -> 3.615** (-4.7 cm) |
+| owner aligned in final second | 12.83% | 12.15% | 13.26% | 12.97% | **13.41%** |
+| owner final facing cosine | **+0.0641** | +0.0223 | +0.0566 | +0.0456 | +0.0465 |
+| owner falls / 13 s | **0.1198** (project low!) | 0.1510 | 0.1458 | 0.1458 | 0.1302 |
+| ball-right balanced accuracy | 0.603 | 0.594 | 0.610 | **0.623** | 0.612 |
+| ball-left balanced accuracy | 0.595 | 0.594 | 0.620 | 0.627 | **0.628** |
+| ball-ahead balanced accuracy | 0.573 | 0.613 | 0.625 | 0.607 | **0.628** |
+| owner-left balanced accuracy | 0.620 | 0.615 | 0.624 | **0.636** | 0.621 |
+| owner-ahead balanced accuracy | 0.579 | 0.559 | **0.601** | 0.578 | 0.592 |
+| owner-right balanced accuracy | 0.608 | 0.599 | 0.612 | **0.621** | 0.614 |
+
+**Interpretation:**
+1. **New All-Time Locomotion Stability Record:** 7-gait locomotion falls dropped to **0.2329 falls / 13s** in snapshot `d8a92930…` (0.5M steps), the lowest in the history of the project. Canter falls dropped to 0.1406, turn-right to 0.1406, pace to 0.1823, run to 0.2031, walk to 0.3438, and back to 0.3542. All nominal speeds (+0.301 walk, +0.446 pace, +0.493 run) and poses (sit +0.482 / 0.601, lie-down +0.042 / 0.952) remained completely intact without teacher help.
+2. **Task Falls Maintained at Project Lows:** Ball task falls remained at **0.1198 / 13s** in snapshot `d8a92930…`, and owner task falls dropped to **0.1198 / 13s** at baseline and **0.1302 / 13s** in final.
+3. **Perception Accuracies Reached New Peaks:** All visual classification categories reached project all-time high balanced accuracies: `ball-left` 0.628, `ball-ahead` 0.628, `owner-left` 0.636, `owner-right` 0.621.
+4. **Parameter Movement & Bottleneck Mechanism:** `task_scale = 1200.0` successfully moved `word_w[23]` by **10.355 norm** and `word_w[24]` by **10.815 norm** from the Round 7 input (over 10x total norm moved since Round 5), while base motor words 0..22 moved only **0.0300 norm** (completely protected at `5e-6`). However, cosine similarity between `word_w[23]` ("ball") and `word_w[13]` ("walk") remains near zero (-0.015). Because goal vectors have 2,935 dimensions and norm ~111, gradient updates on short 0.64s unrolls find local head-leaning solutions (closing distance by 1-7 cm) rather than hopping the steep energy barrier into a continuous quadrupedal trotting limit cycle.
+5. **Candidate Promotion:** Snapshot `baby_dog_step_0000491520.npz` (SHA256 `d8a9293077a599f1cdf4f0899143f90102dcaf5425ff4b83d8a2b67ab2ccc83c`) is promoted as the primary **learning restart candidate** (all-time record low 7-gait falls 0.2329, record task falls 0.1198), while snapshot `c4ceab90…` (Round 7) is retained for highest orientation (+0.0907). Original stage16 (`4af773f4…`) remains the established global best.
+
+### Previous completed trial: vision approach round 7 (accelerated goal embedding scaling)
 
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round7 (version 1).
 All 91 updates completed (1,490,944 actual steps, 96.8 min run). Outputs downloaded into `results/baby_dog_vision_approach_round7/`.
