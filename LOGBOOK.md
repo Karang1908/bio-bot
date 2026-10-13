@@ -1887,6 +1887,21 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
 2. **Persistent Owner Arrival Barrier:** Owner arrival maintained steady at 2.08% (4/192 lives), but did not surpass Round 10's record of 3.12% (6/192). High forward drive without active heading realignment caused dogs with misaligned initial headings to drift slightly past the target over 10 seconds.
 3. **Candidate Promotion:** Snapshot `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10) remains the active **learning restart candidate** (highest arrival 3.12%, lowest 7-gait falls 0.2649). None of the Round 13 checkpoints supersede it.
 
+**Vision approach round 14 trial (dynamic forward velocity command injection unblocking v_act locomotion rewards) (14 Oct Dubai):**
+- **Hypothesis:** Across Rounds 9–13, displacement consistently capped at -4.0 cm to -6.8 cm (head-leaning attractor) because `cmd_of` was set to `(0, 0, 0)` for tasks. Inside `train/brain_dog.py`, `v_act` rewarded `still = exp(-(v_fwd^2 + v_side^2)/0.05)` and penalized turning with `-0.2 * |wz|`. Injecting dynamic `task_cmd = [0.5 * clip(cos_facing, 0, 1), 0, clip(lateral, -1, 1)]` into `rollout` `info["cmd"]` (commit `eec0202`) unblocks `v_act`'s internal locomotion and turning rewards without leaking privileged command labels to the brain (`seen["cmd"]` remains zeros).
+- **Preflight:** Remote CPU preflight `bio-bot-baby-dog-vision-round14-preflight` verified (14/14 assertions passed on Kaggle CPU; input SHA256 `5a534b32…` verified).
+- **GPU Run:** [`bio-bot-baby-dog-vision-approach-round14`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round14) (version 2) launched on 2x Nvidia Tesla T4 GPU with `--timeout 2800` (46.6 min).
+  - Setup: 650k steps (~40 updates), 512 envs, 2 evals, 3 cohorts (192 lives per eval). Resumed from candidate `baby_dog_step_0000491520.npz` (`5a534b32…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`.
+  - Execution: Baseline evaluation (192 lives across 3 cohorts) completed in 19.0 min. Training ran 20 updates (~327k steps) cleanly with zero NaNs and zero skill conflicts (`conflicting 0%`).
+  - Terminal Status: `CANCEL_ACKNOWLEDGED` at 46.6 min. In `train/baby_dog.py`, `every = max(1, iters // args.evals) = 40 // 2 = 20`. Update 20 triggered the intermediate evaluation at 45.4 min; while executing cohort 1, the 2,800s timeout expired. Because the evaluation did not finish, no intermediate `.npz` was written to disk.
+  - Quota impact: Weekly Kaggle GPU quota consumed: ~0.79h (remaining: 0.08h / 30.00h; quota depleted until refresh on 17 Oct).
+- **Measured Outcomes:**
+  - Baseline (0M steps, 192 lives): owner arrival 1.04% (2/192), distance 3.662 -> 3.686 m (+2.4 cm), owner aligned last s 9.14%; ball arrival 0.00%, distance 2.481 -> 2.522 m (+4.1 cm), ball aligned last s 10.51%; walk speed +0.336 m/s (falls 0.458); turn-left +1.301 rad/s (falls 0.286); turn-right -1.072 rad/s (falls 0.172); back -0.135 m/s (falls 0.323); sit pitch +0.49 rad (falls 0.198); lie-down pitch +0.05 rad (falls 0.208).
+  - Intermediate at 0.3M steps (Cohort 1 before timeout): walk speed +0.322 m/s (falls 0.450); turn-left +1.340 rad/s (falls 0.270); turn-right +1.084 rad/s (falls 0.200); back +0.126 m/s (falls 0.380); sit pitch +0.49 rad (falls 0.230); lie-down pitch +0.04 rad (falls 0.220).
+- **Key Findings & Candidate Promotion:**
+  - Candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10) remains the active **learning restart candidate** (highest arrival 3.12%, lowest 7-gait falls 0.2649).
+  - Transition to Google Colab: Standalone script `results/kaggle/baby_dog_vision_approach_round14/baby_dog.py` is ready for free multi-hour training on Google Colab to complete full 1.5M+ step continuation without Kaggle GPU quota caps.
+
 
 ## 7. Open problems and next steps
 
