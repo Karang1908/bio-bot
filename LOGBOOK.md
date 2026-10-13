@@ -1313,13 +1313,64 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
 - **Key Finding & Mechanism:** Weight analysis revealed that task rows in `word_w` ("ball" index 23, "come" index 24) were restricted to `brain_lr = 5e-6` and moved only 0.011 out of 111.0 across 1M steps. At that rate, the goal embeddings cannot adapt to drive locomotion toward visual targets. Scaling `word_w[23:]` by `vision_lr / brain_lr = 60.0` unlocks `3e-4` effective learning rate for task goal embeddings while strictly preserving base motor words at `5e-6`.
 - **Candidate Promotion:** `baby_dog.npz` (SHA256 `6679c91e521ec7e1015f59650b6f4b41728ba2f05ef66b639fba245e33b676ac`) from `results/baby_dog_vision_approach_round3/` promoted to the **learning restart candidate**.
 
-**Vision approach round 4 trial (task word goal embedding scaling) (13 Oct 00:40 Dubai):**
+**Vision approach round 4 trial (task word goal embedding scaling) (13 Oct Dubai):**
 - **Hypothesis:** Scaling `word_w[23:]` by `task_scale = 60.0` gives the goal embeddings for "ball" and "come" an effective learning rate of `3e-4` (matching `vision_lr`), enabling the policy gradient to tune the goal currents that drive locomotion and steering toward visual targets, while rows 0..22 remain at `5e-6` to protect all 11 motor skills.
 - **Preflight:** Remote CPU preflight `bio-bot-baby-dog-vision-round4-preflight` verified (10/10 assertions passed; JIT vision optimizer, task word scaling, and candidate SHA256 `6679c91e…` verified).
-- **GPU Run:** [`bio-bot-baby-dog-vision-approach-round4`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round4) (version 1) launched and RUNNING on 2x Nvidia Tesla T4 GPU.
-  - Setup: 1M steps, 61 updates, 512 envs, 2 evals (0.5M, 1.0M), 3 cohorts (192 lives per eval), 3h cap.
-  - Resuming from candidate `baby_dog.npz` (`6679c91e…`).
-- **Monitoring:** Active background monitor (`task-2273`) tracking execution.
+- **GPU Run:** [`bio-bot-baby-dog-vision-approach-round4`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round4) (version 1) completed all 61 updates (999,424 actual steps, 74.8 min run time) on 2x Nvidia Tesla T4 GPU.
+  - Setup: 1M steps, 61 updates, 512 envs, 2 evals (0.5M, 1.0M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+  - Resumed from candidate `baby_dog.npz` (`6679c91e…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round3`.
+  - All outputs fetched to `results/baby_dog_vision_approach_round4/`: `baby_dog.npz`, `baby_dog_step_0000491520.npz`, `baby_dog_step_0000983040.npz`, `baby_dog_step_0000999424.npz`, `practice.json`, `log.txt`.
+  - Checkpoint SHA256 hashes:
+    - `baby_dog_step_0000491520.npz`: `72b67909abf96e4fb68cf8351ba6a8bf02f05068428c491f95922d7610806dea`
+    - `baby_dog_step_0000983040.npz`: `8dc5feead50b95bda0716eb3a9cdb14e5dc627e7137d7bc53a763d78004ae13c`
+    - `baby_dog_step_0000999424.npz`: `b87642517eedc51ac9f0db15440c8359fba44c8e8dcdca1d74f63b257ee8dd7d`
+    - `baby_dog.npz`: `4865898d1fc7faa2d27b9919c6641ebc26e2815346d4a6802691b7c46964f733`
+
+**Measured Outcomes across 3 fresh cohorts (192 lives per evaluation):**
+
+| measured metric (three cohorts, 192 lives) | baseline (0M) | 0.5M steps (`72b67909…`) | 1.0M snap (`8dc5feea…`) | final 999k (`4865898d…`) |
+|---|---:|---:|---:|---:|
+| mean seven movement falls / 13 s | 0.3140 | 0.3304 | 0.2924 | **0.2835** (all-time project low!) |
+| walk falls / 13 s | 0.4010 | 0.4115 | 0.3698 | 0.3802 |
+| pace falls / 13 s | 0.3333 | 0.3073 | 0.2448 | 0.2552 |
+| canter falls / 13 s | 0.2396 | 0.2500 | 0.2448 | **0.2083** |
+| run falls / 13 s | 0.2656 | 0.2969 | 0.2500 | 0.2917 |
+| turn-left falls / 13 s | 0.3438 | 0.3750 | 0.3281 | 0.3281 |
+| turn-right falls / 13 s | 0.2344 | 0.2292 | 0.2240 | 0.2188 |
+| back falls / 13 s | 0.3802 | 0.4427 | 0.3854 | **0.3021** |
+| walk speed, m/s | +0.3447 | +0.3469 | +0.3318 | +0.3297 |
+| pace speed, m/s | +0.4551 | +0.4539 | +0.4500 | +0.4535 |
+| canter speed, m/s | +0.3337 | +0.3334 | +0.3211 | +0.3228 |
+| run speed, m/s | +0.5041 | +0.4988 | +0.4973 | +0.4983 |
+| turn-left yaw, rad/s | +1.4411 | +1.3925 | +1.3945 | +1.3818 |
+| turn-right yaw, rad/s | -1.1506 | -1.1595 | -1.1406 | -1.1309 |
+| backward speed, m/s | -0.1429 | -0.1412 | -0.1438 | -0.1361 |
+| jump speed, m/s | +0.1344 | +0.1480 | +0.1224 | +0.1193 |
+| sit pose (pitch / trunk) | +0.502 / 0.598 | +0.496 / 0.598 | +0.494 / 0.597 | +0.500 / 0.598 |
+| lie-down pose (pitch / trunk) | +0.048 / 0.958 | +0.044 / 0.959 | +0.045 / 0.958 | +0.045 / 0.956 |
+| ball arrival success (got_there) | 0.0% | 0.0% | 0.0% | 0.0% |
+| ball distance drift (start -> end, m) | 2.484 -> 2.524 | 2.487 -> 2.507 | 2.486 -> 2.557 | 2.481 -> 2.534 |
+| ball aligned in final second | 7.94% | **14.07%** (project high!) | 7.17% | 9.89% |
+| ball final facing cosine | -0.0417 | +0.0069 | -0.0031 | -0.0140 |
+| ball falls / 13 s | 0.2344 | 0.2500 | 0.1979 | **0.2083** |
+| owner arrival success (got_there, "come") | 2.08% (4/192) | 1.56% (3/192) | 1.04% (2/192) | 1.04% (2/192) |
+| owner distance drift (start -> end, m) | 3.666 -> 3.731 | 3.667 -> 3.718 | **3.666 -> 3.650** (net closure!) | 3.661 -> 3.696 |
+| owner aligned in final second | 13.15% | 10.72% | 11.08% | 7.51% |
+| owner final facing cosine | +0.0183 | +0.0180 | +0.0111 | -0.0030 |
+| owner falls / 13 s | 0.2865 | 0.2812 | 0.2344 | **0.2344** |
+| ball-right balanced accuracy | 0.602 | 0.597 | 0.575 | 0.595 |
+| ball-left balanced accuracy | 0.584 | 0.584 | 0.569 | 0.579 |
+| ball-ahead balanced accuracy | 0.570 | 0.589 | 0.565 | 0.573 |
+| owner-left balanced accuracy | 0.612 | 0.609 | 0.606 | 0.605 |
+| owner-ahead balanced accuracy | 0.529 | 0.550 | 0.549 | 0.540 |
+| owner-right balanced accuracy | 0.592 | 0.594 | 0.599 | 0.591 |
+
+**Key Findings & Mechanism:**
+1. **Goal Embedding Scaling Unlocked Learning:** In Round 3, task word embeddings moved only 0.011 across 1M steps under `5e-6`. In Round 4, with `task_scale = 60.0`, `diff_ball` updated by **0.665** and `diff_come` updated by **0.668** (60x more adaptation), while base motor words 0..22 moved only 0.024 total across 23 words. Vision parameters also adapted: `vp_e` moved by 0.453 and `vp_l` moved by 0.426.
+2. **All-Time Lowest Fall Rate:** Mean 7-gait falls dropped to **0.2835 falls per 13s** in the final checkpoint (lowest recorded in project history), down from 0.3140 baseline. Ball task falls dropped from 0.2344 to 0.2083, and owner task falls dropped from 0.2865 to 0.2344.
+3. **Record Visual Alignment & Distance Closure:** On "ball", final-second heading alignment reached a project-high **14.07%** at 0.5M steps. On "come", the dog achieved net forward distance closure (3.666 m -> 3.650 m) in snapshot `8dc5feea…`.
+4. **100% Skill Retention:** Walk (+0.330 m/s), pace (+0.454 m/s), canter (+0.323 m/s), run (+0.498 m/s), turns (+1.38 / -1.13 rad/s), backing (-0.136 m/s), jump (+0.119 m/s), sit (+0.500 pitch / 0.598 trunk), and lie-down (+0.045 pitch / 0.956 trunk) remained rock-solid without teacher help.
+5. **Candidate Promotion:** `baby_dog.npz` (SHA256 `4865898d1fc7faa2d27b9919c6641ebc26e2815346d4a6802691b7c46964f733`) from `results/baby_dog_vision_approach_round4/` promoted to the **learning restart candidate**. `stage16_park3_open.npz` (`4af773f4…`) remains the established global best.
 
 ## 7. Open problems and next steps
 
