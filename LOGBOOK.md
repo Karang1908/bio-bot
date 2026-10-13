@@ -1372,6 +1372,14 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
 4. **100% Skill Retention:** Walk (+0.330 m/s), pace (+0.454 m/s), canter (+0.323 m/s), run (+0.498 m/s), turns (+1.38 / -1.13 rad/s), backing (-0.136 m/s), jump (+0.119 m/s), sit (+0.500 pitch / 0.598 trunk), and lie-down (+0.045 pitch / 0.956 trunk) remained rock-solid without teacher help.
 5. **Candidate Promotion:** `baby_dog.npz` (SHA256 `4865898d1fc7faa2d27b9919c6641ebc26e2815346d4a6802691b7c46964f733`) from `results/baby_dog_vision_approach_round4/` promoted to the **learning restart candidate**. `stage16_park3_open.npz` (`4af773f4…`) remains the established global best.
 
+**Vision approach round 5 trial (enhanced turning reward, arrival pay, and doubled task scaling) (13 Oct Dubai):**
+- **Hypothesis:** On 4 legs, physical turning costs ~0.33/s in mechanical energy, effort, and sag. Increasing `FACE_PAY` from 0.5 to 1.5 (`+1.5 * turned`) creates a net positive incentive (+1.17/s) to aggressively turn toward visual targets before moving forward. Because `turned` is a pure derivative (`d(facing)/dt`), it drops to 0 once aligned, forcing forward locomotion (`TASK_PAY * closer`) to earn reward. Increasing `REACH_PAY` to 5.0 reinforces terminal arrival. Doubling `task_scale` to 120.0 (effective lr 6e-4) accelerates goal word adaptation from the promoted candidate `4865898d…` while protecting base motor words 0..22 at 5e-6.
+- **Preflight:** Remote CPU preflight `bio-bot-baby-dog-vision-round5-preflight` verified (11/11 assertions passed; JIT vision optimizer, task word scaling, and candidate SHA256 `4865898d…` verified in 1.1 min on Kaggle CPU).
+- **GPU Run:** [`bio-bot-baby-dog-vision-approach-round5`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round5) (version 1) launched and RUNNING on 2x Nvidia Tesla T4 GPU.
+  - Setup: 1.5M steps, 91 updates, 512 envs, 3 evals (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+  - Resuming from candidate `baby_dog.npz` (`4865898d…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round4`.
+- **Monitoring:** Active background monitor (`task-2610`) tracking execution.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
