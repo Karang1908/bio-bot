@@ -9,15 +9,13 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 13 Oct 10:55 Dubai:** `baby_dog_vision_approach_round5` completed all 91 updates (1,490,944 steps, 89.5 min) on Kaggle GPU (2x Nvidia Tesla T4).
-Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round5 (version 1).
-All outputs downloaded to `results/baby_dog_vision_approach_round5/`.
-- **First Ever Ball Target Arrival:** At 0.5M steps (`71cf4974…`), achieved **0.52% (1/192)** arrival, net distance closure (2.493m -> 2.460m), positive facing cosine (+0.0752), and 11.10% alignment.
-- **Continuous Forward Closure on "Come":** Net distance to owner closed monotonically from -2.5 cm baseline to **-8.8 cm (3.660m -> 3.572m)** in final checkpoint `e9e4e399…`, retaining 1.56% (3/192) arrival.
-- **Task Falls at Project Low:** Ball falls dropped to **0.1771 / 13s** (lowest ever); 7-gait locomotion falls remained steady at **0.3065 / 13s** with all 11 motor skills intact.
-- **Active Checkpoint Promotion:** Promoted `baby_dog.npz` (`e9e4e399…`) from Round 5 as the **active learning restart candidate**; preserved `71cf4974…` as intermediate ball pioneer checkpoint. Original stage16 (`4af773f4…`) remains the established global best.
-- Free Kaggle GPU quota: **12.97h remaining** (sufficient for ~9-10 full trials).
-- Preparing Round 6 formulation and remote preflight.
+**Current state, 13 Oct 11:15 Dubai:** `baby_dog_vision_approach_round6` v1 is **RUNNING** on Kaggle GPU (2x Nvidia Tesla T4).
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round6 (version 1).
+Configured with doubled forward distance reward (`TASK_PAY = 6.0`), doubled arrival reward (`REACH_PAY = 10.0`), preserved orientation incentive (`FACE_PAY = 1.5`), task goal embedding scaling (`task_scale = 120.0`), 1.5M steps (91 updates), 3 evaluations (0.5M, 1.0M, 1.5M), 3 cohorts (192 lives per eval), 3h cap. Teacher movement help zero from rest.
+Resumed from candidate `baby_dog.npz` (`e9e4e399…`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round5`.
+Remote CPU preflight `baby_dog_vision_round6_preflight` verified (11/11 assertions passed; JIT vision optimizer, task word scaling, and candidate SHA256 `e9e4e399…` verified).
+Original stage16 (`4af773f4…`) remains the established global best; candidate `baby_dog.npz` (`e9e4e399…`) is the **active learning restart candidate**.
+Free Kaggle GPU quota verified via `kaggle quota`: **12.97h remaining** (sufficient for ~9 full trials).
 All source commits pushed individually on `main`; zero laptop compute checks.
 The current-state and active-job sections take precedence over chronological pending-status notes.
 
