@@ -80,6 +80,7 @@ SAY = ["ball-left", "ball-ahead", "ball-right", "owner-left", "owner-ahead", "ow
 VOICE = 3.0              # how much learning to say what is true counts (at 0.5 it barely trained seeing)
 FACE_PAY = 1.5           # "ball" / "come": reward per rad/s of turning to face what was asked (looking before going)
 FWD_PAY = 6.0            # "ball" / "come": reward for forward speed aligned with task target
+YAW_PAY = 2.0            # "ball" / "come": reward for yaw rate directed towards task target
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
@@ -1541,16 +1542,23 @@ def practice(args, bd, out: Path) -> dict:
                     Rh = d.xmat[:, base]
                     to = goal - d.xpos[:, base, :2]
                     return jp.sum(Rh[:, :2, 0] * to, -1) / (jp.linalg.norm(Rh[:, :2, 0], axis=-1) * jp.linalg.norm(to, axis=-1) + 1e-6)
+                def lateral(d, goal):                    # sine of the angle (positive = goal is to the left)
+                    Rh = d.xmat[:, base]
+                    to = goal - d.xpos[:, base, :2]
+                    return jp.sum(Rh[:, :2, 1] * to, -1) / (jp.linalg.norm(Rh[:, :2, 1], axis=-1) * jp.linalg.norm(to, axis=-1) + 1e-6)
                 cos_facing = facing(env["d"], goal1)
+                sin_lat = lateral(env["d"], goal1)
                 turned = jp.where(done, 0.0, jp.clip((cos_facing - facing_before) / bd.CTRL_DT, -2.0, 2.0))
                 fwd_toward = jp.maximum(0.0, st["v_fwd"]) * jp.clip(cos_facing, 0.0, 1.0)
-                # the body scores "stand still" when no motion is asked; a task word asks it to go somewhere
-                still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
+                yaw_toward = st["wz"] * jp.clip(sin_lat, -1.0, 1.0)
+                # the body scores "stand still" when no motion is asked; a task word asks it to go somewhere (turning or walking)
+                still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2 + st["wz"] ** 2) / 0.05)
                 face_pay = getattr(args, "face_pay", FACE_PAY)
                 task_pay = getattr(args, "task_pay", TASK_PAY)
                 reach_pay = getattr(args, "reach_pay", REACH_PAY)
                 fwd_pay = getattr(args, "fwd_pay", FWD_PAY)
-                task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + fwd_pay * fwd_toward
+                yaw_pay = getattr(args, "yaw_pay", YAW_PAY)
+                task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + fwd_pay * fwd_toward + yaw_pay * yaw_toward
                 if lesson == "perception":
                     task_reward = jp.zeros_like(closer)
                 r = r + is_task[ins] * (task_reward - still + 0.1 * jp.abs(st["wz"])) * bd.CTRL_DT
@@ -2309,6 +2317,7 @@ def main() -> None:
     ap.add_argument("--reach_pay", type=float, default=REACH_PAY, help="practice: reward per second within arrival radius")
     ap.add_argument("--face_pay", type=float, default=FACE_PAY, help="practice: reward per rad/s turning towards task target")
     ap.add_argument("--fwd_pay", type=float, default=FWD_PAY, help="practice: reward for forward speed aligned with task target")
+    ap.add_argument("--yaw_pay", type=float, default=YAW_PAY, help="practice: reward for yaw rate directed towards task target")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--bias0", type=float, default=0.3)
     ap.add_argument("--goal_scale", type=float, default=2.0)
