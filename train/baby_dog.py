@@ -66,7 +66,7 @@ SELF_MODEL = 0.5         # in the park: how much predicting its own senses count
 # goals in the park (DogMind step 5), scored by outcome only: nobody shows it how
 TASKS = ["ball", "come"]  # "ball": go to the ball; "come": go to the owner
 TASK_PAY = 3.0           # reward per m/s of getting closer to what was asked
-REACH_PAY = 3.0          # reward per second with its nose at the ball (or by the owner)
+REACH_PAY = 5.0          # reward per second with its nose at the ball (or by the owner)
 NEAR = {"ball": 0.35, "come": 1.0}   # m: at the ball, by the owner
 HIT_COST = 2.0           # being hit by a thrown thing costs about as much as a fall
 # drives (DogMind step 6): free time when nobody speaks, hunger (the battery) and curiosity
@@ -78,7 +78,7 @@ CURIOSITY = 2.0          # reward per unit of learning progress (its sight surpr
 SAY = ["ball-left", "ball-ahead", "ball-right", "owner-left", "owner-ahead", "owner-right",
        "hungry", "hot", "hit", "fallen", "moving"]
 VOICE = 3.0              # how much learning to say what is true counts (at 0.5 it barely trained seeing)
-FACE_PAY = 0.5           # "ball" / "come": reward per rad/s of turning to face what was asked (looking before going)
+FACE_PAY = 1.5           # "ball" / "come": reward per rad/s of turning to face what was asked (looking before going)
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
@@ -188,11 +188,12 @@ VISION_PARAMS = {
 }
 
 
-def make_practice_optimizer(params, brain_lr, voice_lr=None, vision_lr=None, ox=None):
+def make_practice_optimizer(params, brain_lr, voice_lr=None, vision_lr=None, ox=None, task_scale=None):
     """Give the voice readout and vision frontend their own learning rates without changing the motor brain's rate.
 
     With brain_lr=5e-6, the connectome weights and motor readouts are protected to preserve established gaits,
     while vision_lr allows the visual convolution and projection weights to learn spatial features and heading.
+    task_scale scales the Adam update step on task goal words ("ball", "come") to allow goal representations to adapt.
     """
     vision_keys = {"ol_e1", "ol_e2", "ol_l1", "ol_l2", "rf_e", "rf_l", "vp_e", "vp_l", "sp_eff", "sp_1", "sp_2"}
     if ox is None:
@@ -220,8 +221,9 @@ def make_practice_optimizer(params, brain_lr, voice_lr=None, vision_lr=None, ox=
         labels["brain"] = {k: label_key(k) for k in params["brain"]}
 
     chain = [ox.clip_by_global_norm(1.0), ox.multi_transform(transforms, labels)]
-    if vision_lr is not None and brain_lr > 0:
+    if task_scale is None and vision_lr is not None and brain_lr > 0:
         task_scale = float(vision_lr / brain_lr)
+    if task_scale is not None and task_scale > 1.0:
         def scale_task_words(scale: float, task_start_idx: int = 23):
             def init_fn(p):
                 return ()
@@ -1439,7 +1441,7 @@ def practice(args, bd, out: Path) -> dict:
         return x[..., 0]
 
     params = {"brain": bp, "critic": cp}
-    opt = make_practice_optimizer(params, args.lr, args.voice_lr, args.vision_lr, optax)
+    opt = make_practice_optimizer(params, args.lr, args.voice_lr, args.vision_lr, optax, getattr(args, "task_scale", None))
 
     def logprob(a, mean):                        # the wobble is its exploration: a ~ N(tanh(mu), WOBBLE)
         return jp.sum(-0.5 * ((a - mean) / WOBBLE) ** 2 - np.log(WOBBLE), -1)
@@ -1539,7 +1541,10 @@ def practice(args, bd, out: Path) -> dict:
                 turned = jp.where(done, 0.0, jp.clip((facing(env["d"], goal1) - facing_before) / bd.CTRL_DT, -2.0, 2.0))
                 # the body scores "stand still" when no motion is asked; a task word asks it to go somewhere
                 still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
-                task_reward = FACE_PAY * turned if lesson == "orient" else TASK_PAY * closer + FACE_PAY * turned + REACH_PAY * there
+                face_pay = getattr(args, "face_pay", FACE_PAY)
+                task_pay = getattr(args, "task_pay", TASK_PAY)
+                reach_pay = getattr(args, "reach_pay", REACH_PAY)
+                task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there
                 if lesson == "perception":
                     task_reward = jp.zeros_like(closer)
                 r = r + is_task[ins] * (task_reward - still + 0.1 * jp.abs(st["wz"])) * bd.CTRL_DT
@@ -2293,6 +2298,10 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--voice_lr", type=float, default=None, help="practice: voice readout learning rate (default: same as lr)")
     ap.add_argument("--vision_lr", type=float, default=None, help="practice: vision frontend learning rate (default: same as lr)")
+    ap.add_argument("--task_scale", type=float, default=None, help="practice: scale update step for task goal words (ball, come)")
+    ap.add_argument("--task_pay", type=float, default=TASK_PAY, help="practice: reward per m/s closing distance to task target")
+    ap.add_argument("--reach_pay", type=float, default=REACH_PAY, help="practice: reward per second within arrival radius")
+    ap.add_argument("--face_pay", type=float, default=FACE_PAY, help="practice: reward per rad/s turning towards task target")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--bias0", type=float, default=0.3)
     ap.add_argument("--goal_scale", type=float, default=2.0)
