@@ -1965,6 +1965,17 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
 4. **All 11 Skills Preserved Without Help:** Walk (+0.326 m/s), turn-left (+1.329 rad/s), turn-right (-1.045 rad/s), back (-0.105 m/s), sit (+0.484 rad pitch), and lie-down (+0.037 rad pitch) remained fully intact.
 5. **Candidate Promotion Decision:** Candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10) remains the active **learning restart candidate** due to its higher overall arrival peak ($3.12\%$) and lower movement fall rate ($0.2649$). Round 15 results are preserved in `results/baby_dog_vision_approach_round15/`.
 
+**Vision approach round 16 trial (coordinated forward-turning arc task_cmd with velocity floor and arrival stopping on Google Colab free T4 GPU) (14 Oct Dubai):**
+- **Hypothesis:** In Round 15, dynamic velocity injection unblocked locomotion rewards and produced net distance closure (-25 cm in Cohort 2), but target arrival capped at ~2% because: (1) forward command was scaled as $0.5 \times \text{clip}(\cos\theta, 0, 1)$, dropping below $0.05\text{ m/s}$ whenever heading deviated $\ge 84^\circ$, which triggered `v_act`'s stillness attractor and penalized forward motion while pivoting; (2) using $\sin(\theta)$ as yaw command produced near-zero steering torque when facing directly away ($\theta \approx 180^\circ$); and (3) maintaining forward velocity upon reaching the target risked overshooting. By setting exact signed angular error $\theta_{\text{err}} = \text{atan2}(y, x)$, commanding a forward velocity floor $v_{\text{fwd}} \ge 0.20\text{ m/s}$ ($v_{\text{fwd}} = \text{clip}(0.35 + 0.15 \cos\theta_{\text{err}}, 0.20, 0.50)$), coordinated yaw steering $v_{\text{yaw}} = \text{clip}(1.0\,\theta_{\text{err}}, -1.2, 1.2)$, and zeroing `task_cmd` upon arrival within $\text{near\_of}$ ($\le 1.0\text{ m}$ for owner, $\le 0.35\text{ m}$ for ball), the quadruped will execute continuous, smooth forward-turning arcs toward the target from any starting orientation without tripping into stillness penalties, stopping cleanly upon arrival to collect reach reward.
+- **Environment & Infrastructure:**
+  - Automated via official Google Colab CLI (`colab-cli` v0.7.4) on free-tier session `round16` with Nvidia Tesla T4 GPU (15.36 GB VRAM).
+  - Pinned software stack: JAX 0.7.2, jaxlib 0.7.2, MuJoCo 3.14.0, mujoco-mjx 3.14.0, optax 0.2.8.
+  - Checkpoint candidate `baby_dog_step_0000491520.npz` (`5a534b32…`) and connectome core `core_v2.npz` (`af939468…`) SHA256-verified on remote instance.
+- **Execution & Monitoring:**
+  - Launched as PID 7972 (detached session).
+  - Configuration: 1.5M steps (183 updates $\times$ 8,192 steps), 512 envs, 3 evals (0.5M, 1.0M, 1.5M steps), 3 cohorts $\times$ 64 lives = 192 lives per eval, seed 1, teacher help strictly 0.0 from rest, skill protection active. Output logged to `/content/bio-bot/train_round16.log`.
+
+
 
 ## 7. Open problems and next steps
 
