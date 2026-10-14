@@ -1902,6 +1902,18 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
   - Candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10) remains the active **learning restart candidate** (highest arrival 3.12%, lowest 7-gait falls 0.2649).
   - Transition to Google Colab: Standalone script `results/kaggle/baby_dog_vision_approach_round14/baby_dog.py` is ready for free multi-hour training on Google Colab to complete full 1.5M+ step continuation without Kaggle GPU quota caps.
 
+**Vision approach round 15 trial (continuation on Google Colab free T4 GPU via colab-cli) (14 Oct Dubai):**
+- **Hypothesis:** Dynamic velocity command injection unblocks forward locomotion and steering rewards during visual approach rollouts without skill conflict. Running 1.5M steps (~91 updates) on Google Colab free T4 GPU without Kaggle's 46-minute runtime cap allows the dog sufficient gradient steps to discover sustained forward locomotion toward "come" and "ball" targets from rest in the park.
+- **Environment & Infrastructure:**
+  - Authenticated and automated via official Google Colab CLI (`colab-cli` v0.7.4) on free-tier session `round15` with Nvidia Tesla T4 GPU (15 GB VRAM).
+  - Pinned software stack: JAX 0.7.2, jaxlib 0.7.2, MuJoCo 3.14.0, mujoco-mjx 3.14.0, optax 0.2.8.
+  - PJRT API mismatch resolved by removing conflicting preinstalled `jax-cuda13-pjrt/plugin 0.11.1`, enabling `jax-cuda12-plugin 0.7.2` to pair cleanly with `jaxlib 0.7.2`. Verified JAX and MJX JIT execution on `{CudaDevice(id=0)}`.
+  - Connectome core `core_v2.npz` (`af939468…`) and restart candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 record) uploaded and SHA256-verified on remote instance. Go2 Menagerie pre-fetched.
+- **Execution & Monitoring:**
+  - Launched under PID 4197 with detached process group (`start_new_session=True`).
+  - Configuration: 1.5M steps (~91 updates), 512 envs, 3 evals (0.5M, 1.0M, 1.5M steps), 3 cohorts (192 lives per eval), seed 1, teacher help strictly 0.0 from rest, skill protection active, dynamic task velocity injection active.
+  - Output logging live to `/content/bio-bot/results/colab_round15/log.txt`. Baseline 192-life evaluation in progress.
+
 
 ## 7. Open problems and next steps
 
