@@ -9,21 +9,14 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 14 Oct 12:40 Dubai:** Round 15 is **completed** on Google Colab Free Tier (Tesla T4 GPU). All 183 updates (1,499,136 steps) finished cleanly in 92.4 minutes wall-clock time. Remote session `round15` terminated to conserve free quota.
-- **Full Ingestion Verified:** Checkpoints, logs, and evaluation metrics downloaded and ingested into `results/baby_dog_vision_approach_round15/`.
-  - Checkpoint SHA256 hashes:
-    - `baby_dog_step_0000499712.npz`: `d676f688f53e4dca24cdd41ba24e941a4426004d6cf1823c92979964011c785e`
-    - `baby_dog_step_0000999424.npz`: `99579cd80244045430b5f8ed1581723ba0447da0936c2a10537a30b65c6b5d82`
-    - `baby_dog_step_0001499136.npz`: `946b3a8343752b470f6b460b8c8d8290a82b34b1546974c6870d876e55041f1d`
-    - `baby_dog.npz`: `fb30e64e8059b98dc0c47bda194cad66f1aaa496fc92678b93300c7275f05a3c`
-- **Key Measured Findings:**
-  - Dynamic velocity command injection unblocked locomotion rewards and produced net forward distance closure: Cohort 2 closed **-25 cm** to owner ($3.89\text{ m} \rightarrow 3.64\text{ m}$) and **-7 cm** to ball ($2.64\text{ m} \rightarrow 2.57\text{ m}$); Cohort 3 closed **-6 cm** at 0.5M and **-9 cm** at 1.5M ($3.55\text{ m} \rightarrow 3.46\text{ m}$).
-  - "come" target arrival reached **2.08%** (doubled from 1.04% baseline) at 0.5M, maintaining 1.56% at 1.0M and 1.5M.
-  - Projectile dodge reaction latency improved to **133.3 ms** (with Cohort 1 hitting 80 ms), down from 203.3 ms at baseline.
-  - Grounded perception reached all-time records: `ball-ahead` at **0.643** and `owner-left` at **0.654**.
-  - All 11 nominal skills intact: walk +0.326 m/s, turn-left +1.329 rad/s, turn-right -1.045 rad/s, back -0.105 m/s, sit +0.484 rad, lie-down +0.037 rad.
-- **Candidate Decision:** Active restart candidate remains **`baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10)** (3.12% arrival record, 0.2649 mean movement falls). Round 15 outputs preserved for comparison.
-- **Compute & Quota:** Kaggle GPU quota remains depleted until 17 Oct refresh (0.08h remaining). Google Colab Free Tier is verified for headless execution via `colab-cli` with zero paid upgrades.
+**Current state, 14 Oct 13:10 Dubai:** Round 16 is **active and running** on Google Colab Free Tier (`round16`, Tesla T4 GPU, 15.36 GB VRAM, PID 7972).
+- **Algorithmic Innovation (Round 16)**: Coordinated forward-turning arc `task_cmd` with a forward velocity floor ($v_{\text{fwd}} \ge 0.20\text{ m/s}$), exact signed `arctan2` yaw error steering, and stillness zeroing upon target arrival ($\le 1.0\text{ m}$ for owner, $\le 0.35\text{ m}$ for ball). This eliminates the stillness penalty attractor while far from target, enables sweeping forward turns, and preserves stillness rewards at the goal.
+- **Resumed Checkpoint**: `baby_dog_step_0000491520.npz` (SHA256 `5a534b328c2c511d0cdccc105f61f9c12fdc5b767662f697af05315f06e16d17`, 3.12% arrival record).
+- **Core Connectome**: `core_v2.npz` (SHA256 `af939468e3fb156a74e5b5ca44b67d81d0cea2ae2c94e4543875c934ff5e2d8f`).
+- **Remote Environment Verified**: JAX 0.7.2, `[CudaDevice(id=0)]`, headless execution via `colab-cli`.
+- **Training Configuration**: 1.5M steps (183 updates $\times$ 8,192 steps), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 cohorts $\times$ 64 lives = 192 lives per evaluation with teacher help strictly 0.00.
+- **Prior Completed Trial (Round 15)**: 1.5M steps completed on Colab T4, outputs ingested into `results/baby_dog_vision_approach_round15/`. Validated dynamic velocity injection, doubled owner arrival (2.08%), closed up to -25 cm net distance, improved dodge latency by 70 ms to 133.3 ms, and preserved all 11 nominal skills.
+- **Compute & Quota**: Kaggle GPU quota remains depleted until 17 Oct refresh (0.08h remaining). Google Colab Free Tier is verified for headless execution via `colab-cli` with zero paid upgrades ($0 budget).
 - All source commits pushed individually on `main`; strictly zero laptop compute checks ($0 budget).
 - The current-state and active-job sections take precedence over chronological pending-status notes.
 
