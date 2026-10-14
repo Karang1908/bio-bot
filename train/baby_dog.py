@@ -1502,10 +1502,15 @@ def practice(args, bd, out: Path) -> dict:
                     Rh0 = env["d"].xmat[:, base]
                     to0 = goal_b - env["d"].xpos[:, base, :2]
                     facing_before = jp.sum(Rh0[:, :2, 0] * to0, -1) / (jp.linalg.norm(Rh0[:, :2, 0], axis=-1) * jp.linalg.norm(to0, axis=-1) + 1e-6)
-                    lateral_before = jp.sum(Rh0[:, :2, 1] * to0, -1) / (jp.linalg.norm(Rh0[:, :2, 1], axis=-1) * jp.linalg.norm(to0, axis=-1) + 1e-6)
-                    task_cmd = jp.stack([0.5 * jp.clip(facing_before, 0.0, 1.0),
-                                         jp.zeros_like(facing_before),
-                                         jp.clip(lateral_before, -1.0, 1.0)], -1)
+                    to_fwd = jp.sum(Rh0[:, :2, 0] * to0, -1)
+                    to_lat = jp.sum(Rh0[:, :2, 1] * to0, -1)
+                    theta_err = jp.arctan2(to_lat, to_fwd)
+                    gap0 = jp.linalg.norm(to0, axis=-1)
+                    is_near = (gap0 < near_of[ins]) | (jp.linalg.norm(head0[:, :2] - goal_b, axis=-1) < near_of[ins])
+                    v_fwd_cmd = jp.clip(0.35 + 0.15 * jp.cos(theta_err), 0.20, 0.50)
+                    v_yaw_cmd = jp.clip(1.0 * theta_err, -1.2, 1.2)
+                    task_cmd = jp.where(is_near[:, None], jp.zeros((Rh0.shape[0], 3)),
+                                        jp.stack([v_fwd_cmd, jp.zeros_like(v_fwd_cmd), v_yaw_cmd], -1))
                     env = {**env, "info": {**env["info"], "cmd": jp.where(is_task[ins][:, None], task_cmd, env["info"]["cmd"])}}
             env, r, done, st = v_act(env, a, jax.random.split(k_act, B), 0.0)
             r = r - (FALL_COST - 0.2) * st["fell"]                                          # the body's own 0.2 plus this
