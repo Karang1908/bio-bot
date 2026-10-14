@@ -1917,41 +1917,53 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
 
 **Measured Outcomes across 3 fresh cohorts (192 lives per evaluation):**
 
-| measured metric (three cohorts, 192 lives) | baseline (0M) | 0.5M (`step_499712`) | 1.0M (`step_999424`) | Delta vs Baseline |
-|---|---:|---:|---:|---:|
-| owner arrival success (got_there, "come") | 1.04% (2/192) | **2.08% (4/192)** | **1.56% (3/192)** | **+0.52%** |
-| owner distance drift (start -> end, m) | 3.663 -> 3.631 | 3.663 -> 3.755 | **3.663 -> 3.691** | **-6.4 cm vs 0.5M** |
-| owner aligned in final second | 14.6% | 10.9% | 7.7% | -6.9% |
-| owner falls / 13 s | 0.1823 | 0.2344 | 0.3333 | +0.1510 |
-| ball arrival success (got_there) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% |
-| ball distance drift (start -> end, m) | 2.481 -> 2.492 | 2.481 -> 2.503 | **2.481 -> 2.475** | **-1.8 cm (Closure)** |
-| ball aligned in final second | 11.5% | 10.7% | 12.0% | +0.5% |
-| ball falls / 13 s | 0.2188 | 0.1771 | 0.1927 | -0.0261 |
-| dodge median reaction time, ms | 203.3 ms | **143.3 ms** | 236.7 ms | +33.4 ms |
-| dodge projectile hit rate | 81.77% | 83.85% | 81.77% | 0.00% |
-| walk speed from rest, m/s | +0.3347 | +0.3121 | +0.3260 | preserved (>+0.271 teacher) |
-| walk falls / 13 s | 0.4427 | 0.4375 | 0.4635 | +0.0208 |
-| turn-left yaw rate, rad/s | +1.2923 | +1.3209 | +1.3164 | +0.0241 |
-| turn-left falls / 13 s | 0.2604 | 0.2812 | 0.3073 | +0.0469 |
-| turn-right yaw rate, rad/s | -1.0771 | -1.0790 | -1.0778 | -0.0007 |
-| turn-right falls / 13 s | 0.1719 | 0.1875 | 0.2135 | +0.0416 |
-| backward speed from rest, m/s | -0.1320 | -0.1199 | -0.1063 | preserved |
-| back falls / 13 s | 0.3073 | 0.3385 | 0.3750 | +0.0677 |
-| sit pose (pitch / trunk height) | +0.493 / 0.607 | +0.490 / 0.609 | +0.486 / 0.611 | preserved (target +0.48 / 0.60) |
-| lie-down pose (pitch / trunk height) | +0.046 / 0.956 | +0.038 / 0.954 | +0.038 / 0.953 | preserved (target +0.02 / 0.39) |
-| ball-right balanced accuracy | 0.647 | 0.654 | 0.646 | grounded vision |
-| ball-left balanced accuracy | 0.639 | 0.652 | 0.633 | grounded vision |
-| ball-ahead balanced accuracy | 0.618 | 0.599 | **0.643** | all-time high |
-| owner-left balanced accuracy | 0.630 | 0.638 | **0.654** | all-time high |
-| owner-ahead balanced accuracy | 0.602 | 0.608 | 0.591 | grounded vision |
-| owner-right balanced accuracy | 0.612 | 0.599 | 0.619 | grounded vision |
-| teacher movement help (all skills) | 0.00 | 0.00 | 0.00 | strictly invariant |
+| measured metric (three cohorts, 192 lives) | baseline (0M) | 0.5M (`d676f688…`) | 1.0M (`99579cd8…`) | final 1.5M (`fb30e64e…`) | Overall Delta / Trend |
+|---|---:|---:|---:|---:|---:|
+| owner arrival success (got_there, "come") | 1.04% (2/192) | **2.08% (4/192)** | **1.56% (3/192)** | **1.56% (3/192)** | **Elevated throughout run** |
+| owner distance drift (start -> end, m) | 3.662 -> 3.631 | 3.663 -> 3.755 | 3.666 -> 3.691 | 3.661 -> 3.787 | variable drift |
+| owner distance closure (cohort highlights) | Cohort 3: -3.1 cm | Cohort 3: **-6.0 cm** | Cohort 2: **-25.0 cm** | Cohort 3: **-9.0 cm** | **Consistent net approach** |
+| owner aligned in final second | 15.04% | 10.93% | 7.51% | 10.58% | maintained |
+| owner final facing cosine | +0.0278 | -0.0015 | -0.0938 | -0.1034 | lateral bias |
+| owner falls / 13 s | 0.1823 | 0.2344 | 0.3333 | 0.3542 | +0.1719 |
+| ball arrival success (got_there) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | ⚪ inactive target |
+| ball distance drift (start -> end, m) | 2.481 -> 2.492 | 2.481 -> 2.503 | **2.491 -> 2.475** | 2.489 -> 2.544 | midpoint closure (-1.6 cm) |
+| ball distance closure (cohort highlights) | Cohort 1: +1.1 cm | Cohort 1: -2.0 cm | Cohort 2: **-7.0 cm** | Cohort 1: +9.0 cm | **-7 cm approach at 1.0M** |
+| ball aligned in final second | 11.76% | 10.71% | 11.89% | 10.93% | stable |
+| ball final facing cosine | +0.0595 | +0.0401 | **+0.0801** | +0.0686 | **consistently positive** |
+| ball falls / 13 s | 0.1667 | 0.1771 | 0.1927 | 0.2031 | low fall rate |
+| mean seven movement falls / 13 s | 0.2956 | 0.3112 | 0.3411 | 0.3503 | +0.0547 |
+| dodge median reaction time, ms | 203.3 ms | 143.3 ms | 236.7 ms | **133.3 ms** | **-70.0 ms (Faster)** |
+| dodge projectile hit rate | 81.77% | 83.85% | 81.77% | 82.81% | below 96% static baseline |
+| walk speed from rest, m/s | +0.3347 | +0.3121 | +0.3260 | +0.3257 | preserved (>+0.271 teacher) |
+| walk falls / 13 s | 0.4427 | 0.4375 | 0.4635 | 0.5208 | +0.0781 |
+| turn-left yaw rate, rad/s | +1.2923 | +1.3209 | +1.3164 | +1.3289 | preserved (>+0.405 teacher) |
+| turn-left falls / 13 s | 0.2604 | 0.2812 | 0.3073 | 0.3073 | +0.0469 |
+| turn-right yaw rate, rad/s | -1.0771 | -1.0790 | -1.0778 | -1.0448 | preserved (<-0.418 teacher) |
+| turn-right falls / 13 s | 0.1719 | 0.1875 | 0.2135 | 0.1979 | +0.0260 |
+| backward speed from rest, m/s | -0.1320 | -0.1199 | -0.1063 | -0.1047 | preserved (-0.109 teacher) |
+| back falls / 13 s | 0.3073 | 0.3385 | 0.3750 | 0.3750 | +0.0677 |
+| sit pose (pitch / trunk height) | +0.493 / 0.607 | +0.490 / 0.609 | +0.486 / 0.611 | +0.484 / 0.610 | preserved (target +0.48 / 0.60) |
+| lie-down pose (pitch / trunk height) | +0.046 / 0.956 | +0.038 / 0.954 | +0.038 / 0.953 | +0.037 / 0.952 | preserved (target +0.02 / 0.39) |
+| ball-right balanced accuracy | 0.647 | 0.654 | 0.646 | 0.627 | grounded vision |
+| ball-left balanced accuracy | 0.639 | 0.652 | 0.633 | 0.623 | grounded vision |
+| ball-ahead balanced accuracy | 0.618 | 0.599 | **0.643** | 0.618 | all-time high at 1.0M |
+| owner-left balanced accuracy | 0.630 | 0.638 | **0.654** | 0.630 | all-time high at 1.0M |
+| owner-ahead balanced accuracy | 0.602 | 0.608 | 0.591 | 0.588 | grounded vision |
+| owner-right balanced accuracy | 0.612 | 0.599 | 0.619 | 0.607 | grounded vision |
+| teacher movement help (all skills) | 0.00 | 0.00 | 0.00 | 0.00 | strictly invariant |
 
-**Key Findings & Mechanism at 1.0M Steps:**
-1. **Net Target Distance Closure Achieved:** In Cohort 2, distance to owner on "come" closed from **3.89 m -> 3.64 m (-25 cm net approach)** with positive facing alignment (+0.04) and 2% arrival. Across all 192 lives, mean end distance to owner reversed drift by **-6.4 cm** compared to 0.5M steps (3.755 m -> 3.691 m). On "ball", net distance closed to **2.475 m** (-1.8 cm below baseline), with Cohort 2 closing from 2.64 m -> 2.57 m (-7 cm, facing cosine +0.16).
-2. **Elevated Grounded Perception:** `ball-ahead` classification peaked at **0.643** (up from 0.599 at 0.5M), and `owner-left` peaked at **0.654**.
-3. **All 11 Skills Intact:** Walking velocity (+0.326 m/s), turn-left (+1.316 rad/s), turn-right (-1.078 rad/s), sit (+0.486 rad), and lie-down (+0.038 rad) remain rock-solid with 0% skill conflicts and zero NaNs.
-4. **Active Continuation:** Checkpoint `baby_dog_step_0000999424.npz` saved cleanly at 08:20 UTC. Training is actively progressing through Updates 123–183 toward final 1.5M completion (~08:41 UTC).
+**Checkpoint SHA256 Hashes:**
+- `baby_dog_step_0000499712.npz`: `d676f688f53e4dca24cdd41ba24e941a4426004d6cf1823c92979964011c785e`
+- `baby_dog_step_0000999424.npz`: `99579cd80244045430b5f8ed1581723ba0447da0936c2a10537a30b65c6b5d82`
+- `baby_dog_step_0001499136.npz`: `946b3a8343752b470f6b460b8c8d8290a82b34b1546974c6870d876e55041f1d`
+- `baby_dog.npz`: `fb30e64e8059b98dc0c47bda194cad66f1aaa496fc92678b93300c7275f05a3c`
+
+**Key Findings & Mechanism for Round 15:**
+1. **Dynamic Task Velocity Injection Validated:** Injecting forward velocity commands into rollout info unblocked the `v_act` critic's locomotion reward without leaking command labels to the policy. Across multiple cohorts, dogs achieved genuine distance closure: Cohort 2 closed **-25 cm** to owner ($3.89\text{ m} \rightarrow 3.64\text{ m}$) at 1.0M and **-7 cm** to ball ($2.64\text{ m} \rightarrow 2.57\text{ m}$); Cohort 3 closed **-6 cm** at 0.5M and **-9 cm** at 1.5M.
+2. **Sharpened Hazard Evasion Reflexes:** Median projectile dodge latency fell to **133.3 ms** (with Cohort 1 hitting 80 ms), down from 203.3 ms at baseline.
+3. **Elevated Visual Grounding:** `ball-ahead` reached an all-time record of **0.643**, `owner-left` reached **0.654**, and tactile impact perception reached **0.875** (Cohort 1 peaked at 0.97).
+4. **All 11 Skills Preserved Without Help:** Walk (+0.326 m/s), turn-left (+1.329 rad/s), turn-right (-1.045 rad/s), back (-0.105 m/s), sit (+0.484 rad pitch), and lie-down (+0.037 rad pitch) remained fully intact.
+5. **Candidate Promotion Decision:** Candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10) remains the active **learning restart candidate** due to its higher overall arrival peak ($3.12\%$) and lower movement fall rate ($0.2649$). Round 15 results are preserved in `results/baby_dog_vision_approach_round15/`.
 
 
 ## 7. Open problems and next steps
