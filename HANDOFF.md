@@ -9,14 +9,14 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 14 Oct 03:15 Dubai:** `baby_dog_vision_approach_round14` v2 executed 20 updates (~327k steps) on Kaggle GPU (2x Nvidia Tesla T4) before terminating at the `--timeout 2800` (46.6 min) runtime cap (`CANCEL_ACKNOWLEDGED`). Outputs fetched into `results/baby_dog_vision_approach_round14/`.
-Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round14 (version 2).
-Dynamic velocity command injection in `rollout` `info["cmd"]` (`task_cmd = [0.5 * clip(cos_facing, 0, 1), 0, clip(sin_lat, -1, 1)]`) in `train/baby_dog.py` (`eec0202`) successfully verified in remote execution: unblocked `v_act`'s internal locomotion and turning rewards without NaNs or skill conflicts (`conflicting 0%`).
-In `baby_dog.py`, `every = max(1, iters // args.evals) = 40 // 2 = 20`. Update 20 triggered the intermediate evaluation at 45.4 min; while executing cohort 1, the 2,800s timeout expired before evaluation completion. No intermediate `.npz` was written to disk.
-Active restart candidate remains `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 all-time 3.12% arrival record, lowest 7-gait falls 0.2649).
-Free Kaggle GPU quota: **0.08h remaining** (29.92h / 30.00h used; weekly quota exhausted until refresh on 17 Oct).
-Next action: Transition to Google Colab ($0 budget, free tier) for extended 1.5M+ step continuation using `notebooks/bio_bot_colab_training.ipynb` (`0ce3695`), resuming from verified candidate `baby_dog_step_0000491520.npz` (`5a534b32…`). Output ingestion and metric analysis automated via `scripts/ingest_colab_results.py` (`7a10be6`).
-All source commits pushed individually on `main`; zero laptop compute checks.
+**Current state, 14 Oct 10:25 Dubai:** Round 15 is actively running on Google Colab (Free Tier, session `round15`, Nvidia Tesla T4 GPU 15 GB VRAM) under PID 4197 via `colab-cli`.
+Kaggle GPU quota is depleted (29.92h / 30.00h used, 0.08h remaining until 17 Oct refresh).
+Google Colab headless environment fully established: resolved PJRT API conflict by removing conflicting `jax-cuda13-pjrt/plugin 0.11.1` to pair pinned `jax-cuda12-plugin 0.7.2` with `jaxlib 0.7.2`, verified JAX and MJX JIT physics step on `{CudaDevice(id=0)}`.
+Uploaded and verified connectome core `core_v2.npz` (`af939468…`) and restart candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 all-time 3.12% arrival record). Pre-fetched Unitree Go2 Menagerie model.
+Training job: `train/baby_dog.py` running 1.5M steps (~91 updates), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 cohorts (192 lives per eval), seed 1, teacher help strictly 0.0 from rest, skill protection active, dynamic task velocity injection active.
+Outputs logging live to `/content/bio-bot/results/colab_round15/log.txt`.
+Active restart candidate remains `baby_dog_step_0000491520.npz` (`5a534b32…`).
+All source commits pushed individually on `main`; strictly zero laptop compute checks ($0 budget).
 The current-state and active-job sections take precedence over chronological pending-status notes.
 
 ### Latest completed trial: vision approach round 13 (amplified forward approach propulsion FWD_PAY=16.0, spinning elimination YAW_PAY=0.0, and orientation tuning FACE_PAY=4.0)
