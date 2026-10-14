@@ -9,12 +9,14 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 14 Oct 12:05 Dubai:** Round 15 is actively running on Google Colab (Free Tier, session `round15`, Nvidia Tesla T4 GPU 15 GB VRAM) under PID 15189 via `colab-cli`.
-- **0.5M-step Intermediate Evaluation Verified:** Completed at Update 61/183 across 192 lives (3 cohorts $\times$ 64 lives) from rest without teacher assistance (`help_ = 0.00`). Checkpoint `baby_dog_step_0000499712.npz` saved cleanly at 08:04 UTC.
-  - "come" target arrival: **2.08% (4/192)** — doubled from 1.04% baseline (Cohort 1: 2%, Cohort 2: 2%, Cohort 3: 3% with net -6 cm distance closure: 3.55 m $\rightarrow$ 3.49 m).
-  - Dodge reaction time: **143.3 ms** (down from 203.3 ms baseline, -60 ms faster evasion reflex).
-  - All nominal motor skills intact: walk +0.312 m/s (>+0.271 teacher benchmark), turn-left +1.321 rad/s, turn-right -1.079 rad/s, back -0.120 m/s, sit pitch +0.490 rad, lie-down pitch +0.038 rad. Zero skill conflicts or NaNs.
-- **Active Progression:** PID 15189 is actively training Updates 62 through 122 towards the **1.0M-step milestone** at 100% GPU utilization (70W / 70W, 13.71 GB VRAM).
+**Current state, 14 Oct 12:22 Dubai:** Round 15 is actively running on Google Colab (Free Tier, session `round15`, Nvidia Tesla T4 GPU 15 GB VRAM) under PID 15189 via `colab-cli`.
+- **1.0M-step Intermediate Evaluation Verified:** Completed at Update 122/183 across 192 lives (3 cohorts $\times$ 64 lives) from rest without teacher assistance (`help_ = 0.00`). Checkpoint `baby_dog_step_0000999424.npz` saved cleanly at 08:20 UTC.
+  - "come" target approach: **1.56% (3/192)** arrival; Cohort 2 achieved **-25 cm net distance closure** (3.89 m $\rightarrow$ 3.64 m) with positive final facing alignment (+0.04). Mean end distance across all 192 lives closed by -6.4 cm vs 0.5M steps (3.755 m $\rightarrow$ 3.691 m).
+  - "ball" target approach: Net distance closed to **2.475 m** (-1.8 cm below baseline), with Cohort 2 closing from 2.64 m $\rightarrow$ 2.57 m (-7 cm, facing cosine +0.16).
+  - Grounded vision: `ball-ahead` balanced accuracy reached **0.643** (all-time project high), `owner-left` reached **0.654**, `hit` reached **0.875** (Cohort 1 peaked at 0.97).
+  - All nominal motor skills intact: walk +0.326 m/s (>+0.271 teacher benchmark), turn-left +1.316 rad/s, turn-right -1.078 rad/s, back -0.106 m/s, sit pitch +0.486 rad (target +0.48), lie-down pitch +0.038 rad (target +0.02). Zero skill conflicts or NaNs.
+- **0.5M-step Evaluation:** "come" arrival 2.08% (4/192, doubled from baseline); dodge reaction 143.3 ms (down from 203.3 ms). Saved as `baby_dog_step_0000499712.npz`.
+- **Active Progression:** PID 15189 has entered the final third: Updates 123 through 183 toward **final 1.5M completion** (~08:41 UTC) at 100% GPU utilization (65W / 70W, 13.75 GB VRAM).
 - Kaggle GPU quota is depleted (29.92h / 30.00h used, 0.08h remaining until 17 Oct refresh).
 - Google Colab headless environment fully established: resolved PJRT API conflict by removing conflicting `jax-cuda13-pjrt/plugin 0.11.1` to pair pinned `jax-cuda12-plugin 0.7.2` with `jaxlib 0.7.2`, verified JAX and MJX JIT physics step on `{CudaDevice(id=0)}`.
 - Memory optimization for single T4 GPU: run launched with `--envs 256` ($B=256$ matching Kaggle's per-device batch size, halving memory demand to ~8.2 GiB) and `XLA_PYTHON_CLIENT_PREALLOCATE=false`.
