@@ -1972,8 +1972,11 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
   - Pinned software stack: JAX 0.7.2, jaxlib 0.7.2, MuJoCo 3.14.0, mujoco-mjx 3.14.0, optax 0.2.8.
   - Checkpoint candidate `baby_dog_step_0000491520.npz` (`5a534b32…`) and connectome core `core_v2.npz` (`af939468…`) SHA256-verified on remote instance.
 - **Execution & Monitoring:**
-  - Launched as PID 7972 (detached session).
-  - Configuration: 1.5M steps (183 updates $\times$ 8,192 steps), 512 envs, 3 evals (0.5M, 1.0M, 1.5M steps), 3 cohorts $\times$ 64 lives = 192 lives per eval, seed 1, teacher help strictly 0.0 from rest, skill protection active. Output logged to `/content/bio-bot/train_round16.log`.
+  - Initial launch with `--envs 512` completed full 192-life baseline evaluation across 3 cohorts (walk +0.329 m/s, turn-left +1.296 rad/s, turn-right -1.086 rad/s, back -0.135 m/s, sit pitch +0.500 rad, lie-down pitch +0.043 rad; baseline arrival: "come" 1.04%, "ball" 0.00%; grounded vision: ball-ahead 0.617, owner-left 0.626; dodge reaction latency 150.0 ms; teacher help strictly 0.00), but hit single-T4 XLA memory limit (16.36 GiB requested on 15.36 GB VRAM) at Update 1.
+  - Kernel memory was reset via `colab restart-kernel`, and restarted as PID 29244 with `--envs 256` (~8.2 GiB peak VRAM, matching Kaggle per-device batch size) with `XLA_PYTHON_CLIENT_PREALLOCATE=false` and `XLA_PYTHON_CLIENT_MEM_FRACTION=0.90`.
+  - The job ran smoothly for 110 minutes until Google Colab pruned the ephemeral free VM instance at 12:26 UTC.
+  - Following the session timeout, Google Colab free tier has returned `503 Service Unavailable` on free T4 GPU allocations during peak regional cloud demand.
+  - An automated 5-minute background polling cron (`task-6390`) is actively running to allocate a fresh T4 GPU session and resume Round 16 training with intermediate checkpoint synchronization.
 
 
 
