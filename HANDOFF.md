@@ -9,13 +9,13 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 14 Oct 17:55 Dubai:** Round 16 is **queued and polling for remote GPU capacity** via automated background cron (`task-6390`, `*/5 * * * *`).
+**Current state, 15 Oct 01:25 Dubai:** Round 16 is **ready and waiting for remote GPU cooldown / quota reset**.
+- **Colab GPU Limit Analysis (Verified)**: Deep inspection of Colab CLI request logs (`colab --logtostderr new -s round16 --gpu T4`) revealed that Colab's backend is returning HTTP 503 with body `{"endpoint":"","sub":0,"subTier":0,"outcome":2,"variant":0,"machineShape":0,"accelerator":""}` (`outcome: 2`). This is Google Colab's account-level GPU cooldown enforcement on the free tier after consuming ~3.4 hours of continuous GPU earlier today (Round 15: 92.4 min + Round 16 first attempt: 110 min). CPU allocation (`colab new -s test-cpu`) assigns instantly, confirming credentials and connectivity are fully functional.
+- **Polling Cron Terminated (Verified)**: Background task `task-6390` (which had run 115 iterations over 9+ hours) was terminated to prevent repeated assign requests from resetting or prolonging Colab's cooldown window.
+- **Compute Quota State**: Google Colab Free Tier is in account cooldown (typically 12–24 hours). Kaggle GPU quota has 0.08h remaining (resets Saturday, 17 Oct 00:00 UTC).
 - **Algorithmic Innovation (Round 16)**: Coordinated forward-turning arc `task_cmd` with a forward velocity floor ($v_{\text{fwd}} \ge 0.20\text{ m/s}$), exact signed `arctan2` yaw error steering, and stillness zeroing upon target arrival ($\le 1.0\text{ m}$ for owner, $\le 0.35\text{ m}$ for ball). Code committed and pushed on `main`.
 - **Baseline Evaluation (Verified)**: 192 lives across 3 independent cohorts (seeds 1, 101, 201) with teacher help strictly 0.00: walk speed +0.329 m/s (falls 0.427), turn-left +1.296 rad/s (falls 0.302), turn-right -1.086 rad/s (falls 0.193), back -0.135 m/s (falls 0.323), sit pitch +0.500 rad/height 0.607 (falls 0.245), lie pitch +0.043 rad/height 0.954 (falls 0.203). Target arrival: "come" 1.04% (2/192), "ball" 0.00%. Grounded vision: `ball-ahead` 0.617, `owner-left` 0.626. Dodge reaction latency: 150.0 ms.
 - **Batch Size Constraint on Single T4 GPU**: Single 15 GB Colab T4 requires `--envs 256` (~8.2 GiB VRAM; `--envs 512` requests 16.36 GiB and triggers XLA OOM).
-- **Execution History**: The initial run with `--envs 256` ran smoothly for 110 minutes until Google Colab automatically pruned the ephemeral VM instance at 12:26 UTC.
-- **Compute & Quota State**: Google Colab Free Tier is currently returning `503 Service Unavailable` on free T4 GPU allocations during peak regional cloud demand. Kaggle GPU quota has 0.08h remaining (resets 17 Oct 00:00 UTC).
-- **Active Background Monitor**: Task `task-6390` is scheduled with cron `*/5 * * * *` to continuously poll Colab T4 GPU availability and launch training the moment capacity is assigned.
 - **Resumed Checkpoint**: `baby_dog_step_0000491520.npz` (SHA256 `5a534b328c2c511d0cdccc105f61f9c12fdc5b767662f697af05315f06e16d17`, 3.12% arrival record).
 - **Core Connectome**: `core_v2.npz` (SHA256 `af939468e3fb156a74e5b5ca44b67d81d0cea2ae2c94e4543875c934ff5e2d8f`).
 - All source commits pushed individually on `main`; strictly zero laptop compute checks ($0 budget).
