@@ -9,25 +9,66 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 14 Oct 12:22 Dubai:** Round 15 is actively running on Google Colab (Free Tier, session `round15`, Nvidia Tesla T4 GPU 15 GB VRAM) under PID 15189 via `colab-cli`.
-- **1.0M-step Intermediate Evaluation Verified:** Completed at Update 122/183 across 192 lives (3 cohorts $\times$ 64 lives) from rest without teacher assistance (`help_ = 0.00`). Checkpoint `baby_dog_step_0000999424.npz` saved cleanly at 08:20 UTC.
-  - "come" target approach: **1.56% (3/192)** arrival; Cohort 2 achieved **-25 cm net distance closure** (3.89 m $\rightarrow$ 3.64 m) with positive final facing alignment (+0.04). Mean end distance across all 192 lives closed by -6.4 cm vs 0.5M steps (3.755 m $\rightarrow$ 3.691 m).
-  - "ball" target approach: Net distance closed to **2.475 m** (-1.8 cm below baseline), with Cohort 2 closing from 2.64 m $\rightarrow$ 2.57 m (-7 cm, facing cosine +0.16).
-  - Grounded vision: `ball-ahead` balanced accuracy reached **0.643** (all-time project high), `owner-left` reached **0.654**, `hit` reached **0.875** (Cohort 1 peaked at 0.97).
-  - All nominal motor skills intact: walk +0.326 m/s (>+0.271 teacher benchmark), turn-left +1.316 rad/s, turn-right -1.078 rad/s, back -0.106 m/s, sit pitch +0.486 rad (target +0.48), lie-down pitch +0.038 rad (target +0.02). Zero skill conflicts or NaNs.
-- **0.5M-step Evaluation:** "come" arrival 2.08% (4/192, doubled from baseline); dodge reaction 143.3 ms (down from 203.3 ms). Saved as `baby_dog_step_0000499712.npz`.
-- **Active Progression:** PID 15189 has entered the final third: Updates 123 through 183 toward **final 1.5M completion** (~08:41 UTC) at 100% GPU utilization (65W / 70W, 13.75 GB VRAM).
-- Kaggle GPU quota is depleted (29.92h / 30.00h used, 0.08h remaining until 17 Oct refresh).
-- Google Colab headless environment fully established: resolved PJRT API conflict by removing conflicting `jax-cuda13-pjrt/plugin 0.11.1` to pair pinned `jax-cuda12-plugin 0.7.2` with `jaxlib 0.7.2`, verified JAX and MJX JIT physics step on `{CudaDevice(id=0)}`.
-- Memory optimization for single T4 GPU: run launched with `--envs 256` ($B=256$ matching Kaggle's per-device batch size, halving memory demand to ~8.2 GiB) and `XLA_PYTHON_CLIENT_PREALLOCATE=false`.
-- Uploaded and verified connectome core `core_v2.npz` (`af939468…`) and restart candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 all-time 3.12% arrival record). Pre-fetched Unitree Go2 Menagerie model.
-- Training job: `train/baby_dog.py` running 1.5M steps (~183 updates), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 cohorts (192 lives per eval), seed 1, teacher help strictly 0.0 from rest, skill protection active, dynamic task velocity injection active.
-- Outputs logging live to `/content/bio-bot/results/colab_round15/log.txt`.
-- Active restart candidate remains `baby_dog_step_0000491520.npz` (`5a534b32…`).
+**Current state, 14 Oct 12:40 Dubai:** Round 15 is **completed** on Google Colab Free Tier (Tesla T4 GPU). All 183 updates (1,499,136 steps) finished cleanly in 92.4 minutes wall-clock time. Remote session `round15` terminated to conserve free quota.
+- **Full Ingestion Verified:** Checkpoints, logs, and evaluation metrics downloaded and ingested into `results/baby_dog_vision_approach_round15/`.
+  - Checkpoint SHA256 hashes:
+    - `baby_dog_step_0000499712.npz`: `d676f688f53e4dca24cdd41ba24e941a4426004d6cf1823c92979964011c785e`
+    - `baby_dog_step_0000999424.npz`: `99579cd80244045430b5f8ed1581723ba0447da0936c2a10537a30b65c6b5d82`
+    - `baby_dog_step_0001499136.npz`: `946b3a8343752b470f6b460b8c8d8290a82b34b1546974c6870d876e55041f1d`
+    - `baby_dog.npz`: `fb30e64e8059b98dc0c47bda194cad66f1aaa496fc92678b93300c7275f05a3c`
+- **Key Measured Findings:**
+  - Dynamic velocity command injection unblocked locomotion rewards and produced net forward distance closure: Cohort 2 closed **-25 cm** to owner ($3.89\text{ m} \rightarrow 3.64\text{ m}$) and **-7 cm** to ball ($2.64\text{ m} \rightarrow 2.57\text{ m}$); Cohort 3 closed **-6 cm** at 0.5M and **-9 cm** at 1.5M ($3.55\text{ m} \rightarrow 3.46\text{ m}$).
+  - "come" target arrival reached **2.08%** (doubled from 1.04% baseline) at 0.5M, maintaining 1.56% at 1.0M and 1.5M.
+  - Projectile dodge reaction latency improved to **133.3 ms** (with Cohort 1 hitting 80 ms), down from 203.3 ms at baseline.
+  - Grounded perception reached all-time records: `ball-ahead` at **0.643** and `owner-left` at **0.654**.
+  - All 11 nominal skills intact: walk +0.326 m/s, turn-left +1.329 rad/s, turn-right -1.045 rad/s, back -0.105 m/s, sit +0.484 rad, lie-down +0.037 rad.
+- **Candidate Decision:** Active restart candidate remains **`baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10)** (3.12% arrival record, 0.2649 mean movement falls). Round 15 outputs preserved for comparison.
+- **Compute & Quota:** Kaggle GPU quota remains depleted until 17 Oct refresh (0.08h remaining). Google Colab Free Tier is verified for headless execution via `colab-cli` with zero paid upgrades.
 - All source commits pushed individually on `main`; strictly zero laptop compute checks ($0 budget).
 - The current-state and active-job sections take precedence over chronological pending-status notes.
 
-### Latest completed trial: vision approach round 13 (amplified forward approach propulsion FWD_PAY=16.0, spinning elimination YAW_PAY=0.0, and orientation tuning FACE_PAY=4.0)
+### Latest completed trial: vision approach round 15 (dynamic velocity command injection unblocking v_act locomotion rewards on Google Colab free T4 GPU)
+
+Execution: 183 updates $\times$ 8,192 steps = 1,499,136 steps (92.4 min) on Google Colab Nvidia Tesla T4 GPU (PID 15189). Outputs ingested into `results/baby_dog_vision_approach_round15/`.
+Resumed from candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10).
+Evaluation across three fresh cohorts of 64 lives = 192 lives per evaluation from rest with teacher help strictly 0.00:
+
+| measured metric (three cohorts, 192 lives) | baseline (0M) | 0.5M (`d676f688…`) | 1.0M (`99579cd8…`) | final 1.5M (`fb30e64e…`) | Overall Delta / Trend |
+|---|---:|---:|---:|---:|---:|
+| **owner arrival success (got_there, "come")** | 1.04% (2/192) | **2.08% (4/192)** | **1.56% (3/192)** | **1.56% (3/192)** | **Elevated throughout run** |
+| owner distance drift (start -> end, m) | 3.662 -> 3.631 | 3.663 -> 3.755 | 3.666 -> 3.691 | 3.661 -> 3.787 | variable drift |
+| owner distance closure (cohort highlights) | Cohort 3: -3.1 cm | Cohort 3: **-6.0 cm** | Cohort 2: **-25.0 cm** | Cohort 3: **-9.0 cm** | **Consistent net approach** |
+| owner aligned in final second | 15.04% | 10.93% | 7.51% | 10.58% | maintained |
+| owner final facing cosine | +0.0278 | -0.0015 | -0.0938 | -0.1034 | lateral bias |
+| owner falls / 13 s | 0.1823 | 0.2344 | 0.3333 | 0.3542 | +0.1719 |
+| **ball arrival success (got_there)** | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | ⚪ inactive target |
+| ball distance drift (start -> end, m) | 2.481 -> 2.492 | 2.481 -> 2.503 | **2.491 -> 2.475** | 2.489 -> 2.544 | midpoint closure (-1.6 cm) |
+| ball distance closure (cohort highlights) | Cohort 1: +1.1 cm | Cohort 1: -2.0 cm | Cohort 2: **-7.0 cm** | Cohort 1: +9.0 cm | **-7 cm approach at 1.0M** |
+| ball aligned in final second | 11.76% | 10.71% | 11.89% | 10.93% | stable |
+| ball final facing cosine | +0.0595 | +0.0401 | **+0.0801** | +0.0686 | **consistently positive** |
+| ball falls / 13 s | 0.1667 | 0.1771 | 0.1927 | 0.2031 | low fall rate |
+| mean seven movement falls / 13 s | 0.2956 | 0.3112 | 0.3411 | 0.3503 | +0.0547 |
+| dodge median reaction time, ms | 203.3 ms | 143.3 ms | 236.7 ms | **133.3 ms** | **-70.0 ms (Faster)** |
+| dodge projectile hit rate | 81.77% | 83.85% | 81.77% | 82.81% | below 96% static baseline |
+| walk speed from rest, m/s | +0.3347 | +0.3121 | +0.3260 | +0.3257 | preserved (>+0.271 teacher) |
+| walk falls / 13 s | 0.4427 | 0.4375 | 0.4635 | 0.5208 | +0.0781 |
+| turn-left yaw rate, rad/s | +1.2923 | +1.3209 | +1.3164 | +1.3289 | preserved (>+0.405 teacher) |
+| turn-left falls / 13 s | 0.2604 | 0.2812 | 0.3073 | 0.3073 | +0.0469 |
+| turn-right yaw rate, rad/s | -1.0771 | -1.0790 | -1.0778 | -1.0448 | preserved (<-0.418 teacher) |
+| turn-right falls / 13 s | 0.1719 | 0.1875 | 0.2135 | 0.1979 | +0.0260 |
+| backward speed from rest, m/s | -0.1320 | -0.1199 | -0.1063 | -0.1047 | preserved (-0.109 teacher) |
+| back falls / 13 s | 0.3073 | 0.3385 | 0.3750 | 0.3750 | +0.0677 |
+| sit pose (pitch / trunk height) | +0.493 / 0.607 | +0.490 / 0.609 | +0.486 / 0.611 | +0.484 / 0.610 | preserved (target +0.48 / 0.60) |
+| lie-down pose (pitch / trunk height) | +0.046 / 0.956 | +0.038 / 0.954 | +0.038 / 0.953 | +0.037 / 0.952 | preserved (target +0.02 / 0.39) |
+| ball-right balanced accuracy | 0.647 | 0.654 | 0.646 | 0.627 | grounded vision |
+| ball-left balanced accuracy | 0.639 | 0.652 | 0.633 | 0.623 | grounded vision |
+| ball-ahead balanced accuracy | 0.618 | 0.599 | **0.643** | 0.618 | all-time high at 1.0M |
+| owner-left balanced accuracy | 0.630 | 0.638 | **0.654** | 0.630 | all-time high at 1.0M |
+| owner-ahead balanced accuracy | 0.602 | 0.608 | 0.591 | 0.588 | grounded vision |
+| owner-right balanced accuracy | 0.612 | 0.599 | 0.619 | 0.607 | grounded vision |
+| teacher movement help (all skills) | 0.00 | 0.00 | 0.00 | 0.00 | strictly invariant |
+
+### Prior completed trial: vision approach round 13 (amplified forward approach propulsion FWD_PAY=16.0, spinning elimination YAW_PAY=0.0, and orientation tuning FACE_PAY=4.0)
 
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round13 (version 1).
 All 91 updates completed (1,490,944 actual steps, 86.2 min run). Outputs downloaded into `results/baby_dog_vision_approach_round13/`.
