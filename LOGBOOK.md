@@ -1910,8 +1910,9 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
   - PJRT API mismatch resolved by removing conflicting preinstalled `jax-cuda13-pjrt/plugin 0.11.1`, enabling `jax-cuda12-plugin 0.7.2` to pair cleanly with `jaxlib 0.7.2`. Verified JAX and MJX JIT execution on `{CudaDevice(id=0)}`.
   - Connectome core `core_v2.npz` (`af939468…`) and restart candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 record) uploaded and SHA256-verified on remote instance. Go2 Menagerie pre-fetched.
 - **Execution & Monitoring:**
-  - Launched under PID 4197 with detached process group (`start_new_session=True`).
-  - Configuration: 1.5M steps (~91 updates), 512 envs, 3 evals (0.5M, 1.0M, 1.5M steps), 3 cohorts (192 lives per eval), seed 1, teacher help strictly 0.0 from rest, skill protection active, dynamic task velocity injection active.
+  - Initial run (PID 4197) with `--envs 512` completed full 192-life baseline evaluation across 3 cohorts, but hit XLA allocation peak at 16.36 GiB on a single 15 GB GPU (Kaggle split 512 across 2x T4 = 256/GPU). Colab kernel restarted, freeing 100% of GPU memory.
+  - Re-launched as PID 15189 with `--envs 256` (matching Kaggle's per-device batch size $B=256$, cutting peak allocation to ~8.2 GiB) with `XLA_PYTHON_CLIENT_PREALLOCATE=false` and `XLA_PYTHON_CLIENT_MEM_FRACTION=0.90`.
+  - Configuration: 1.5M steps (~183 updates), 256 envs, 3 evals (0.5M, 1.0M, 1.5M steps), 3 cohorts (192 lives per eval), seed 1, teacher help strictly 0.0 from rest, skill protection active, dynamic task velocity injection active.
   - Output logging live to `/content/bio-bot/results/colab_round15/log.txt`. Baseline 192-life evaluation in progress.
 
 
