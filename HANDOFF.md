@@ -9,11 +9,12 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 14 Oct 10:25 Dubai:** Round 15 is actively running on Google Colab (Free Tier, session `round15`, Nvidia Tesla T4 GPU 15 GB VRAM) under PID 4197 via `colab-cli`.
+**Current state, 14 Oct 11:05 Dubai:** Round 15 is actively running on Google Colab (Free Tier, session `round15`, Nvidia Tesla T4 GPU 15 GB VRAM) under PID 15189 via `colab-cli`.
 Kaggle GPU quota is depleted (29.92h / 30.00h used, 0.08h remaining until 17 Oct refresh).
 Google Colab headless environment fully established: resolved PJRT API conflict by removing conflicting `jax-cuda13-pjrt/plugin 0.11.1` to pair pinned `jax-cuda12-plugin 0.7.2` with `jaxlib 0.7.2`, verified JAX and MJX JIT physics step on `{CudaDevice(id=0)}`.
+Memory optimization for single T4 GPU: initial test with `--envs 512` ran baseline eval cleanly but hit XLA allocation limit (16.36 GiB on single GPU vs 2x T4 on Kaggle with 256/GPU). Colab kernel restarted, freeing 100% of GPU VRAM (0 MiB used), and job relaunched as clean background PID 15189 with `--envs 256` ($B=256$ matching Kaggle's per-device batch size, halving memory demand to ~8.2 GiB) and `XLA_PYTHON_CLIENT_PREALLOCATE=false`.
 Uploaded and verified connectome core `core_v2.npz` (`af939468…`) and restart candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 all-time 3.12% arrival record). Pre-fetched Unitree Go2 Menagerie model.
-Training job: `train/baby_dog.py` running 1.5M steps (~91 updates), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 cohorts (192 lives per eval), seed 1, teacher help strictly 0.0 from rest, skill protection active, dynamic task velocity injection active.
+Training job: `train/baby_dog.py` running 1.5M steps (~183 updates), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 cohorts (192 lives per eval), seed 1, teacher help strictly 0.0 from rest, skill protection active, dynamic task velocity injection active.
 Outputs logging live to `/content/bio-bot/results/colab_round15/log.txt`.
 Active restart candidate remains `baby_dog_step_0000491520.npz` (`5a534b32…`).
 All source commits pushed individually on `main`; strictly zero laptop compute checks ($0 budget).
