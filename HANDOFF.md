@@ -9,14 +9,15 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 14 Oct 13:10 Dubai:** Round 16 is **active and running** on Google Colab Free Tier (`round16`, Tesla T4 GPU, 15.36 GB VRAM, PID 7972).
-- **Algorithmic Innovation (Round 16)**: Coordinated forward-turning arc `task_cmd` with a forward velocity floor ($v_{\text{fwd}} \ge 0.20\text{ m/s}$), exact signed `arctan2` yaw error steering, and stillness zeroing upon target arrival ($\le 1.0\text{ m}$ for owner, $\le 0.35\text{ m}$ for ball). This eliminates the stillness penalty attractor while far from target, enables sweeping forward turns, and preserves stillness rewards at the goal.
+**Current state, 14 Oct 17:55 Dubai:** Round 16 is **queued and polling for remote GPU capacity** via automated background cron (`task-6390`, `*/5 * * * *`).
+- **Algorithmic Innovation (Round 16)**: Coordinated forward-turning arc `task_cmd` with a forward velocity floor ($v_{\text{fwd}} \ge 0.20\text{ m/s}$), exact signed `arctan2` yaw error steering, and stillness zeroing upon target arrival ($\le 1.0\text{ m}$ for owner, $\le 0.35\text{ m}$ for ball). Code committed and pushed on `main`.
+- **Baseline Evaluation (Verified)**: 192 lives across 3 independent cohorts (seeds 1, 101, 201) with teacher help strictly 0.00: walk speed +0.329 m/s (falls 0.427), turn-left +1.296 rad/s (falls 0.302), turn-right -1.086 rad/s (falls 0.193), back -0.135 m/s (falls 0.323), sit pitch +0.500 rad/height 0.607 (falls 0.245), lie pitch +0.043 rad/height 0.954 (falls 0.203). Target arrival: "come" 1.04% (2/192), "ball" 0.00%. Grounded vision: `ball-ahead` 0.617, `owner-left` 0.626. Dodge reaction latency: 150.0 ms.
+- **Batch Size Constraint on Single T4 GPU**: Single 15 GB Colab T4 requires `--envs 256` (~8.2 GiB VRAM; `--envs 512` requests 16.36 GiB and triggers XLA OOM).
+- **Execution History**: The initial run with `--envs 256` ran smoothly for 110 minutes until Google Colab automatically pruned the ephemeral VM instance at 12:26 UTC.
+- **Compute & Quota State**: Google Colab Free Tier is currently returning `503 Service Unavailable` on free T4 GPU allocations during peak regional cloud demand. Kaggle GPU quota has 0.08h remaining (resets 17 Oct 00:00 UTC).
+- **Active Background Monitor**: Task `task-6390` is scheduled with cron `*/5 * * * *` to continuously poll Colab T4 GPU availability and launch training the moment capacity is assigned.
 - **Resumed Checkpoint**: `baby_dog_step_0000491520.npz` (SHA256 `5a534b328c2c511d0cdccc105f61f9c12fdc5b767662f697af05315f06e16d17`, 3.12% arrival record).
 - **Core Connectome**: `core_v2.npz` (SHA256 `af939468e3fb156a74e5b5ca44b67d81d0cea2ae2c94e4543875c934ff5e2d8f`).
-- **Remote Environment Verified**: JAX 0.7.2, `[CudaDevice(id=0)]`, headless execution via `colab-cli`.
-- **Training Configuration**: 1.5M steps (183 updates $\times$ 8,192 steps), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 cohorts $\times$ 64 lives = 192 lives per evaluation with teacher help strictly 0.00.
-- **Prior Completed Trial (Round 15)**: 1.5M steps completed on Colab T4, outputs ingested into `results/baby_dog_vision_approach_round15/`. Validated dynamic velocity injection, doubled owner arrival (2.08%), closed up to -25 cm net distance, improved dodge latency by 70 ms to 133.3 ms, and preserved all 11 nominal skills.
-- **Compute & Quota**: Kaggle GPU quota remains depleted until 17 Oct refresh (0.08h remaining). Google Colab Free Tier is verified for headless execution via `colab-cli` with zero paid upgrades ($0 budget).
 - All source commits pushed individually on `main`; strictly zero laptop compute checks ($0 budget).
 - The current-state and active-job sections take precedence over chronological pending-status notes.
 
