@@ -297,7 +297,7 @@ This folder is its own git repository (github.com/Karang1908/bio-bot). `third_pa
 - [ ] Brain step time on a **Kaggle T4** (decides the largest trainable brain size)
 - [ ] Kaggle image's Python version; match it on the Mac
 - [ ] Kaggle phone verification done; GPU + internet enabled
-- [ ] Whether MJX runs acceptably on Kaggle's TPU v5e-8
+- [x] Whether MJX runs acceptably on Kaggle's TPU: **Measured 15 Oct 2026** — Kaggle script kernels with `--machine Tpu1VmV38` do not expose local TPU devices or environment variables (`TPU_WORKER_HOSTNAMES` / `TPU_ACCELERATOR_TYPE` are missing), causing `jax[tpu]` / `libtpu` initialization to fail and fall back to CPU (`[CpuDevice(id=0)]`). MJX cannot currently execute on Kaggle TPU kernels without dedicated Cloud TPU VM architecture.
 - [ ] Linux machine specs (§3.3)
 - [ ] Raspberry Pi step time at mesoscale and full scale
 - [ ] Mac benchmarks repeated on mains power
