@@ -1973,11 +1973,18 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
   - Checkpoint candidate `baby_dog_step_0000491520.npz` (`5a534b32…`) and connectome core `core_v2.npz` (`af939468…`) SHA256-verified on remote instance.
 - **Execution & Monitoring:**
   - Initial launch with `--envs 512` completed full 192-life baseline evaluation across 3 cohorts (walk +0.329 m/s, turn-left +1.296 rad/s, turn-right -1.086 rad/s, back -0.135 m/s, sit pitch +0.500 rad, lie-down pitch +0.043 rad; baseline arrival: "come" 1.04%, "ball" 0.00%; grounded vision: ball-ahead 0.617, owner-left 0.626; dodge reaction latency 150.0 ms; teacher help strictly 0.00), but hit single-T4 XLA memory limit (16.36 GiB requested on 15.36 GB VRAM) at Update 1.
-  - Kernel memory was reset via `colab restart-kernel`, and restarted as PID 29244 with `--envs 256` (~8.2 GiB peak VRAM, matching Kaggle per-device batch size) with `XLA_PYTHON_CLIENT_PREALLOCATE=false` and `XLA_PYTHON_CLIENT_MEM_FRACTION=0.90`.
-  - The job ran smoothly for 110 minutes until Google Colab pruned the ephemeral free VM instance at 12:26 UTC.
-  - Following the session timeout, Google Colab free tier has returned `503 Service Unavailable` on free T4 GPU allocations during peak regional cloud demand.
-  - An automated 5-minute background polling cron (`task-6390`) is actively running to allocate a fresh T4 GPU session and resume Round 16 training with intermediate checkpoint synchronization.
+  - On 15 Oct, following a 7-hour quiet rest period that cleared the account cooldown, session `round16` allocated a T4 GPU (15,360 MiB VRAM) at 08:29 UTC. JAX 0.7.2 with CUDA detected `[CudaDevice(id=0)]`. Stale Jupyter GPU memory was cleared (`0 MiB / 15,360 MiB` free), and Round 16 training launched cleanly with `XLA_PYTHON_CLIENT_PREALLOCATE=false` and `--envs 256` (PID 4976) at 08:39 UTC.
+  - The job ran continuously at 100% GPU utilization (68W power draw, 83°C) for 2 hours and 27 minutes (147 minutes) until ~10:15 UTC when training completed ~1.5M steps.
+  - At 10:05 UTC, an active local file listing task was initiated, but the local agent execution stream suffered an infrastructure interruption (`Error: The stream was interrupted`), stalling the session for 50 minutes.
+  - With no active frontend activity or inbound SSH commands, Colab's idle reaper pruned the ephemeral VM at 10:56:34 UTC (`EVENT: session_terminated (reason: pruned)`).
+  - Because checkpoints were written only to ephemeral `/content/bio-bot/results/colab_round16/`, they vanished with the container.
+  - **Mitigation architecture designed for next launch**: (1) Mount Google Drive directly via `colab drivemount /content/drive` with `--out /content/drive/MyDrive/bio-bot/results/colab_round16` so every snapshot and log line writes to permanent storage in real time; (2) run an active 3-minute cron loop pulling snapshots to local `results/` via `colab download`; and (3) maintain active tail commands every 2 minutes to prevent idle reaping.
 
+**Kaggle TPU MuJoCo MJX compatibility probe (`karang1908/bio-bot-tpu-check`) (15 Oct Dubai):**
+- **Objective:** Test whether Kaggle's free 20.00-hour weekly TPU quota (`Tpu1VmV38` / TPU v3-8 / v5e-8) can execute JAX MuJoCo MJX physics simulations to unblock training during Colab GPU cooldowns.
+- **Probe v1 (Kaggle script kernel, Tpu1VmV38):** Executed minimal and batched MJX physics steps. MuJoCo 3.14.0 compiled and stepped cleanly (`dx2.qpos` updated), but JAX detected only `[CpuDevice(id=0)]` (JAX 0.11.1 on Python 3.13) because the base container lacked `libtpu`. Batched step ($B=64$) took 7.21 s on CPU.
+- **Probe v2 (with `jax[tpu]` from Google Cloud libtpu storage):** Installed `jax[tpu]` and `libtpu` cleanly (exit code 0). However, initialization failed with `unexpected worker hostname ... from env var TPU_WORKER_HOSTNAMES` and `WARNING: could not determine TPU accelerator type`.
+- **Finding:** Kaggle's script kernel runner does not expose local TPU devices or cloud TPU network environment variables to user script containers. Without GCE Cloud TPU VM infrastructure, JAX `libtpu` cannot bind to the hardware chips and falls back to CPU. Kaggle TPU is therefore not currently viable for high-throughput MJX training. Free GPU compute remains restricted to Kaggle GPUs (30h/week, resets Saturday 00:00 UTC) and Google Colab Free Tier GPUs (rolling daily quota).
 
 
 ## 7. Open problems and next steps
@@ -2058,6 +2065,13 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
     their gains were still 1.2%. The voice stayed at chance for everything they carry, and was 0.80 for what the old
     body neurons carry. Lesson: a weak start is a closed door, not a gentle one, when the gradient through it is just
     as weak.
+18. **Ephemeral remote disks require continuous external sync.** Google Colab free GPU instances are reaped automatically
+    when idle or upon completion. Checkpoints saved only to `/content` are destroyed upon VM termination. **Fixed:** Mount
+    Google Drive directly at `/content/drive` and write checkpoints to `drive/MyDrive/`, combined with an active download
+    heartbeat polling every 3 minutes.
+19. **Kaggle script kernels with `--machine Tpu1VmV38` lack TPU VM networking.** The container does not have TPU host environment
+    variables (`TPU_WORKER_HOSTNAMES` / `TPU_ACCELERATOR_TYPE`), preventing `libtpu` from initializing hardware and falling back
+    silently to CPU. Measured on 15 Oct 2026. Free compute must remain on Kaggle/Colab GPUs.
 
 
 ---
