@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -12,11 +13,27 @@ EMBEDDED: dict = {}
 
 
 def main() -> None:
-    print("=== KAGGLE TPU MJX COMPATIBILITY CHECK ===", flush=True)
+    print("=== KAGGLE TPU MJX COMPATIBILITY CHECK V2 ===", flush=True)
     report: dict = {
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime()),
         "python": sys.version,
     }
+
+    tpu_env = {k: v for k, v in os.environ.items() if "TPU" in k}
+    print(f"TPU Environment variables: {tpu_env}", flush=True)
+    report["tpu_env"] = tpu_env
+
+    # Install jax[tpu] and mujoco
+    print("Installing jax[tpu] and mujoco-mjx...", flush=True)
+    cmd = [
+        sys.executable, "-m", "pip", "install", "-q",
+        "jax[tpu]", "-f", "https://storage.googleapis.com/jax-releases/libtpu_releases.html",
+        "mujoco==3.14.0", "mujoco-mjx==3.14.0",
+    ]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    print("Pip install returncode:", res.returncode, flush=True)
+    if res.stderr:
+        print("Pip install stderr:\n", res.stderr[-1000:], flush=True)
 
     try:
         import jax
@@ -34,22 +51,11 @@ def main() -> None:
         Path("/kaggle/working/tpu_check.json").write_text(json.dumps(report, indent=2))
         sys.exit(1)
 
-    # Ensure mujoco and mujoco-mjx are available
-    try:
-        import mujoco
-        from mujoco import mjx
-        print(f"Pre-installed MuJoCo: {mujoco.__version__}", flush=True)
-    except ImportError:
-        print("Installing mujoco and mujoco-mjx...", flush=True)
-        res = subprocess.run([sys.executable, "-m", "pip", "install", "-q", "mujoco==3.14.0", "mujoco-mjx==3.14.0"], capture_output=True, text=True)
-        print("Pip install output:", res.stdout, res.stderr, flush=True)
-        import mujoco
-        from mujoco import mjx
-        print(f"Installed MuJoCo: {mujoco.__version__}", flush=True)
-
+    import mujoco
+    from mujoco import mjx
+    print(f"MuJoCo version: {mujoco.__version__}", flush=True)
     report["mujoco_version"] = mujoco.__version__
 
-    # Step 1: Minimal MJX test on TPU
     print("Step 1: Testing minimal MJX forward step...", flush=True)
     xml = """
     <mujoco>
@@ -69,26 +75,27 @@ def main() -> None:
         mx = mjx.put_model(m)
         dx = mjx.make_data(mx)
         step_fn = jax.jit(mjx.step)
-        print("Compiling mjx.step on TPU...", flush=True)
+        print("Compiling mjx.step...", flush=True)
         t0 = time.time()
         dx2 = step_fn(mx, dx)
         dx2.qpos.block_until_ready()
         compile_time = round(time.time() - t0, 3)
-        print(f"Compiled and executed mjx.step in {compile_time}s! New qpos: {dx2.qpos}", flush=True)
+        print(f"Compiled and executed mjx.step in {compile_time}s! New qpos device: {dx2.qpos.device()}", flush=True)
         report["minimal_step_success"] = True
+        report["step_device"] = str(dx2.qpos.device())
         report["compile_time_s"] = compile_time
     except Exception as e:
         import traceback
-        print(f"Minimal MJX step on TPU failed: {e}", flush=True)
+        print(f"Minimal MJX step failed: {e}", flush=True)
         traceback.print_exc()
         report["minimal_step_success"] = False
         report["minimal_step_error"] = str(e)
         Path("/kaggle/working/tpu_check.json").write_text(json.dumps(report, indent=2))
         sys.exit(1)
 
-    print("Step 2: Testing batched mjx.step across TPU cores...", flush=True)
+    print("Step 2: Testing batched mjx.step (B=256)...", flush=True)
     try:
-        batch_size = 64
+        batch_size = 256
         dx_batch = jax.vmap(lambda _: mjx.make_data(mx))(jax.numpy.arange(batch_size))
         vstep = jax.jit(jax.vmap(mjx.step, in_axes=(None, 0)))
         t0 = time.time()
