@@ -9,15 +9,18 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 16 Oct 16:25 Dubai (12:25 UTC): Round 16 IS ACTIVELY RUNNING on Google Colab T4 GPU with live streaming runner and REST snapshot sync.**
-- **Active Execution Details (Verified)**: Fresh session `round16` on an Nvidia Tesla T4 GPU (`gpu-t4-s-kkb-usw4a0-3fchu56gok606`, 15,360 MiB VRAM). Pinned stack verified: JAX 0.7.2 with CUDA (`[CudaDevice(id=0)]`), MuJoCo 3.14.0, MuJoCo-MJX 3.14.0. Connectome core (`core_v2.npz`, `af939468…`) and candidate checkpoint (`baby_dog_step_0000491520.npz`, `5a534b32…`) uploaded and exact SHA256 verified remotely.
-- **Continuous Liveness Architecture (Verified & Active)**: Solved Colab idle-reaper pruning (where detached background processes left the Jupyter kernel IDLE, triggering pruning after ~10 min). Implemented `scripts/run_colab_round16.py`, executed directly in the kernel via `colab exec -s round16 --timeout 14400 -f scripts/run_colab_round16.py`. The kernel remains continuously in **`BUSY`** state, streaming live unbuffered training output, which engages Colab backend automatic session liveness and prevents pruning.
-- **Non-Blocking REST Snapshot Sync Loop (Verified & Active)**: Upgraded `scripts/colab_round16_monitor.py` to use non-blocking HTTP REST endpoints (`colab ls` and `colab download`) rather than kernel exec calls. This allows the 3-minute recurring cron (`task-7594`) to check remote files and download checkpoints (`baby_dog_step_*.npz`, `practice.json`, and `log.txt`) instantly in <1 second without waiting for or contending with the busy kernel. Initial files (`resume.json`, `log.txt`) verified synced.
+**Current state, 16 Oct 17:18 Dubai (13:18 UTC): Round 16 baseline evaluation verified across 192 lives; Colab T4 pool saturated (HTTP 503); 15-min probe active.**
+- **Baseline Evaluation (Verified across 3 independent cohorts, 192 lives, from rest, teacher help strictly 0.00)**: Saved locally in `results/baby_dog_vision_approach_round16/practice.json`.
+  - Walk: $+0.334\text{ m/s}$ (teacher $+0.270$, falls $0.422 / 13\text{ s}$); Turn-left: $+1.284\text{ rad/s}$ (teacher $+0.409$, falls $0.286$); Turn-right: $-1.073\text{ rad/s}$ (teacher $+0.425$, falls $0.188$); Back: $-0.132\text{ m/s}$ (teacher $+0.109$, falls $0.292$).
+  - Sit: pitch $+0.495\text{ rad}$ (target $+0.48$), height $0.607$ (target $0.60$), height standing back up $0.924$, falls $0.219$.
+  - Lie-down: pitch $+0.045\text{ rad}$ (target $+0.02$), height standing back up $0.930$, falls $0.208$.
+  - Target arrival: "come" $1.56\%$ (3/192 lives), "ball" $0.00\%$; Dodge hit rate: $80.2\%$ (vs $96\%$ static dog baseline), latency $186.7\text{ ms}$.
+  - Grounded perception: `ball-ahead` $0.626$, `ball-left` $0.630$, `ball-right` $0.632$, `owner-ahead` $0.605$, `owner-left` $0.635$, `owner-right` $0.606$, `hit` $0.890$, `moving` $0.755$, `hungry` $0.578$.
+- **Current Remote Compute Status (Verified)**: Colab Free Tier GPU pool is at maximum capacity (`ColabRequestError: 503 Service Unavailable` on `POST /tun/m/assign?variant=GPU&accelerator=T4`). Colab CPU allocation succeeds immediately (`Session READY`), verifying client/auth health.
+- **Automated GPU Polling Cron (Verified & Active)**: A 15-minute recurring background cron (`task-8017`, `*/15 * * * *`) actively probes Colab Free T4 GPU capacity via `colab new -s round16 --gpu T4`. As soon as a T4 GPU allocates, it sets up dependencies, uploads checkpoints, and launches training with the persistent streaming runner (`scripts/run_colab_round16.py`).
+- **Kaggle GPU Quota**: Resets Saturday, 17 Oct 00:00 UTC (~10.7h away), providing a fresh, guaranteed 30.00-hour GPU budget for uninterrupted execution.
 - **Resumed Checkpoint Candidate**: `baby_dog_step_0000491520.npz` (SHA256 `5a534b328c2c511d0cdccc105f61f9c12fdc5b767662f697af05315f06e16d17`, 3.12% arrival record).
 - **Core Connectome**: `core_v2.npz` (SHA256 `af939468e3fb156a74e5b5ca44b67d81d0cea2ae2c94e4543875c934ff5e2d8f`).
-- **Kaggle GPU**: 0.08h remaining (<5 min); weekly 30h quota resets Saturday, 17 Oct 00:00 UTC (~11.5h away).
-- **Algorithmic Innovation (Round 16)**: Coordinated forward-turning arc `task_cmd` with a forward velocity floor ($v_{\text{fwd}} \ge 0.20\text{ m/s}$), exact signed `arctan2` yaw error steering, and stillness zeroing upon target arrival ($\le 1.0\text{ m}$ for owner, $\le 0.35\text{ m}$ for ball). Code committed and pushed on `main`.
-- **Baseline Skill Evaluation (Verified in Previous Pass)**: 192 lives across 3 cohorts from rest without help: walk +0.334 m/s (teacher +0.269), turn-left +1.302 rad/s (teacher +0.403), turn-right +1.071 rad/s (teacher +0.415), back +0.133 m/s (teacher +0.108).
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
 
