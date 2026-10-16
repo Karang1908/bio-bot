@@ -1971,14 +1971,28 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
   - Automated via official Google Colab CLI (`colab-cli` v0.7.4) on free-tier session `round16` with Nvidia Tesla T4 GPU (15.36 GB VRAM).
   - Pinned software stack: JAX 0.7.2, jaxlib 0.7.2, MuJoCo 3.14.0, mujoco-mjx 3.14.0, optax 0.2.8.
   - Checkpoint candidate `baby_dog_step_0000491520.npz` (`5a534b32…`) and connectome core `core_v2.npz` (`af939468…`) SHA256-verified on remote instance.
-- **Execution & Monitoring:**
-  - Initial launch with `--envs 512` completed full 192-life baseline evaluation across 3 cohorts (walk +0.329 m/s, turn-left +1.296 rad/s, turn-right -1.086 rad/s, back -0.135 m/s, sit pitch +0.500 rad, lie-down pitch +0.043 rad; baseline arrival: "come" 1.04%, "ball" 0.00%; grounded vision: ball-ahead 0.617, owner-left 0.626; dodge reaction latency 150.0 ms; teacher help strictly 0.00), but hit single-T4 XLA memory limit (16.36 GiB requested on 15.36 GB VRAM) at Update 1.
-  - On 15 Oct, following a 7-hour quiet rest period that cleared the account cooldown, session `round16` allocated a T4 GPU (15,360 MiB VRAM) at 08:29 UTC. JAX 0.7.2 with CUDA detected `[CudaDevice(id=0)]`. Stale Jupyter GPU memory was cleared (`0 MiB / 15,360 MiB` free), and Round 16 training launched cleanly with `XLA_PYTHON_CLIENT_PREALLOCATE=false` and `--envs 256` (PID 4976) at 08:39 UTC.
-  - The job ran continuously at 100% GPU utilization (68W power draw, 83°C) for 2 hours and 27 minutes (147 minutes) until ~10:15 UTC when training completed ~1.5M steps.
-  - At 10:05 UTC, an active local file listing task was initiated, but the local agent execution stream suffered an infrastructure interruption (`Error: The stream was interrupted`), stalling the session for 50 minutes.
-  - With no active frontend activity or inbound SSH commands, Colab's idle reaper pruned the ephemeral VM at 10:56:34 UTC (`EVENT: session_terminated (reason: pruned)`).
-  - Because checkpoints were written only to ephemeral `/content/bio-bot/results/colab_round16/`, they vanished with the container.
-  - **Mitigation architecture designed for next launch**: (1) Mount Google Drive directly via `colab drivemount /content/drive` with `--out /content/drive/MyDrive/bio-bot/results/colab_round16` so every snapshot and log line writes to permanent storage in real time; (2) run an active 3-minute cron loop pulling snapshots to local `results/` via `colab download`; and (3) maintain active tail commands every 2 minutes to prevent idle reaping.
+- **Execution & Monitoring (16 Oct Dubai / UTC):**
+  - Session `round16` allocated an Nvidia Tesla T4 GPU (`gpu-t4-s-kkb-usw4a0-3fchu56gok606`, 15,360 MiB VRAM) at 12:12 UTC. JAX 0.7.2 with CUDA detected `[CudaDevice(id=0)]`.
+  - Checkpoint candidate `baby_dog_step_0000491520.npz` (`5a534b32…`) and connectome core `core_v2.npz` (`af939468…`) SHA256-verified on remote instance.
+  - **Liveness & Automated Sync Architecture (Verified)**: Solved Colab idle-reaper pruning (where detached background processes left the Jupyter kernel IDLE, triggering pruning after ~10 min). Implemented `scripts/run_colab_round16.py`, executed directly in the kernel via `colab exec -s round16 --timeout 14400 -f scripts/run_colab_round16.py`. The kernel remains continuously in **`BUSY`** state, streaming live unbuffered training output, which engages Colab backend automatic session liveness and prevents pruning.
+  - Upgraded `scripts/colab_round16_monitor.py` to use non-blocking HTTP REST endpoints (`colab ls` and `colab download`), enabling the 3-minute recurring background cron (`task-7594`) to check remote files and download checkpoints (`baby_dog_step_*.npz`, `practice.json`, and `log.txt`) instantly in <1 second without waiting for or contending with the busy kernel.
+- **Baseline Evaluation (Verified across 3 fresh cohorts, 192 lives, from rest, teacher help strictly 0.00):**
+  - **Gaits & Locomotive Skills:**
+    - Walk: $+0.334\text{ m/s}$ (teacher $+0.270\text{ m/s}$, falls $0.422 / 13\text{ s}$)
+    - Turn-left: $+1.284\text{ rad/s}$ (teacher $+0.409\text{ rad/s}$, falls $0.286 / 13\text{ s}$)
+    - Turn-right: $-1.073\text{ rad/s}$ (teacher $+0.425\text{ rad/s}$, falls $0.188 / 13\text{ s}$)
+    - Back: $-0.132\text{ m/s}$ (teacher $+0.109\text{ m/s}$, falls $0.292 / 13\text{ s}$)
+  - **Rest Poses & Recovery:**
+    - Sit pose: nose-up pitch $+0.495\text{ rad}$ (target $+0.48$), trunk height $0.607$ (target $0.60$), height standing back up $0.924$, falls $0.219$
+    - Lie-down pose: nose-up pitch $+0.045\text{ rad}$ (target $+0.02$), trunk height back up $0.930$, falls $0.208$
+    - Get-up from fall: $0\%$ (untaught, requires self-discovery)
+  - **Park Perception & Tasks:**
+    - Target arrival: "come" $1.56\%$ (3/192 lives arrived within $1.0\text{ m}$), "ball" $0.00\%$ (within $0.35\text{ m}$)
+    - Dodge: projectile hit rate $80.2\%$ (vs $96\%$ static dog baseline), median reaction latency $186.7\text{ ms}$, falls $0.219$
+    - Free exploration: hungry $0.78\text{ m}^2$, full $1.54\text{ m}^2$ (food reached $1.56\%$)
+    - Grounded senses (held-out voice accuracy): `ball-ahead` $0.626$, `ball-left` $0.630$, `ball-right` $0.632$, `owner-ahead` $0.605$, `owner-left` $0.635$, `owner-right` $0.606$, `hit` $0.890$, `moving` $0.755$, `hungry` $0.578$.
+  - Main 1.5M rollout training steps currently in progress with coordinated forward-turning arc steering.
+
 
 **Kaggle TPU MuJoCo MJX compatibility probe (`karang1908/bio-bot-tpu-check`) (15 Oct Dubai):**
 - **Objective:** Test whether Kaggle's free 20.00-hour weekly TPU quota (`Tpu1VmV38` / TPU v3-8 / v5e-8) can execute JAX MuJoCo MJX physics simulations to unblock training during Colab GPU cooldowns.
@@ -2072,6 +2086,11 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
 19. **Kaggle script kernels with `--machine Tpu1VmV38` lack TPU VM networking.** The container does not have TPU host environment
     variables (`TPU_WORKER_HOSTNAMES` / `TPU_ACCELERATOR_TYPE`), preventing `libtpu` from initializing hardware and falling back
     silently to CPU. Measured on 15 Oct 2026. Free compute must remain on Kaggle/Colab GPUs.
+20. **Colab headless sessions require an active kernel execution to avoid idle reaping.** Detaching a background process
+    (e.g. `nohup ... &`) leaves the Colab Jupyter kernel in `IDLE` state. The Colab backend reaps idle headless sessions after ~10 minutes
+    (`reason: 'pruned'`). **Fixed:** Run training directly inside the kernel (via `scripts/run_colab_round16.py` with streaming output),
+    keeping the kernel continuously in `BUSY` state where Colab automatically maintains session liveness. Upgraded file monitor to use
+    non-blocking HTTP REST endpoints (`colab ls` and `colab download`) so snapshot downloads never contend with the busy kernel.
 
 
 ---
