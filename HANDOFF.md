@@ -9,16 +9,16 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 16 Oct 17:18 Dubai (13:18 UTC): Round 16 baseline evaluation verified across 192 lives; Colab T4 pool saturated (HTTP 503); 15-min probe active.**
+**Current state, 16 Oct 19:50 Dubai (15:50 UTC): Round 16 baseline evaluation verified across 192 lives; Colab T4 pool saturated (HTTP 503, 10 probes); Kaggle GPU reset in ~8.1h (00:00 UTC); 15-min probe active.**
 - **Baseline Evaluation (Verified across 3 independent cohorts, 192 lives, from rest, teacher help strictly 0.00)**: Saved locally in `results/baby_dog_vision_approach_round16/practice.json`.
   - Walk: $+0.334\text{ m/s}$ (teacher $+0.270$, falls $0.422 / 13\text{ s}$); Turn-left: $+1.284\text{ rad/s}$ (teacher $+0.409$, falls $0.286$); Turn-right: $-1.073\text{ rad/s}$ (teacher $+0.425$, falls $0.188$); Back: $-0.132\text{ m/s}$ (teacher $+0.109$, falls $0.292$).
   - Sit: pitch $+0.495\text{ rad}$ (target $+0.48$), height $0.607$ (target $0.60$), height standing back up $0.924$, falls $0.219$.
   - Lie-down: pitch $+0.045\text{ rad}$ (target $+0.02$), height standing back up $0.930$, falls $0.208$.
   - Target arrival: "come" $1.56\%$ (3/192 lives), "ball" $0.00\%$; Dodge hit rate: $80.2\%$ (vs $96\%$ static dog baseline), latency $186.7\text{ ms}$.
   - Grounded perception: `ball-ahead` $0.626$, `ball-left` $0.630$, `ball-right` $0.632$, `owner-ahead` $0.605$, `owner-left` $0.635$, `owner-right` $0.606$, `hit` $0.890$, `moving` $0.755$, `hungry` $0.578$.
-- **Current Remote Compute Status (Verified)**: Colab Free Tier GPU pool is at maximum capacity (`ColabRequestError: 503 Service Unavailable` on `POST /tun/m/assign?variant=GPU&accelerator=T4`). Colab CPU allocation succeeds immediately (`Session READY`), verifying client/auth health.
+- **Current Remote Compute Status (Verified)**: Colab Free Tier GPU pool is at maximum capacity (`ColabRequestError: 503 Service Unavailable` on `POST /tun/m/assign?variant=GPU&accelerator=T4`, verified across 10 probes). Colab CPU allocation succeeds immediately in 5s (`Session READY`), verifying client/auth health.
 - **Automated GPU Polling Cron (Verified & Active)**: A 15-minute recurring background cron (`task-8017`, `*/15 * * * *`) actively probes Colab Free T4 GPU capacity via `colab new -s round16 --gpu T4`. As soon as a T4 GPU allocates, it sets up dependencies, uploads checkpoints, and launches training with the persistent streaming runner (`scripts/run_colab_round16.py`).
-- **Kaggle GPU Quota**: Resets Saturday, 17 Oct 00:00 UTC (~10.7h away), providing a fresh, guaranteed 30.00-hour GPU budget for uninterrupted execution.
+- **Kaggle GPU Quota**: Resets Saturday, 17 Oct 00:00 UTC (~8.1h away), providing a fresh, guaranteed 30.00-hour GPU budget for uninterrupted execution.
 - **Resumed Checkpoint Candidate**: `baby_dog_step_0000491520.npz` (SHA256 `5a534b328c2c511d0cdccc105f61f9c12fdc5b767662f697af05315f06e16d17`, 3.12% arrival record).
 - **Core Connectome**: `core_v2.npz` (SHA256 `af939468e3fb156a74e5b5ca44b67d81d0cea2ae2c94e4543875c934ff5e2d8f`).
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
