@@ -9,16 +9,20 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 17 Oct 09:30 Dubai (05:30 UTC): Round 16 COMPLETE & VERIFIED on Kaggle 2x T4 GPU; Quota 28.56h remaining.**
-- **Completed Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round16`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round16) (version 1) finished all 91 updates (1,490,944 steps) in 85.8 minutes on 2x Nvidia Tesla T4 GPU. All outputs downloaded and SHA256 verified in `results/baby_dog_vision_approach_round16/`.
-- **Measured Outcomes (192 lives per eval across 3 cohorts from rest, teacher help strictly 0.00)**:
-  - **Owner Arrival ("come")**: 1.56% baseline $\rightarrow$ **2.60% (5/192)** at 0.5M steps with net distance closure **-0.5 cm** (Cohort 3 reached 5.0%), holding at **2.60% (5/192)** at final 1.49M steps.
-  - **Grounded Perception Peaks**: All-time project highs for spatial vision: `ball-left` **0.671** and `ball-right` **0.670** at 1.5M snap (`c57dfca2…`); tactile collision perception `hit` peaked at **0.918** at 1.0M (`4b77339b…`).
-  - **Skill Retention**: Walk (+0.330 m/s), turn-left (+1.291 rad/s), turn-right (-1.111 rad/s), back (-0.117 m/s), sit (+0.490 rad pitch / 0.610 m height), lie-down (+0.044 rad pitch / 0.953 m height). Zero teacher help.
-- **Candidate Checkpoints**:
-  - **Active Learning Restart Candidate**: `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10) retains the all-time 3.12% arrival record.
-  - **Round 16 Candidates**: `baby_dog_step_0000491520.npz` (`e58244fc…`, 2.60% arrival, -0.5 cm closure) and `baby_dog_step_0001474560.npz` (`c57dfca2…`, 0.671 vision accuracy) are top-tier continuation checkpoints.
-- **Remote Compute Quota (Verified)**: Kaggle weekly quota refreshed: **28.56 hours remaining** (only 1.44h used). No active jobs running.
+**Current state, 17 Oct 09:42 Dubai (05:42 UTC): Round 17 preflight VERIFIED; Round 17 GPU job RUNNING on Kaggle 2x T4 GPU; Quota 28.56h remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round17`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round17) (version 1) is **RUNNING** on 2x Nvidia Tesla T4 GPU.
+  - Job parameters: 1.5M steps (~91 updates), 512 envs (256/GPU), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 fresh cohorts (192 lives per eval), timeout 7,200s (120 min), teacher help strictly 0.00 from rest (`help_ = 0.0`).
+  - Terminal deceleration braking and proximity shaping active: smooth velocity brake $v_{\text{cruise}} \times \text{clip}(d_{\text{target}} / (1.5 \times \text{near\_of}), 0.25, 1.0)$ into capture zone, plus continuous proximity reward $8.0 \times \text{clip}((2.0 \times \text{near\_of} - d_{\text{gap}}) / (2.0 \times \text{near\_of}), 0.0, 1.0)$ to pull quadruped into tight ball arrival zone ($\le 0.35\text{ m}$) without overshooting or kicking ball.
+  - Resumed from candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 record) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round17-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round17-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round17_preflight/`. All 14 assertions passed, candidate SHA256 verified (`5a534b32…`).
+- **Baseline Evaluation (Verified across 3 independent cohorts, 192 lives, from rest, teacher help strictly 0.00)**: Saved locally in `results/baby_dog_vision_round17_preflight/preflight.json`.
+  - Walk: $+0.3361\text{ m/s}$ (falls $0.3594 / 13\text{ s}$); Turn-left: $+1.2921\text{ rad/s}$ (falls $0.2604$); Turn-right: $-1.0693\text{ rad/s}$ (falls $0.1823$); Back: $-0.1380\text{ m/s}$ (falls $0.3177$).
+  - Sit: pitch $+0.490\text{ rad}$ (target $+0.48$), height $0.607$ (target $0.60$), falls $0.2188$.
+  - Lie-down: pitch $+0.045\text{ rad}$ (target $+0.02$), height $0.954$, falls $0.2188$.
+  - Target arrival: "come" $3.125\%$ (6/192 lives, all-time record baseline), "ball" $0.00\%$; Dodge hit rate: $81.25\%$, latency $256.7\text{ ms}$.
+  - Grounded perception: `ball-left` $0.652$, `ball-ahead` $0.632$, `ball-right` $0.646$, `owner-left` $0.639$, `owner-ahead` $0.608$, `owner-right` $0.610$, `hit` $0.845$, `moving` $0.761$, `hungry` $0.578$.
+- **Remote Compute Quota (Verified)**: Kaggle weekly quota: **28.56 hours remaining** (only 1.44h used out of 30.00h).
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
 
