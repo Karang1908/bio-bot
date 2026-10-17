@@ -1509,6 +1509,7 @@ def practice(args, bd, out: Path) -> dict:
                     gap0 = jp.linalg.norm(to0, axis=-1)
                     head_gap0 = jp.linalg.norm(head0[:, :2] - goal_b, axis=-1)
                     d_target0 = jp.minimum(gap0, head_gap0)
+                    is_near = (gap0 < near_of[ins]) | (head_gap0 < near_of[ins])
                     align_gate = jp.clip((jp.cos(theta_err) - 0.2) / 0.6, 0.0, 1.0)
                     v_cruise = 0.05 + 0.40 * align_gate
                     brake = jp.clip(d_target0 / (1.5 * near_of[ins] + 1e-6), 0.25, 1.0)
