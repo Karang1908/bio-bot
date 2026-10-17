@@ -9,22 +9,24 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 17 Oct 13:20 Dubai (09:20 UTC): Round 19 CPU Preflight VERIFIED; Round 19 GPU Job LAUNCHED on Kaggle 2x T4 GPU; Quota 25.63h remaining.**
-- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round19`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round19) (version 1) is active on 2x Nvidia Tesla T4 GPU.
+**Current state, 17 Oct 17:10 Dubai (13:10 UTC): Round 19 v2 LAUNCHED on Kaggle 2x T4 GPU; Baseline 4.17% verified on GPU; Quota 25.04h remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round19`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round19) (version 2) is active on 2x Nvidia Tesla T4 GPU.
   - Job parameters: 1.5M steps (~91 updates), 512 envs (256/GPU), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 fresh cohorts (192 lives per eval), timeout 7,200s (120 min), teacher help strictly 0.00 from rest (`help_ = 0.0`).
   - Architectural Innovations:
     1. **Pivot-then-Sprint Kinematic Velocity Gate**: `align_gate = clip((cos(theta) - 0.2) / 0.6, 0.0, 1.0)`, `v_cruise = 0.05 + 0.40 * align_gate`, `v_yaw_cmd = clip(1.5 * theta, -1.2, 1.2)`. Drops forward command to 0.05 m/s when misaligned ($|\theta| \ge 78^\circ$) for pure agile on-the-spot yaw pivoting without centrifugal slip, engaging full 0.45 m/s sprint once aligned ($|\theta| \le 36^\circ$).
     2. **Saturated Directional Steering Gradient**: `yaw_dir = clip(sin_lat / 0.25, -1.0, 1.0)`, `yaw_toward = wz * yaw_dir`. Eliminates deadzone at rearward angles ($180^\circ$), delivering full $+4.8\text{/s}$ turning reward across all $|\theta| \ge 15^\circ$.
     3. **Sprint Propulsion Reward**: `FWD_PAY = 20.0` (delivering up to $+9.0\text{/s}$ forward locomotion reward once aligned).
+  - Version 1 GPU Trial Diagnostics: Version 1 ran the full baseline evaluation across 3 independent cohorts (192 lives) on 2x T4 GPU (34 minutes runtime), confirming baseline metrics bit-for-bit, before encountering a `NameError: is_near` on update 1 rollout. The missing `is_near` definition was restored in `train/baby_dog.py` ([commit `8b18212`](https://github.com/Karang1908/bio-bot/commit/8b18212)), and Version 2 was immediately pushed.
   - Resumed from candidate `baby_dog_step_0001490944.npz` (`b1dadb51…`, Round 18 project record, 4.17% arrival) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round18`.
   - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
-- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round19-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round19-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round19_preflight/`. All 14 assertions passed, candidate SHA256 verified (`b1dadb51…`).
-- **Baseline Evaluation (Verified across 3 independent cohorts, 192 lives, from rest, teacher help strictly 0.00)**: Saved locally in `results/baby_dog_vision_round19_preflight/preflight.json`.
-  - Walk: $+0.3523\text{ m/s}$ (falls $0.6823 / 13\text{ s}$); Turn-left: $+1.3320\text{ rad/s}$ (falls $0.4167$); Turn-right: $-1.1172\text{ rad/s}$ (falls $0.3438$); Back: $-0.0931\text{ m/s}$ (falls $0.4740$).
-  - Sit: pitch $+0.494\text{ rad}$ (target $+0.48$), height $0.614\text{ m}$ (target $0.60$); Lie-down: pitch $+0.044\text{ rad}$, height $0.958\text{ m}$.
+- **Baseline Evaluation (Verified on Kaggle 2x T4 GPU across 3 independent cohorts, 192 lives, from rest, teacher help strictly 0.00)**: Saved locally in `results/baby_dog_vision_approach_round19/practice.json`.
+  - Walk: $+0.3486\text{ m/s}$ (falls $0.7135 / 13\text{ s}$); Pace: $+0.4888\text{ m/s}$; Canter: $+0.3427\text{ m/s}$; Run: $+0.4979\text{ m/s}$.
+  - Turn-left: $+1.3387\text{ rad/s}$ (falls $0.3646$); Turn-right: $-1.1290\text{ rad/s}$ (falls $0.3594$); Back: $-0.0951\text{ m/s}$ (falls $0.5052$).
+  - Sit: pitch $+0.497\text{ rad}$ (target $+0.48$), height $0.612\text{ m}$ (target $0.60$); Lie-down: pitch $+0.044\text{ rad}$, height $0.958\text{ m}$.
   - Target arrival baseline: "come" $4.167\%$ (8/192 lives, project record baseline), "ball" $0.00\%$; Ball distance drift: $+2.5\text{ cm}$ (project best).
-  - Grounded perception: `ball-left` $0.649$, `ball-ahead` $0.623$, `ball-right` $0.605$, `owner-left` $0.627$, `owner-ahead` $0.613$, `owner-right` $0.604$, `hit` $0.834$, `moving` $0.766$, `hungry` $0.567$.
-- **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **25.63 hours remaining** (4.37h used out of 30.00h, resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining.
+  - Dodge: hit rate $78.13\%$ (reaction $50.0\text{ ms}$, moved before hit $20.8\%$).
+  - Grounded perception: `ball-left` $0.662$, `ball-ahead` $0.621$, `ball-right` $0.613$, `owner-left` $0.633$, `owner-ahead` $0.612$, `owner-right` $0.602$, `hit` $0.846$, `moving` $0.767$, `hungry` $0.560$.
+- **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **25.04 hours remaining** (4.96h used out of 30.00h, resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
 
