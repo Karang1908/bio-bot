@@ -22,7 +22,22 @@ REPO = Path(__file__).resolve().parent.parent
 KAGGLE = str(REPO / ".venv" / "bin" / "kaggle")
 
 
+def ensure_kaggle_auth() -> None:
+    """Work around kagglesdk's bug where access_token_has_expired uses minus instead of plus 30 min."""
+    try:
+        from datetime import datetime, timezone, timedelta
+        from kagglesdk import KaggleClient, KaggleCredentials
+        client = KaggleClient()
+        creds = KaggleCredentials.load(client)
+        if creds and creds._refresh_token:
+            if not creds._access_token_expiration or creds._access_token_expiration < datetime.now(timezone.utc) + timedelta(minutes=10):
+                creds.refresh_access_token()
+    except Exception:
+        pass
+
+
 def kaggle(*args: str) -> str:
+    ensure_kaggle_auth()
     out = subprocess.run([KAGGLE, *args], capture_output=True, text=True)
     text = out.stdout + out.stderr
     # the CLI can print an HTTP error and still exit 0 (seen: 400 on an oversized kernel push)
