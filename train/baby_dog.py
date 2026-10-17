@@ -80,7 +80,7 @@ SAY = ["ball-left", "ball-ahead", "ball-right", "owner-left", "owner-ahead", "ow
        "hungry", "hot", "hit", "fallen", "moving"]
 VOICE = 3.0              # how much learning to say what is true counts (at 0.5 it barely trained seeing)
 FACE_PAY = 4.0           # "ball" / "come": reward per rad/s of turning to face what was asked (looking before going)
-FWD_PAY = 16.0           # "ball" / "come": reward for forward speed aligned with task target
+FWD_PAY = 20.0           # "ball" / "come": reward for forward speed aligned with task target
 YAW_PAY = 4.0            # "ball" / "come": reward for yaw rate directed towards task target
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
@@ -1509,11 +1509,11 @@ def practice(args, bd, out: Path) -> dict:
                     gap0 = jp.linalg.norm(to0, axis=-1)
                     head_gap0 = jp.linalg.norm(head0[:, :2] - goal_b, axis=-1)
                     d_target0 = jp.minimum(gap0, head_gap0)
-                    is_near = (gap0 < near_of[ins]) | (head_gap0 < near_of[ins])
-                    v_cruise = jp.clip(0.35 + 0.15 * jp.cos(theta_err), 0.20, 0.50)
+                    align_gate = jp.clip((jp.cos(theta_err) - 0.2) / 0.6, 0.0, 1.0)
+                    v_cruise = 0.05 + 0.40 * align_gate
                     brake = jp.clip(d_target0 / (1.5 * near_of[ins] + 1e-6), 0.25, 1.0)
                     v_fwd_cmd = v_cruise * brake
-                    v_yaw_cmd = jp.clip(1.0 * theta_err, -1.2, 1.2)
+                    v_yaw_cmd = jp.clip(1.5 * theta_err, -1.2, 1.2)
                     task_cmd = jp.where(is_near[:, None], jp.zeros((Rh0.shape[0], 3)),
                                         jp.stack([v_fwd_cmd, jp.zeros_like(v_fwd_cmd), v_yaw_cmd], -1))
                     env = {**env, "info": {**env["info"], "cmd": jp.where(is_task[ins][:, None], task_cmd, env["info"]["cmd"])}}
@@ -1569,7 +1569,8 @@ def practice(args, bd, out: Path) -> dict:
                 proximity = jp.clip((2.0 * near_of[ins] - min_gap1) / (2.0 * near_of[ins] + 1e-6), 0.0, 1.0)
                 turned = jp.where(done, 0.0, jp.clip((cos_facing - facing_before) / bd.CTRL_DT, -2.0, 2.0))
                 fwd_toward = jp.maximum(0.0, st["v_fwd"]) * jp.clip(cos_facing, 0.0, 1.0)
-                yaw_toward = st["wz"] * jp.clip(sin_lat, -1.0, 1.0)
+                yaw_dir = jp.clip(sin_lat / 0.25, -1.0, 1.0)
+                yaw_toward = st["wz"] * yaw_dir
                 # the body scores "stand still" when no motion is asked; a task word asks it to go somewhere (turning or walking)
                 still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
                 face_pay = getattr(args, "face_pay", FACE_PAY)
