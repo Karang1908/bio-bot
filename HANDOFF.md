@@ -9,8 +9,8 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 17 Oct 22:45 Dubai (18:45 UTC): Round 20 CPU Preflight VERIFIED; Round 20 GPU Job ACTIVE on Kaggle 2x T4 GPU; Quota 23.52h remaining.**
-- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round20`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round20) (version 1) is active on 2x Nvidia Tesla T4 GPU.
+**Current state, 18 Oct 00:30 Dubai (20:30 UTC): Round 20 GPU Job RUNNING on Kaggle 2x T4 GPU; 1.5M steps training in progress; Quota 23.52h remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round20`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round20) (version 1) is **RUNNING** on 2x Nvidia Tesla T4 GPU (transitioned to RUNNING at 20:26 UTC after 104 min queue wait).
   - Job parameters: 1.5M steps (~91 updates), 512 envs (256/GPU), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 fresh independent cohorts (192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
   - Architectural Innovations:
     1. **Slew-Rate Kinematic Acceleration Limiting**:
