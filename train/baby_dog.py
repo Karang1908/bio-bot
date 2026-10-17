@@ -81,7 +81,7 @@ SAY = ["ball-left", "ball-ahead", "ball-right", "owner-left", "owner-ahead", "ow
 VOICE = 3.0              # how much learning to say what is true counts (at 0.5 it barely trained seeing)
 FACE_PAY = 4.0           # "ball" / "come": reward per rad/s of turning to face what was asked (looking before going)
 FWD_PAY = 16.0           # "ball" / "come": reward for forward speed aligned with task target
-YAW_PAY = 0.0            # "ball" / "come": reward for yaw rate directed towards task target (0: eliminate spinning bonus)
+YAW_PAY = 4.0            # "ball" / "come": reward for yaw rate directed towards task target
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
@@ -1553,9 +1553,6 @@ def practice(args, bd, out: Path) -> dict:
                 gap1 = jp.linalg.norm(trunk1 - goal1, axis=-1)
                 head_gap1 = jp.linalg.norm(head1[:, :2] - goal1, axis=-1)
                 min_gap1 = jp.minimum(gap1, head_gap1)
-                closer = jp.where(done, 0.0, jp.clip((gap0 - gap1) / bd.CTRL_DT, -1.0, 1.0))
-                there = (gap1 < near_of[ins]) | (head_gap1 < near_of[ins])
-                proximity = jp.clip((2.0 * near_of[ins] - min_gap1) / (2.0 * near_of[ins] + 1e-6), 0.0, 1.0)
                 def facing(d, goal):                     # cosine of the angle between its heading and the goal
                     Rh = d.xmat[:, base]
                     to = goal - d.xpos[:, base, :2]
@@ -1566,6 +1563,10 @@ def practice(args, bd, out: Path) -> dict:
                     return jp.sum(Rh[:, :2, 1] * to, -1) / (jp.linalg.norm(Rh[:, :2, 1], axis=-1) * jp.linalg.norm(to, axis=-1) + 1e-6)
                 cos_facing = facing(env["d"], goal1)
                 sin_lat = lateral(env["d"], goal1)
+                raw_closer = jp.clip((gap0 - gap1) / bd.CTRL_DT, -1.0, 1.0)
+                closer = jp.where(done, 0.0, jp.where(cos_facing < 0.0, jp.maximum(0.0, raw_closer), raw_closer))
+                there = (gap1 < near_of[ins]) | (head_gap1 < near_of[ins])
+                proximity = jp.clip((2.0 * near_of[ins] - min_gap1) / (2.0 * near_of[ins] + 1e-6), 0.0, 1.0)
                 turned = jp.where(done, 0.0, jp.clip((cos_facing - facing_before) / bd.CTRL_DT, -2.0, 2.0))
                 fwd_toward = jp.maximum(0.0, st["v_fwd"]) * jp.clip(cos_facing, 0.0, 1.0)
                 yaw_toward = st["wz"] * jp.clip(sin_lat, -1.0, 1.0)
