@@ -9,18 +9,19 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 17 Oct 11:15 Dubai (07:15 UTC): Round 17 COMPLETE & VERIFIED; Quota 27.08h remaining; Ready for Round 18.**
-- **Completed Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round17`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round17) (version 1) on 2x Nvidia Tesla T4 GPU. Completed all 91 updates (1,490,944 steps) in 87.3 minutes.
-  - Job parameters: 1.5M steps (~91 updates), 512 envs (256/GPU), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 fresh cohorts (192 lives per eval), teacher help strictly 0.00 from rest (`help_ = 0.0`).
-  - Terminal deceleration braking and proximity shaping evaluated.
+**Current state, 17 Oct 11:30 Dubai (07:30 UTC): Round 18 preflight VERIFIED; Round 18 GPU job RUNNING on Kaggle 2x T4 GPU; Quota 27.08h remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round18`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round18) (version 1) is **RUNNING** on 2x Nvidia Tesla T4 GPU.
+  - Job parameters: 1.5M steps (~91 updates), 512 envs (256/GPU), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 fresh cohorts (192 lives per eval), timeout 7,200s (120 min), teacher help strictly 0.00 from rest (`help_ = 0.0`).
+  - Swivel & Directional Steering active: unpenalized displacement while swiveling rearward (`closer = max(0, closer)` when `cos_facing < 0`) eliminates freeze penalties when facing away; active directional yaw drive `yaw_pay = 4.0` rewards swiveling toward target; `task_scale = 800.0`, `fwd_pay = 16.0`, `reach_pay = 25.0`, `prox_pay = 8.0`.
   - Resumed from candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 record) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`.
   - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
-  - Outputs fetched and SHA256 verified in `results/baby_dog_vision_approach_round17/`.
-- **Verified Results across 3 independent cohorts (192 lives per evaluation, help 0.00)**:
-  - Owner arrival ("come") held at **2.08% (4/192)** at baseline and 0.5M (`a88e1034…`), and **1.56% (3/192)** at 1.0M and 1.5M, with net distance closure **-3.9 cm** and **-1.6 cm**.
-  - All 11 nominal skills preserved: walk $+0.321$ to $+0.334\text{ m/s}$, turns $+1.316$ / $-1.105\text{ rad/s}$, back $-0.109\text{ m/s}$, sit pitch $+0.497\text{ rad}$, lie-down pitch $+0.044\text{ rad}$.
-  - Spatial perception maintained at project peaks: `ball-left` balanced accuracy reached **0.666**, `ball-right` **0.655**, tactile `hit` peaked at **0.900**.
-  - Physical ball arrival diagnosis: with trunk arrival threshold $\le 0.35\text{ m}$ and dog torso length $\approx 0.60\text{ m}$, the dog's snout/paws touch the 0.43 kg ball before the torso center crosses 0.35 m, pushing it away ($+2.6$ to $+9.8\text{ cm}$ drift).
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round18-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round18-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round18_preflight/`. All 14 assertions passed, candidate SHA256 verified (`5a534b32…`).
+- **Baseline Evaluation (Verified across 3 independent cohorts, 192 lives, from rest, teacher help strictly 0.00)**: Saved locally in `results/baby_dog_vision_round18_preflight/preflight.json`.
+  - Walk: $+0.3361\text{ m/s}$ (falls $0.3594 / 13\text{ s}$); Turn-left: $+1.2921\text{ rad/s}$ (falls $0.2604$); Turn-right: $-1.0693\text{ rad/s}$ (falls $0.1823$); Back: $-0.1380\text{ m/s}$ (falls $0.3177$).
+  - Sit: pitch $+0.490\text{ rad}$ (target $+0.48$), height $0.607$ (target $0.60$), falls $0.2188$.
+  - Lie-down: pitch $+0.045\text{ rad}$ (target $+0.02$), height $0.954$, falls $0.2188$.
+  - Target arrival: "come" $3.125\%$ (6/192 lives, all-time record baseline), "ball" $0.00\%$; Dodge hit rate: $81.25\%$, latency $256.7\text{ ms}$.
+  - Grounded perception: `ball-left` $0.652$, `ball-ahead` $0.632$, `ball-right` $0.646$, `owner-left` $0.639$, `owner-ahead` $0.608$, `owner-right` $0.610$, `hit` $0.845$, `moving` $0.761$, `hungry` $0.578$.
 - **Remote Compute Quota (Verified)**: Kaggle weekly quota: **27.08 hours remaining** (only 2.92h used out of 30.00h).
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
