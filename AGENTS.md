@@ -64,8 +64,8 @@ Do not treat historical plans or pending-status notes as current authorization o
   so a Git operation does not accidentally run prohibited local checks.
 - Use one account per provider. Do not rotate Gmail/Colab/Kaggle accounts to evade quotas or restrictions. Do not
   promise fixed Colab GPU hours, a guaranteed combined allowance or nonstop free availability.
-- Check current quota, authentication and notebook status before planning or submitting. Use bounded trials,
-  explicit runtime caps, intermediate checkpoints and remote CPU preflight where needed before spending GPU time.
+- Check current quota (via `.venv/bin/kaggle quota`), authentication and notebook status before planning or submitting.
+  Use bounded trials, explicit runtime caps, intermediate checkpoints and remote CPU preflight where needed before spending GPU time.
   Prefer short experiments that can demonstrate learning over long blind continuations.
 - Prefer existing hosted checkpoint outputs through `--kernel-source`. Do not routinely upload local checkpoints
   or overwrite the shared brain dataset. An earlier local checkpoint export was rejected by approval review;
