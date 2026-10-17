@@ -1511,17 +1511,18 @@ def practice(args, bd, out: Path) -> dict:
                     head_gap0 = jp.linalg.norm(head0[:, :2] - goal_b, axis=-1)
                     d_target0 = jp.minimum(gap0, head_gap0)
                     is_near = (gap0 < near_of[ins]) | (head_gap0 < near_of[ins])
-                    align_gate = jp.clip((jp.cos(theta_err) - 0.2) / 0.6, 0.0, 1.0)
-                    v_cruise = 0.05 + 0.45 * align_gate
+                    align_gate = jp.clip((jp.cos(theta_err) - 0.60) / 0.35, 0.0, 1.0)
+                    v_sprint = 0.60
                     brake = jp.clip(d_target0 / (1.5 * near_of[ins] + 1e-6), 0.25, 1.0)
-                    target_fwd = jp.where(is_near, 0.0, v_cruise * brake)
-                    target_yaw = jp.where(is_near, 0.0, jp.clip(1.5 * theta_err, -1.2, 1.2))
+                    target_fwd = jp.where(is_near, 0.0, v_sprint * align_gate * brake)
+                    yaw_scale = 1.0 - 0.65 * align_gate
+                    target_yaw = jp.where(is_near, 0.0, jp.clip(1.5 * theta_err, -1.2 * yaw_scale, 1.2 * yaw_scale))
                     p_fwd = jp.where(spoke, 0.0, prev_cmd[:, 0])
                     p_yaw = jp.where(spoke, 0.0, prev_cmd[:, 2])
                     max_fwd_accel = 1.0 * bd.CTRL_DT
                     max_fwd_decel = 2.0 * bd.CTRL_DT
                     v_fwd_cmd = jp.clip(target_fwd, p_fwd - max_fwd_decel, p_fwd + max_fwd_accel)
-                    max_yaw_accel = 4.0 * bd.CTRL_DT
+                    max_yaw_accel = 3.0 * bd.CTRL_DT
                     v_yaw_cmd = jp.clip(target_yaw, p_yaw - max_yaw_accel, p_yaw + max_yaw_accel)
                     task_cmd = jp.stack([v_fwd_cmd, jp.zeros_like(v_fwd_cmd), v_yaw_cmd], -1)
                     env = {**env, "info": {**env["info"], "cmd": jp.where(is_task[ins][:, None], task_cmd, env["info"]["cmd"])}}
