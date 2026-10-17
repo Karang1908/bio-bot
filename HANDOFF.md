@@ -9,18 +9,20 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 16 Oct 19:50 Dubai (15:50 UTC): Round 16 baseline evaluation verified across 192 lives; Colab T4 pool saturated (HTTP 503, 10 probes); Kaggle GPU reset in ~8.1h (00:00 UTC); 15-min probe active.**
+**Current state, 17 Oct 04:06 Dubai (00:06 UTC): Round 16 preflight VERIFIED; Round 16 GPU job RUNNING on Kaggle 2x T4 GPU; Quota refreshed (30.00h remaining).**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round16`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round16) (version 1) is **RUNNING** on 2x Nvidia Tesla T4 GPU.
+  - Job parameters: 1.5M steps (~91 updates), 512 envs (256/GPU), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 fresh cohorts (192 lives per eval), timeout 7,200s (120 min), teacher help strictly 0.00 from rest (`help_ = 0.0`).
+  - Coordinated forward-turning arc steering active: exact angular error $\theta_{\text{err}} = \text{atan2}(y, x)$, velocity floor $v_{\text{fwd}} \ge 0.20\text{ m/s}$, smooth yaw rate $v_{\text{yaw}} = \text{clip}(1.0\,\theta_{\text{err}}, -1.2, 1.2)$, zeroing upon target arrival.
+  - Resumed from candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 record) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round16-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round16-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round16_preflight/`. All 14 assertions passed, candidate SHA256 verified (`5a534b32…`).
 - **Baseline Evaluation (Verified across 3 independent cohorts, 192 lives, from rest, teacher help strictly 0.00)**: Saved locally in `results/baby_dog_vision_approach_round16/practice.json`.
   - Walk: $+0.334\text{ m/s}$ (teacher $+0.270$, falls $0.422 / 13\text{ s}$); Turn-left: $+1.284\text{ rad/s}$ (teacher $+0.409$, falls $0.286$); Turn-right: $-1.073\text{ rad/s}$ (teacher $+0.425$, falls $0.188$); Back: $-0.132\text{ m/s}$ (teacher $+0.109$, falls $0.292$).
   - Sit: pitch $+0.495\text{ rad}$ (target $+0.48$), height $0.607$ (target $0.60$), height standing back up $0.924$, falls $0.219$.
   - Lie-down: pitch $+0.045\text{ rad}$ (target $+0.02$), height standing back up $0.930$, falls $0.208$.
   - Target arrival: "come" $1.56\%$ (3/192 lives), "ball" $0.00\%$; Dodge hit rate: $80.2\%$ (vs $96\%$ static dog baseline), latency $186.7\text{ ms}$.
   - Grounded perception: `ball-ahead` $0.626$, `ball-left` $0.630$, `ball-right` $0.632$, `owner-ahead` $0.605$, `owner-left` $0.635$, `owner-right` $0.606$, `hit` $0.890$, `moving` $0.755$, `hungry` $0.578$.
-- **Current Remote Compute Status (Verified)**: Colab Free Tier GPU pool is at maximum capacity (`ColabRequestError: 503 Service Unavailable` on `POST /tun/m/assign?variant=GPU&accelerator=T4`, verified across 10 probes). Colab CPU allocation succeeds immediately in 5s (`Session READY`), verifying client/auth health.
-- **Automated GPU Polling Cron (Verified & Active)**: A 15-minute recurring background cron (`task-8017`, `*/15 * * * *`) actively probes Colab Free T4 GPU capacity via `colab new -s round16 --gpu T4`. As soon as a T4 GPU allocates, it sets up dependencies, uploads checkpoints, and launches training with the persistent streaming runner (`scripts/run_colab_round16.py`).
-- **Kaggle GPU Quota**: Resets Saturday, 17 Oct 00:00 UTC (~8.1h away), providing a fresh, guaranteed 30.00-hour GPU budget for uninterrupted execution.
-- **Resumed Checkpoint Candidate**: `baby_dog_step_0000491520.npz` (SHA256 `5a534b328c2c511d0cdccc105f61f9c12fdc5b767662f697af05315f06e16d17`, 3.12% arrival record).
-- **Core Connectome**: `core_v2.npz` (SHA256 `af939468e3fb156a74e5b5ca44b67d81d0cea2ae2c94e4543875c934ff5e2d8f`).
+- **Remote Compute Quota (Verified)**: Kaggle weekly quota refreshed at Saturday 00:00 UTC (30.00h remaining, 0.00h used). Colab probe cron cancelled to prevent redundant parallel jobs.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
 
