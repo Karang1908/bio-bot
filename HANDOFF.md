@@ -9,15 +9,19 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 17 Oct 22:30 Dubai (18:30 UTC): Round 19 v2 COMPLETE on Kaggle 2x T4 GPU; 1.5M steps trained; Quota 23.52h remaining.**
-- **Completed Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round19`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round19) (version 2) ran for ~89 minutes on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU).
-  - Completed all 91 updates (1,490,944 steps) across 3 intermediate evaluations (0.5M, 1.0M, 1.5M steps) on 3 fresh independent cohorts (192 lives per eval, teacher help strictly 0.00 from rest).
-  - All outputs fetched to `results/baby_dog_vision_approach_round19/` (`baby_dog.npz`, snapshots at 491520, 983040, 1474560, 1490944 steps, `practice.json`, `log.txt`, `resume.json`, `teacher.json`, `poses.json`).
-  - Target Arrival: "come" arrival reached **4.17% (8/192 lives)** at the final snapshot (matching the all-time project record), with cohort 3 reaching **6.25% (4/64)**. Final facing cosine under "come" rose steadily from **-0.0062** (baseline) to **+0.0774** (final snapshot). "ball" arrival broke the 0.00% ceiling at 1.0M (**1.04%**, 2/192) and 1.5M snap (**0.52%**, 1/192).
-  - 100% Nominal Motor Skill Retention: Walk (+0.369 m/s), pace (+0.510 m/s), canter (+0.354 m/s), run (+0.499 m/s), turn-left (+1.306 rad/s), turn-right (-1.145 rad/s), back (-0.070 m/s), jump (+0.129 m/s), sit (+0.506 rad, 0.618m), lie-down (+0.040 rad, 0.962m) all preserved without teacher help.
-  - Fall Rate Diagnostic: The abrupt kinematic velocity transition from on-the-spot pivot (0.05 m/s, 1.2 rad/s) to full sprint (0.45 m/s) when aligned created an instantaneous acceleration step of ~20 m/s² that increased fall rates (owner falls: 0.45 -> 0.74 / 13s; walk falls: 0.66 -> 0.94 / 13s).
-  - Checkpoint Promotion: `baby_dog_step_0001490944.npz` (`b1dadb51…`) from Round 18 is retained as the training restart candidate due to its lower fall profile (walk falls 0.68 vs 0.94). Round 19 checkpoints are archived locally in `results/baby_dog_vision_approach_round19/`.
-  - Next Action (Round 20): Implement slew-rate acceleration limiting on forward velocity commands (`dv/dt <= 1.0 m/s^2`) in `train/baby_dog.py` so the dog accelerates smoothly out of the orienting pivot into full forward thrust without tripping.
+**Current state, 17 Oct 22:45 Dubai (18:45 UTC): Round 20 CPU Preflight VERIFIED; Round 20 GPU Job ACTIVE on Kaggle 2x T4 GPU; Quota 23.52h remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round20`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round20) (version 1) is active on 2x Nvidia Tesla T4 GPU.
+  - Job parameters: 1.5M steps (~91 updates), 512 envs (256/GPU), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 fresh independent cohorts (192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
+  - Architectural Innovations:
+    1. **Slew-Rate Kinematic Acceleration Limiting**:
+       - Forward acceleration limited to $\le 1.0\text{ m/s}^2$ ($+0.020\text{ m/s}$ per 20ms step; ramps pivot $\to$ sprint over $\sim 0.45\text{ s}$, 22 steps without tripping shock).
+       - Forward deceleration capped at $2.0\text{ m/s}^2$ ($0.040\text{ m/s}$ per step) for stable braking.
+       - Yaw acceleration capped at $4.0\text{ rad/s}^2$ ($0.080\text{ rad/s}$ per step) for smooth rotational transitions.
+    2. **Increased Cruise Sprint Velocity**: $v_\text{cruise} = 0.05 + 0.45 \cdot \text{align\_gate}$ (up to $0.50\text{ m/s}$ sprint when heading aligned).
+    3. **Directional Steering Gradient & Sprint Pay**: `FWD_PAY = 20.0`, saturated directional steering gradient active.
+  - Resumed from candidate `baby_dog_step_0001490944.npz` (`b1dadb51…`, Round 18 project record, 4.17% arrival, lower baseline falls) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round18`.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round20-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round20-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round20_preflight/`. All 11 assertions passed, candidate SHA256 verified (`b1dadb51…`).
 - **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **23.52 hours remaining** (6.48h used out of 30.00h, resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
