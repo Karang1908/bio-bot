@@ -67,6 +67,7 @@ SELF_MODEL = 0.5         # in the park: how much predicting its own senses count
 TASKS = ["ball", "come"]  # "ball": go to the ball; "come": go to the owner
 TASK_PAY = 16.0          # reward per m/s of getting closer to what was asked
 REACH_PAY = 25.0         # reward per second with its nose at the ball (or by the owner)
+PROX_PAY = 8.0           # reward per second within proximity funnel (smooth shaping toward arrival)
 NEAR = {"ball": 0.35, "come": 1.0}   # m: at the ball, by the owner
 HIT_COST = 2.0           # being hit by a thrown thing costs about as much as a fall
 # drives (DogMind step 6): free time when nobody speaks, hunger (the battery) and curiosity
@@ -1506,8 +1507,12 @@ def practice(args, bd, out: Path) -> dict:
                     to_lat = jp.sum(Rh0[:, :2, 1] * to0, -1)
                     theta_err = jp.arctan2(to_lat, to_fwd)
                     gap0 = jp.linalg.norm(to0, axis=-1)
-                    is_near = (gap0 < near_of[ins]) | (jp.linalg.norm(head0[:, :2] - goal_b, axis=-1) < near_of[ins])
-                    v_fwd_cmd = jp.clip(0.35 + 0.15 * jp.cos(theta_err), 0.20, 0.50)
+                    head_gap0 = jp.linalg.norm(head0[:, :2] - goal_b, axis=-1)
+                    d_target0 = jp.minimum(gap0, head_gap0)
+                    is_near = (gap0 < near_of[ins]) | (head_gap0 < near_of[ins])
+                    v_cruise = jp.clip(0.35 + 0.15 * jp.cos(theta_err), 0.20, 0.50)
+                    brake = jp.clip(d_target0 / (1.5 * near_of[ins] + 1e-6), 0.25, 1.0)
+                    v_fwd_cmd = v_cruise * brake
                     v_yaw_cmd = jp.clip(1.0 * theta_err, -1.2, 1.2)
                     task_cmd = jp.where(is_near[:, None], jp.zeros((Rh0.shape[0], 3)),
                                         jp.stack([v_fwd_cmd, jp.zeros_like(v_fwd_cmd), v_yaw_cmd], -1))
@@ -1546,8 +1551,11 @@ def practice(args, bd, out: Path) -> dict:
                 goal1 = jp.where(to_ball[ins][:, None], w1["ball"][:, :2], w1["owner"][:, :2])
                 gap0 = jp.linalg.norm(trunk0 - goal0, axis=-1)
                 gap1 = jp.linalg.norm(trunk1 - goal1, axis=-1)
+                head_gap1 = jp.linalg.norm(head1[:, :2] - goal1, axis=-1)
+                min_gap1 = jp.minimum(gap1, head_gap1)
                 closer = jp.where(done, 0.0, jp.clip((gap0 - gap1) / bd.CTRL_DT, -1.0, 1.0))
-                there = (gap1 < near_of[ins]) | (jp.linalg.norm(head1[:, :2] - goal1, axis=-1) < near_of[ins])
+                there = (gap1 < near_of[ins]) | (head_gap1 < near_of[ins])
+                proximity = jp.clip((2.0 * near_of[ins] - min_gap1) / (2.0 * near_of[ins] + 1e-6), 0.0, 1.0)
                 def facing(d, goal):                     # cosine of the angle between its heading and the goal
                     Rh = d.xmat[:, base]
                     to = goal - d.xpos[:, base, :2]
@@ -1566,9 +1574,10 @@ def practice(args, bd, out: Path) -> dict:
                 face_pay = getattr(args, "face_pay", FACE_PAY)
                 task_pay = getattr(args, "task_pay", TASK_PAY)
                 reach_pay = getattr(args, "reach_pay", REACH_PAY)
+                prox_pay = getattr(args, "prox_pay", PROX_PAY)
                 fwd_pay = getattr(args, "fwd_pay", FWD_PAY)
                 yaw_pay = getattr(args, "yaw_pay", YAW_PAY)
-                task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + fwd_pay * fwd_toward + yaw_pay * yaw_toward
+                task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + prox_pay * proximity + fwd_pay * fwd_toward + yaw_pay * yaw_toward
                 if lesson == "perception":
                     task_reward = jp.zeros_like(closer)
                 r = r + is_task[ins] * (task_reward - still) * bd.CTRL_DT
@@ -2325,6 +2334,7 @@ def main() -> None:
     ap.add_argument("--task_scale", type=float, default=None, help="practice: scale update step for task goal words (ball, come)")
     ap.add_argument("--task_pay", type=float, default=TASK_PAY, help="practice: reward per m/s closing distance to task target")
     ap.add_argument("--reach_pay", type=float, default=REACH_PAY, help="practice: reward per second within arrival radius")
+    ap.add_argument("--prox_pay", type=float, default=PROX_PAY, help="practice: reward per second within proximity funnel")
     ap.add_argument("--face_pay", type=float, default=FACE_PAY, help="practice: reward per rad/s turning towards task target")
     ap.add_argument("--fwd_pay", type=float, default=FWD_PAY, help="practice: reward for forward speed aligned with task target")
     ap.add_argument("--yaw_pay", type=float, default=YAW_PAY, help="practice: reward for yaw rate directed towards task target")
