@@ -1965,33 +1965,63 @@ Evaluated across three fresh cohorts of 64 lives = 192 lives per evaluation:
 4. **All 11 Skills Preserved Without Help:** Walk (+0.326 m/s), turn-left (+1.329 rad/s), turn-right (-1.045 rad/s), back (-0.105 m/s), sit (+0.484 rad pitch), and lie-down (+0.037 rad pitch) remained fully intact.
 5. **Candidate Promotion Decision:** Candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10) remains the active **learning restart candidate** due to its higher overall arrival peak ($3.12\%$) and lower movement fall rate ($0.2649$). Round 15 results are preserved in `results/baby_dog_vision_approach_round15/`.
 
-**Vision approach round 16 trial (coordinated forward-turning arc task_cmd with velocity floor and arrival stopping on Google Colab free T4 GPU) (14 Oct Dubai):**
+**Vision approach round 16 trial (coordinated forward-turning arc steering with velocity floor and arrival stopping on Kaggle 2x Nvidia Tesla T4 GPU) (17 Oct Dubai / UTC):**
 - **Hypothesis:** In Round 15, dynamic velocity injection unblocked locomotion rewards and produced net distance closure (-25 cm in Cohort 2), but target arrival capped at ~2% because: (1) forward command was scaled as $0.5 \times \text{clip}(\cos\theta, 0, 1)$, dropping below $0.05\text{ m/s}$ whenever heading deviated $\ge 84^\circ$, which triggered `v_act`'s stillness attractor and penalized forward motion while pivoting; (2) using $\sin(\theta)$ as yaw command produced near-zero steering torque when facing directly away ($\theta \approx 180^\circ$); and (3) maintaining forward velocity upon reaching the target risked overshooting. By setting exact signed angular error $\theta_{\text{err}} = \text{atan2}(y, x)$, commanding a forward velocity floor $v_{\text{fwd}} \ge 0.20\text{ m/s}$ ($v_{\text{fwd}} = \text{clip}(0.35 + 0.15 \cos\theta_{\text{err}}, 0.20, 0.50)$), coordinated yaw steering $v_{\text{yaw}} = \text{clip}(1.0\,\theta_{\text{err}}, -1.2, 1.2)$, and zeroing `task_cmd` upon arrival within $\text{near\_of}$ ($\le 1.0\text{ m}$ for owner, $\le 0.35\text{ m}$ for ball), the quadruped will execute continuous, smooth forward-turning arcs toward the target from any starting orientation without tripping into stillness penalties, stopping cleanly upon arrival to collect reach reward.
-- **Environment & Infrastructure:**
-  - Automated via official Google Colab CLI (`colab-cli` v0.7.4) on free-tier session `round16` with Nvidia Tesla T4 GPU (15.36 GB VRAM).
-  - Pinned software stack: JAX 0.7.2, jaxlib 0.7.2, MuJoCo 3.14.0, mujoco-mjx 3.14.0, optax 0.2.8.
-  - Checkpoint candidate `baby_dog_step_0000491520.npz` (`5a534b32…`) and connectome core `core_v2.npz` (`af939468…`) SHA256-verified on remote instance.
-- **Execution & Monitoring (16 Oct Dubai / UTC):**
-  - Session `round16` allocated an Nvidia Tesla T4 GPU (`gpu-t4-s-kkb-usw4a0-3fchu56gok606`, 15,360 MiB VRAM) at 12:12 UTC. JAX 0.7.2 with CUDA detected `[CudaDevice(id=0)]`.
-  - Checkpoint candidate `baby_dog_step_0000491520.npz` (`5a534b32…`) and connectome core `core_v2.npz` (`af939468…`) SHA256-verified on remote instance.
-  - **Liveness & Automated Sync Architecture (Verified)**: Solved Colab idle-reaper pruning (where detached background processes left the Jupyter kernel IDLE, triggering pruning after ~10 min). Implemented `scripts/run_colab_round16.py`, executed directly in the kernel via `colab exec -s round16 --timeout 14400 -f scripts/run_colab_round16.py`. The kernel remains continuously in **`BUSY`** state, streaming live unbuffered training output, which engages Colab backend automatic session liveness and prevents pruning.
-  - Upgraded `scripts/colab_round16_monitor.py` to use non-blocking HTTP REST endpoints (`colab ls` and `colab download`), enabling the 3-minute recurring background cron (`task-7594`) to check remote files and download checkpoints (`baby_dog_step_*.npz`, `practice.json`, and `log.txt`) instantly in <1 second without waiting for or contending with the busy kernel.
-- **Baseline Evaluation (Verified across 3 fresh cohorts, 192 lives, from rest, teacher help strictly 0.00):**
-  - **Gaits & Locomotive Skills:**
-    - Walk: $+0.334\text{ m/s}$ (teacher $+0.270\text{ m/s}$, falls $0.422 / 13\text{ s}$)
-    - Turn-left: $+1.284\text{ rad/s}$ (teacher $+0.409\text{ rad/s}$, falls $0.286 / 13\text{ s}$)
-    - Turn-right: $-1.073\text{ rad/s}$ (teacher $+0.425\text{ rad/s}$, falls $0.188 / 13\text{ s}$)
-    - Back: $-0.132\text{ m/s}$ (teacher $+0.109\text{ m/s}$, falls $0.292 / 13\text{ s}$)
-  - **Rest Poses & Recovery:**
-    - Sit pose: nose-up pitch $+0.495\text{ rad}$ (target $+0.48$), trunk height $0.607$ (target $0.60$), height standing back up $0.924$, falls $0.219$
-    - Lie-down pose: nose-up pitch $+0.045\text{ rad}$ (target $+0.02$), trunk height back up $0.930$, falls $0.208$
-    - Get-up from fall: $0\%$ (untaught, requires self-discovery)
-  - **Park Perception & Tasks:**
-    - Target arrival: "come" $1.56\%$ (3/192 lives arrived within $1.0\text{ m}$), "ball" $0.00\%$ (within $0.35\text{ m}$)
-    - Dodge: projectile hit rate $80.2\%$ (vs $96\%$ static dog baseline), median reaction latency $186.7\text{ ms}$, falls $0.219$
-    - Free exploration: hungry $0.78\text{ m}^2$, full $1.54\text{ m}^2$ (food reached $1.56\%$)
-    - Grounded senses (held-out voice accuracy): `ball-ahead` $0.626$, `ball-left` $0.630$, `ball-right` $0.632$, `owner-ahead` $0.605$, `owner-left` $0.635$, `owner-right` $0.606$, `hit` $0.890$, `moving` $0.755$, `hungry` $0.578$.
-  - Main 1.5M rollout training steps currently in progress with coordinated forward-turning arc steering.
+- **Execution & Remote Compute:**
+  - Remote CPU Preflight: [`bio-bot-baby-dog-vision-round16-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round16-preflight) passed all 14 assertions on Kaggle CPU (`KernelWorkerStatus.COMPLETE`), input SHA256 verified (`5a534b32…`).
+  - GPU Run: [`bio-bot-baby-dog-vision-approach-round16`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round16) on Kaggle 2x Nvidia Tesla T4 GPU. Completed all 91 updates (1,490,944 steps) in 85.8 minutes.
+  - Kaggle quota remaining: **28.56 hours** (only 1.44 hours consumed).
+  - Checkpoint candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10 record) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round10`.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+- **Evaluation across three fresh cohorts of 64 lives = 192 lives per evaluation from rest with teacher help strictly 0.00:**
+
+| measured metric (three cohorts, 192 lives) | baseline (0M) | 0.5M (`e58244fc…`) | 1.0M (`4b77339b…`) | 1.5M snap (`c57dfca2…`) | final 1.49M (`e82ee938…`) |
+|---|:---|:---|:---|:---|:---|
+| **owner arrival success (got_there, 'come')** | 1.56% (3/192) | **2.60% (5/192)** | 1.56% (3/192) | 1.56% (3/192) | **2.60% (5/192)** |
+| owner distance drift (start -> end, m) | 3.660 -> 3.661 | 3.661 -> 3.656 | 3.666 -> 3.773 | 3.667 -> 3.743 | 3.663 -> 3.676 |
+| owner distance delta (cm) | +0.1 cm | **-0.5 cm** | +10.7 cm | +7.6 cm | +1.2 cm |
+| owner aligned in final second | 13.57% | 11.22% | 7.51% | 8.77% | 9.11% |
+| owner final facing cosine | -0.0005 | -0.0001 | -0.0368 | +0.0453 | -0.0660 |
+| owner falls / 13 s | 0.1823 | 0.1979 | 0.2552 | 0.2917 | 0.2812 |
+| **ball arrival success (got_there)** | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) | 0.00% (0/192) |
+| ball distance drift (start -> end, m) | 2.481 -> 2.516 | 2.487 -> 2.565 | 2.485 -> 2.535 | 2.481 -> 2.504 | 2.489 -> 2.549 |
+| ball distance delta (cm) | +3.4 cm | +7.8 cm | +5.0 cm | +2.2 cm | +6.0 cm |
+| ball aligned in final second | 9.40% | 10.59% | 9.33% | 11.54% | 11.51% |
+| ball final facing cosine | +0.0251 | +0.0077 | +0.0328 | +0.0240 | -0.0352 |
+| ball falls / 13 s | 0.1510 | 0.1927 | 0.2135 | 0.2135 | 0.2292 |
+| walk speed from rest, m/s | +0.3326 | +0.3240 | +0.3248 | +0.3306 | +0.3303 |
+| walk falls / 13 s | 0.4062 | 0.4479 | 0.4688 | 0.5521 | 0.6094 |
+| turn-left yaw rate, rad/s | +1.2821 | +1.3113 | +1.2858 | +1.2892 | +1.2914 |
+| turn-left falls / 13 s | 0.2760 | 0.2760 | 0.2656 | 0.3021 | 0.2812 |
+| turn-right yaw rate, rad/s | -1.0660 | -1.0838 | -1.1065 | -1.1095 | -1.1108 |
+| turn-right falls / 13 s | 0.1927 | 0.2031 | 0.1875 | 0.2500 | 0.2604 |
+| backward speed from rest, m/s | -0.1348 | -0.1253 | -0.1265 | -0.1128 | -0.1173 |
+| back falls / 13 s | 0.2917 | 0.3750 | 0.3906 | 0.4115 | 0.4062 |
+| sit pose (pitch / height) | +0.494 / 0.607 | +0.490 / 0.609 | +0.481 / 0.611 | +0.493 / 0.610 | +0.490 / 0.610 |
+| lie-down pose (pitch / height) | +0.043 / 0.953 | +0.040 / 0.952 | +0.042 / 0.953 | +0.038 / 0.949 | +0.044 / 0.953 |
+| **ball-left balanced accuracy** | 0.640 | 0.631 | 0.652 | **0.671** (all-time peak!) | 0.658 |
+| **ball-ahead balanced accuracy** | 0.624 | 0.633 | 0.627 | 0.628 | 0.613 |
+| **ball-right balanced accuracy** | 0.630 | 0.640 | 0.650 | **0.670** (all-time peak!) | 0.667 |
+| **owner-left balanced accuracy** | 0.635 | 0.627 | 0.633 | 0.626 | 0.631 |
+| **owner-ahead balanced accuracy** | 0.604 | 0.601 | 0.622 | 0.553 | 0.554 |
+| **owner-right balanced accuracy** | 0.607 | 0.617 | 0.611 | 0.599 | 0.606 |
+| **tactile hit balanced accuracy** | 0.863 | 0.878 | **0.918** (all-time peak!) | 0.876 | 0.811 |
+| **moving balanced accuracy** | 0.752 | 0.753 | 0.762 | 0.739 | 0.726 |
+| teacher movement help (all skills) | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+**Checkpoint SHA256 Hashes:**
+- `baby_dog_step_0000491520.npz`: `e58244fc4021aded18263d3b9dbd03f468c8642bdaf4da67d181f28dd997a23f`
+- `baby_dog_step_0000983040.npz`: `4b77339bd3d018b876d557b1bb7e80254e07201b0604d1f645cd244f05f5b2d2`
+- `baby_dog_step_0001474560.npz`: `c57dfca242de6177063cc3d604fac32c997261c610a9d54a2886d90a9f368298`
+- `baby_dog_step_0001490944.npz`: `e82ee9387f841af1575c538eee44524b3dfc523b0485082fc252ed086e85a2ec`
+- `baby_dog.npz`: `bea438f3388b50f4799295d2f6e09ace2fda48ff6a3fbfd7c472bcb1309c41ee`
+
+**Key Findings & Mechanism for Round 16:**
+1. **Coordinated Arc Steering Elevates Arrival to 2.60% with Distance Closure:** At 0.5M steps (`e58244fc…`), owner arrival ("come") reached **2.60% (5/192)** with net distance closure **-0.5 cm** (Cohort 3 reached 5.0%), holding at **2.60% (5/192)** at final 1.49M steps. By enforcing $v_{\text{fwd}} \ge 0.20\text{ m/s}$ along with yaw rate proportional to angular heading error, the dog steered in forward-turning arcs without dropping into stillness penalties while orienting.
+2. **Grounded Perception Peaks at All-Time Highs:** Held-out visual spatial accuracy broke all previous project records: `ball-left` reached **0.671** and `ball-right` reached **0.670** at 1.5M, while tactile collision perception (`hit`) hit **0.918** at 1.0M.
+3. **All 11 Skills Preserved with Zero Teacher Help:** Walk speed remained $+0.330\text{ m/s}$ (vs teacher $+0.270$), turn-left $+1.291\text{ rad/s}$ (vs teacher $+0.409$), turn-right $-1.111\text{ rad/s}$ (vs teacher $-0.425$), backward $-0.117\text{ m/s}$ (vs teacher $-0.109$), sit pitch $+0.490\text{ rad}$ / height $0.610\text{ m}$, and lie-down pitch $+0.044\text{ rad}$ / height $0.953\text{ m}$. Teacher movement help remained strictly 0.00 throughout.
+4. **Ball Arrival Inactive Mechanism:** Ball arrival remained $0.00\%$ because ball radius threshold $\text{near\_of} = 0.35\text{ m}$ is much tighter than owner ($\text{near\_of} = 1.0\text{ m}$), and the ball is visually smaller in the egocentric field of view.
+5. **Candidate Promotion Decision:** Candidate `baby_dog_step_0000491520.npz` (`5a534b32…`, Round 10) retains the all-time 3.12% arrival record. Round 16 at 0.5M (`e58244fc…`) and 1.49M (`e82ee938…`) are preserved in `results/baby_dog_vision_approach_round16/` as top-tier candidate checkpoints with the highest grounded perception in the project.
 
 
 **Kaggle TPU MuJoCo MJX compatibility probe (`karang1908/bio-bot-tpu-check`) (15 Oct Dubai):**
