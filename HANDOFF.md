@@ -9,16 +9,23 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 18 Oct 02:00 Dubai (22:00 UTC): Round 20 COMPLETE on Kaggle 2x T4 GPU; 1.5M steps trained; Quota 22.05h remaining.**
-- **Completed Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round20`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round20) (version 1) ran for ~87 minutes on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU; queued 104 min).
-  - Completed all 91 updates (1,490,944 steps) across 3 intermediate evaluations (0.5M, 1.0M, 1.5M steps) on 3 fresh independent cohorts (192 lives per eval, teacher help strictly 0.00 from rest).
-  - All outputs fetched to `results/baby_dog_vision_approach_round20/` (`baby_dog.npz`, snapshots at 491520, 983040, 1474560, 1490944 steps, `practice.json`, `log.txt`, `resume.json`, `teacher.json`, `poses.json`).
-  - **All-Time Project Record Arrival**: "come" arrival reached **4.69% (9/192 lives)** at the final snapshot (`a88ec93d…`), surpassing all previous rounds.
-  - **First-Ever Net Distance Reduction Toward Target**: Average distance delta turned **negative** ($-4.6\text{ cm}$ net distance closed, $3.669\text{ m} \to 3.623\text{ m}$; reaching $-5.6\text{ cm}$ at 1.0M), proving the dog is actively closing distance on average rather than drifting backwards.
-  - **Facing Alignment Project Record**: Final facing cosine towards owner rose from $-0.0086$ (random baseline) to $+0.0051$ (1.0M), $+0.1027$ (1.5M snap), and reached **$+0.1587$** at the final snapshot (`a88ec93d…`). Alignment in the final second rose to **$13.72\%$**.
-  - **100% Nominal Motor Skill Retention**: Walk (+0.374 m/s), pace (+0.519 m/s), canter (+0.361 m/s), run (+0.528 m/s), turn-left (+1.382 rad/s), turn-right (-1.155 rad/s), back (-0.090 m/s), jump (+0.160 m/s), sit (+0.499 rad, 0.614m), lie-down (+0.037 rad, 0.964m) all preserved without teacher help.
-  - **Checkpoint Promotion**: `baby_dog_step_0001490944.npz` (`a88ec93d…`) from Round 20 is promoted as the new project record training restart candidate.
-  - **Next Action (Round 21)**: Decouple turning from sprinting in `train/baby_dog.py` by suppressing forward speed during misaligned pivots (`v_fwd = v_cruise * align_gate`), avoiding simultaneous high yaw ($1.2\text{ rad/s}$) and forward speed ($>0.35\text{ m/s}$) that causes lateral tipping, and raise sprint surge velocity to $0.60\text{ m/s}$ when aligned so the dog comfortably covers the 3.67m distance within the 13s evaluation window.
+**Current state, 18 Oct 02:05 Dubai (22:05 UTC): Round 21 CPU Preflight VERIFIED; Round 21 GPU Job RUNNING on Kaggle 2x T4 GPU; Quota 22.05h remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round21`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round21) (version 1) is **RUNNING** on 2x Nvidia Tesla T4 GPU (allocated immediately without queue wait).
+  - Job parameters: 1.5M steps (~91 updates), 512 envs (256/GPU), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 fresh independent cohorts (192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
+  - Architectural Innovations:
+    1. **Decoupled Pivot-then-Sprint Kinematics**:
+       - Forward thrust is completely gated by alignment: $\text{align\_gate} = \text{clip}((\cos\theta - 0.60) / 0.35, 0.0, 1.0)$. When $|\theta| \ge 53^\circ$ ($\cos\theta \le 0.60$), forward thrust is zero, allowing pure agile in-place pivoting without lateral roll or tipping.
+       - Full sprint engages when pointed within $\pm 18^\circ$ of target ($\cos\theta \ge 0.95$).
+    2. **Dynamic Yaw Suppression During High-Speed Sprint**:
+       - While pivoting ($\text{align\_gate} = 0$), full $\pm 1.2\text{ rad/s}$ yaw is available.
+       - While sprinting at speed ($\text{align\_gate} = 1$), yaw commands are smoothly scaled down by $(1 - 0.65 \cdot \text{align\_gate})$ to $\le 0.42\text{ rad/s}$, eliminating centrifugal tipping while cruising at speed.
+    3. **Higher Sprint Speed Cruise ($0.60\text{ m/s}$)**:
+       - Boosted $v_\text{sprint} = 0.60\text{ m/s}$, allowing the dog to clear the 3.67m distance in $\sim 6\text{ s}$, well inside the 13s evaluation window.
+    4. **Slew-Rate Acceleration Limiting**:
+       - $\le 1.0\text{ m/s}^2$ forward acceleration, $2.0\text{ m/s}^2$ braking, $3.0\text{ rad/s}^2$ yaw acceleration.
+  - Resumed from promoted record candidate `baby_dog_step_0001490944.npz` (`a88ec93d…`, Round 20 project record, 4.69% arrival, -4.6cm net distance closed) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round20`.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round21-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round21-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round21_preflight/`. All 11 assertions passed, candidate SHA256 verified (`a88ec93d…`).
 - **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **22.05 hours remaining** (7.95h used out of 30.00h, resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
