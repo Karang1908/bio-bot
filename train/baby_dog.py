@@ -1597,9 +1597,11 @@ def practice(args, bd, out: Path) -> dict:
                 task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + prox_pay * proximity + fwd_pay * fwd_toward + yaw_pay * yaw_toward
                 if lesson == "perception":
                     task_reward = jp.zeros_like(closer)
-                upright_cost = getattr(args, "upright_cost", 4.0) * jp.clip(1.0 - env["d"].xmat[:, base, 2, 2], 0.0, 2.0)
+                upright_cost = getattr(args, "upright_cost", 0.0) * jp.clip(1.0 - env["d"].xmat[:, base, 2, 2], 0.0, 2.0)
+                roll_cost = getattr(args, "roll_cost", 3.0) * jp.clip(jp.abs(env["d"].xmat[:, base, 2, 1]), 0.0, 1.0)
+                side_cost = getattr(args, "side_cost", 1.0) * jp.clip(jp.abs(st["v_side"]), 0.0, 2.0)
                 task_fall_cost = getattr(args, "task_fall_cost", 3.0) * st["fell"]
-                r = r + is_task[ins] * (task_reward - still - upright_cost) * bd.CTRL_DT - is_task[ins] * task_fall_cost
+                r = r + is_task[ins] * (task_reward - still - upright_cost - roll_cost - side_cost) * bd.CTRL_DT - is_task[ins] * task_fall_cost
             if free:                                     # free time is its own: nothing asks it to stand still
                 still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
                 curiosity = CURIOSITY * progress if lesson == "all" else jp.zeros_like(progress)
@@ -2357,7 +2359,9 @@ def main() -> None:
     ap.add_argument("--face_pay", type=float, default=FACE_PAY, help="practice: reward per rad/s turning towards task target")
     ap.add_argument("--fwd_pay", type=float, default=FWD_PAY, help="practice: reward for forward speed aligned with task target")
     ap.add_argument("--yaw_pay", type=float, default=YAW_PAY, help="practice: reward for yaw rate directed towards task target")
-    ap.add_argument("--upright_cost", type=float, default=4.0, help="practice: penalty for trunk tilt during task approach")
+    ap.add_argument("--upright_cost", type=float, default=0.0, help="practice: penalty for trunk tilt during task approach")
+    ap.add_argument("--roll_cost", type=float, default=3.0, help="practice: penalty for lateral roll tilt during task approach")
+    ap.add_argument("--side_cost", type=float, default=1.0, help="practice: penalty for lateral drift velocity during task approach")
     ap.add_argument("--task_fall_cost", type=float, default=3.0, help="practice: event penalty for falling during task approach")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--bias0", type=float, default=0.3)
