@@ -131,9 +131,13 @@ def save_brain(bp, path: Path, meta: dict) -> None:
 def find_brain(path: str) -> Path:
     """The previous stage's brain: a local file, or the one in the attached Kaggle dataset."""
     if path:
-        if not Path(path).is_file():
-            raise SystemExit(f"STOP: explicitly requested brain does not exist: {path}")
-        return Path(path)
+        p = Path(path)
+        if p.is_file():
+            return p
+        candidates = sorted(Path("/kaggle/input").glob(f"**/{p.name}")) if Path("/kaggle/input").exists() else []
+        if candidates and candidates[0].is_file():
+            return candidates[0]
+        raise SystemExit(f"STOP: explicitly requested brain does not exist: {path}")
     found = sorted(Path("/kaggle/input").glob("**/baby_dog.npz")) if Path("/kaggle/input").exists() else []
     if not found:
         raise SystemExit(f"STOP: no previous-stage brain found (looked at {path!r} and /kaggle/input)")
@@ -1515,7 +1519,7 @@ def practice(args, bd, out: Path) -> dict:
                     v_sprint = 0.60
                     brake = jp.clip(d_target0 / (1.5 * near_of[ins] + 1e-6), 0.35, 1.0)
                     target_fwd = jp.where(is_near, 0.0, v_sprint * align_gate * brake)
-                    yaw_scale = 1.0 - 0.65 * align_gate
+                    yaw_scale = 1.0 - 0.74 * align_gate
                     target_yaw = jp.where(is_near, 0.0, jp.clip(1.5 * theta_err, -1.35 * yaw_scale, 1.35 * yaw_scale))
                     p_fwd = jp.where(spoke, 0.0, prev_cmd[:, 0])
                     p_yaw = jp.where(spoke, 0.0, prev_cmd[:, 2])
