@@ -1516,7 +1516,7 @@ def practice(args, bd, out: Path) -> dict:
                     brake = jp.clip(d_target0 / (1.5 * near_of[ins] + 1e-6), 0.35, 1.0)
                     target_fwd = jp.where(is_near, 0.0, v_sprint * align_gate * brake)
                     yaw_scale = 1.0 - 0.65 * align_gate
-                    target_yaw = jp.where(is_near, 0.0, jp.clip(1.5 * theta_err, -1.2 * yaw_scale, 1.2 * yaw_scale))
+                    target_yaw = jp.where(is_near, 0.0, jp.clip(1.5 * theta_err, -1.35 * yaw_scale, 1.35 * yaw_scale))
                     p_fwd = jp.where(spoke, 0.0, prev_cmd[:, 0])
                     p_yaw = jp.where(spoke, 0.0, prev_cmd[:, 2])
                     max_fwd_accel = 1.0 * bd.CTRL_DT
