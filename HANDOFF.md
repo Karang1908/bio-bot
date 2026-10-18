@@ -9,13 +9,17 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 19 Oct 00:35 Dubai (20:35 UTC): Round 27 COMPLETED & ANALYZED; Turn-Then-Sprint Alignment Gating Discovered; Quota 11.41h remaining.**
-- **Latest Completed GPU Job**: [`bio-bot-baby-dog-vision-approach-round27`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round27) (version 1) on 2x Nvidia Tesla T4 GPU.
-  - Completed all 36 updates (589,824 steps, 91.1 min runtime) to `KernelWorkerStatus.COMPLETE`. Outputs fetched to `results/baby_dog_vision_approach_round27/`.
-  - **Fresh Confirmation of Candidate Peak**: Baseline (0M) re-evaluation of candidate `baby_dog_step_0000245760.npz` (`7ffe2eb8…`) across 3 fresh cohorts confirmed **8.33% (16/192)** on ball approach (Cohort 3: 11%), **7.29% (14/192)** on come approach (Cohorts 2 and 3: 9%), combined **7.81% (30/384)**, lowest falls (0.625 ball, 1.266 come), and optic lobe accuracy (0.707 ball-ahead, 0.691 owner-ahead).
-  - **Causal Discovery (The "Turn-Then-Sprint" Defect)**: Unconstraining pitch (`upright_cost = 0.0`) with linear sprint reward (`fwd_pay = 25.0`, `task_pay = 20.0`) paid heavily whenever $\cos(\theta) > 0$. Because sprinting paid even when facing 70–80° away from the target, the policy charged forward along a tangent rather than first pivoting on the spot. Running at $0.55\text{ m/s}$ while turning sharply generated violent centrifugal roll torques, driving come falls from 1.266 up to 1.599 (with single cohorts hitting 1.70 and 1.75 falls) and lowering target arrival to 2.6%–6.25%.
-  - **Round 28 Directive**: Condition sprint pay on heading alignment: `fwd_toward = jp.maximum(0.0, st["v_fwd"]) * jp.clip((cos_facing - 0.5) / 0.5, 0.0, 1.0)`. Misaligned sprinting pays zero, compelling an in-place yaw pivot (`face_pay = 4.0`, `yaw_pay = 5.0`) with zero roll torque and near-zero falls. Once aligned ($\cos \ge 0.8$), full sprint pay activates in a straight line with zero lateral roll tripping.
-- **Active Promoted Candidate**: Checkpoint `baby_dog_step_0000245760.npz` (SHA256 `7ffe2eb88a23de0cfaf4981a71eed785dd4be3db1d08824e9b6e8571e30281ee`) from Round 25 remains the active restart candidate.
+**Current state, 19 Oct 00:41 Dubai (20:41 UTC): Round 28 Preflight VERIFIED; Round 28 GPU Training ACTIVE on Kaggle 2x T4 GPU; Quota 11.41h remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round28`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round28) (version 1) on 2x Nvidia Tesla T4 GPU.
+  - Job parameters: 589,824 steps (36 updates $\times$ 16,384 steps), 512 envs (256/GPU), 6 evaluations (every 6 updates = ~98k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
+  - Architectural Innovations for Round 28:
+    1. **"Turn-Then-Sprint" Heading Alignment Gating (`align_floor = 0.5`)**: Sprint forward reward is strictly conditioned on target alignment: `align_gate = clip((cos - 0.5) / 0.5, 0, 1)`. When misaligned ($\cos < 0.5$), sprint pay is zero, enforcing in-place yaw pivoting (`face_pay = 4.0`, `yaw_pay = 5.0`) with zero roll torque and near-zero falls. Once aligned ($\cos \ge 0.8$), full sprint pay ($+25.0$) activates straight along the line of sight.
+    2. **Decoupled Pitch/Roll Damping Retained**: `roll_cost = 3.0 * |R[2,1]|`, `side_cost = 1.0 * |v_side|`, `upright_cost = 0.0`, freeing torso pitch extension for galloping while strictly damping sideways tipping.
+    3. **Event Fall Penalty Preserved (`task_fall_cost = 3.0`)**: Incurs immediate penalty on tip-over.
+  - Resumed from promoted record candidate `baby_dog_step_0000245760.npz` (SHA256 `7ffe2eb88a23de0cfaf4981a71eed785dd4be3db1d08824e9b6e8571e30281ee`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round25`.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+  - Mocap dataset: `go2_dog_motions.npz` attached via `--dataset bio-bot-dog-mocap`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round28-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round28-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round28_preflight/`. All 11 assertions passed, candidate SHA256 verified (`7ffe2eb8…`).
 - **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **11.41 hours remaining** (resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
