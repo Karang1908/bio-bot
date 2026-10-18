@@ -356,7 +356,11 @@ def main() -> None:
             assert actual == expected and type(actual) is kind, f"launcher changed the type of {raw!r}"
         report["checks"].append("launcher preserves integer seeds and numeric/string settings")
     chosen = JOB_ARGS.get("brain")
-    found = [Path(chosen)] if chosen else sorted(Path("/kaggle/input").glob("**/baby_dog.npz"))
+    if chosen:
+        p = Path(chosen)
+        found = [p] if p.is_file() else sorted(Path("/kaggle/input").glob(f"**/{p.name}"))
+    else:
+        found = sorted(Path("/kaggle/input").glob("**/baby_dog.npz"))
     if len(found) != 1 or not found[0].is_file():
         raise SystemExit(f"STOP: expected exactly one input brain, found {found}")
     cores = sorted(Path("/kaggle/input").glob("**/core_v2.npz"))
