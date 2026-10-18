@@ -9,17 +9,18 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 18 Oct 17:35 Dubai (13:35 UTC): Round 25 COMPLETED & VERIFIED; Candidate 7ffe2eb8 Promoted; Quota 14.08h remaining.**
-- **Latest Completed Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round25`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round25) (version 1) completed all 91 updates (1,490,944 steps, 113.9 min runtime) on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU) to `KernelWorkerStatus.COMPLETE`.
-  - Outputs fetched to `results/baby_dog_vision_approach_round25/` with all SHA256 checksums verified.
-  - Checkpoint `baby_dog_step_0000245760.npz` (SHA256 `7ffe2eb88a23de0cfaf4981a71eed785dd4be3db1d08824e9b6e8571e30281ee`) **PROMOTED to active learning restart candidate**:
-    - **"come" (owner arrival)**: **8.33% (16 / 192 lives)** full evaluation; Cohort 3 hit **12.50% (8 / 64 lives)**.
-    - **"ball" (ball arrival)**: **7.29% (14 / 192 lives)** full evaluation; Cohort 2 hit **12.50% (8 / 64 lives)**.
-    - **Combined Target Arrival**: **30 / 384 lives (7.81%)** achieved direct arrival at visual targets.
-    - **All-Time Optic Lobe Perception Peaks**: `owner-ahead` reached **0.71**, `ball-ahead` reached **0.73**, `owner-left` reached **0.72**, and `ball-right` reached **0.69**.
-    - **Lowest Falls of Trial**: Mean movement falls **1.0072**, come falls **1.208**, ball falls **0.651**.
-    - **100% Nominal Motor Skill Retention**: Walk (+0.407 m/s), pace (+0.563 m/s), canter (+0.393 m/s), run (+0.561 m/s), turn-left (+1.342 rad/s), turn-right (-1.145 rad/s), back (-0.072 m/s), jump (+0.207 m/s), sit (+0.509 / 0.621), lie-down (+0.037 / 0.968) all preserved with teacher help strictly `0.00`.
-- **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **14.08 hours remaining** (resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
+**Current state, 18 Oct 17:46 Dubai (13:46 UTC): Round 26 CPU Preflight VERIFIED; Round 26 GPU Job ACTIVE on Kaggle 2x T4 GPU; Quota 14.18h remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round26`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round26) (version 1) on 2x Nvidia Tesla T4 GPU.
+  - Job parameters: 589,824 steps (36 updates $\times$ 16,384 steps), 512 envs (256/GPU), 6 evaluations (every 6 updates = ~98k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest), timeout 4,500s (75 min).
+  - Architectural Innovations for Round 26:
+    1. **Sprint Roll/Pitch Stabilization Damping (`upright_cost = 4.0`)**: Penalizes trunk roll/pitch deviation during task approach sprints (`is_task[ins]`) via `upright_cost = 4.0 * (1.0 - up)`, eliminating the fall rate creep observed over extended rollouts in Round 25.
+    2. **Event Fall Penalty (`task_fall_cost = 3.0`)**: Incurs an immediate -3.0 penalty when the dog tips over during task sprints, aligning training incentives with evaluation reality where a fall permanently stops target arrival.
+    3. **Targeted 36-Update Learning Horizon (~0.6M steps)**: Prevents overtraining policy drift past the sweet spot while providing high-resolution tracking across 6 evaluation checkpoints.
+  - Resumed from promoted record candidate `baby_dog_step_0000245760.npz` (SHA256 `7ffe2eb88a23de0cfaf4981a71eed785dd4be3db1d08824e9b6e8571e30281ee`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round25`.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+  - Mocap dataset: `go2_dog_motions.npz` attached via `--dataset bio-bot-dog-mocap`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round26-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round26-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round26_preflight/`. All 11 assertions passed, candidate SHA256 verified (`7ffe2eb8…`).
+- **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **14.18 hours remaining** (resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
 
