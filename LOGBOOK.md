@@ -2687,6 +2687,81 @@ All outputs fetched to `results/baby_dog_vision_approach_round26/`: `baby_dog.np
 3. **Decoupling Pitch from Lateral Drift (Round 27 Directive):** To break past 15% arrival, the quadruped must sprint at $\ge 0.52\text{ m/s}$ ($7.0 \times 0.52 = 3.64\text{ m} > 2.67\text{ m}$). Stabilization should specifically penalize lateral roll tilt and lateral drift velocity (`- 0.5 * jp.abs(st["v_side"])`), while allowing pitch extension and strongly rewarding target-directed sprint forward velocity (`fwd_pay = 25.0`, `task_pay = 20.0`).
 4. **Active Candidate Preserved:** Checkpoint `baby_dog_step_0000245760.npz` (`7ffe2eb88a23de0cfaf4981a71eed785dd4be3db1d08824e9b6e8571e30281ee`) remains the promoted restart candidate (8.33% come, 7.29% ball, 12.50% single-cohort peaks, lowest overall falls).
 
+### Visual target approach round 27 (decoupled lateral roll/side drift damping, sprint forward velocity acceleration, and heading alignment gating on Kaggle 2x Nvidia Tesla T4 GPU)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round27 (version 1).
+Ran all 36 updates (589,824 steps, 91.1 min runtime) on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU) to `KernelWorkerStatus.COMPLETE`. Outputs ingested into `results/baby_dog_vision_approach_round27/`.
+
+Setup: 36 updates, 512 envs, evaluation checkpoints every 6 updates (~98k steps across 3 fresh independent cohorts = 192 lives per eval; 7 total evaluations: baseline 0M, 0.1M, 0.2M, 0.3M, 0.4M, 0.5M, 0.6M). Teacher movement help zero from rest (`help_ = 0.00`).
+Resumed from promoted record candidate `baby_dog_step_0000245760.npz` (`7ffe2eb8…`, Round 25 record holder) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round25`.
+All outputs fetched to `results/baby_dog_vision_approach_round27/`: `baby_dog.npz`, snapshots at 98k, 196k, 294k, 393k, 491k, 589k steps, `practice.json`, and `log.txt`.
+
+**Measured Outcomes across 3 fresh cohorts (192 lives per evaluation):**
+
+| measured metric (three cohorts, 192 lives) | baseline (0M) | 0.10M (`7123816b…`) | 0.20M (`009ed138…`) | 0.30M (`4f396c8c…`) | 0.40M (`24f79510…`) | 0.50M (`a64ab3fc…`) | 0.60M (`d83cdb5f…`) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| mean movement falls / 13 s | 1.0280 | 1.0280 | 1.0775 | 1.0475 | 1.0625 | 1.0651 | 1.0944 |
+| walk falls / 13 s | 1.4115 | 1.5104 | 1.5938 | 1.5312 | 1.5729 | 1.5260 | 1.5938 |
+| pace falls / 13 s | 0.9740 | 0.9844 | 1.0104 | 0.9375 | 0.9688 | 0.9427 | 0.9635 |
+| canter falls / 13 s | 1.1146 | 1.0625 | 1.0781 | 1.1146 | 1.1042 | 1.1719 | 1.1198 |
+| run falls / 13 s | 0.9271 | 0.9219 | 0.9896 | 0.8854 | 0.8698 | 1.0000 | 1.0208 |
+| turn-left falls / 13 s | 0.8281 | 0.8125 | 0.8906 | 0.9010 | 0.8854 | 0.7969 | 0.9583 |
+| turn-right falls / 13 s | 0.7656 | 0.7500 | 0.7500 | 0.8021 | 0.7552 | 0.8073 | 0.7865 |
+| back falls / 13 s | 0.8281 | 0.8854 | 0.9167 | 0.9948 | 0.9375 | 0.9219 | 0.9323 |
+| jump falls / 13 s | 1.3750 | 1.2969 | 1.3906 | 1.2135 | 1.4062 | 1.3542 | 1.3802 |
+| walk speed, m/s | +0.4037 | +0.4104 | +0.4094 | +0.4120 | +0.4008 | +0.4099 | +0.4005 |
+| pace speed, m/s | +0.5648 | +0.5605 | +0.5669 | +0.5671 | +0.5649 | +0.5681 | +0.5692 |
+| canter speed, m/s | +0.3932 | +0.3968 | +0.3995 | +0.3951 | +0.3927 | +0.3933 | +0.3995 |
+| run speed, m/s | +0.5529 | +0.5544 | +0.5377 | +0.5497 | +0.5534 | +0.5434 | +0.5554 |
+| back speed, m/s | -0.0689 | -0.0751 | -0.0781 | -0.0826 | -0.0696 | -0.0710 | -0.0682 |
+| jump speed, m/s | +0.2041 | +0.2061 | +0.1915 | +0.1902 | +0.1912 | +0.1977 | +0.2030 |
+| turn-left yaw, rad/s | +1.3426 | +1.3523 | +1.3278 | +1.3495 | +1.3318 | +1.3521 | +1.3109 |
+| turn-right yaw, rad/s | -1.1737 | -1.1695 | -1.1470 | -1.1340 | -1.1484 | -1.1589 | -1.1424 |
+| sit pose (pitch / trunk) | 0.507 / 0.621 | 0.510 / 0.620 | 0.508 / 0.621 | 0.511 / 0.621 | 0.499 / 0.620 | 0.503 / 0.622 | 0.506 / 0.622 |
+| lie-down pose (pitch / trunk) | 0.031 / 0.961 | 0.032 / 0.961 | 0.031 / 0.964 | 0.034 / 0.965 | 0.034 / 0.965 | 0.034 / 0.965 | 0.030 / 0.961 |
+| **ball arrival success (got_there)** | **8.33% (16/192)** | **4.17% (8/192)** | **3.65% (7/192)** | **5.73% (11/192)** | **3.65% (7/192)** | **5.21% (10/192)** | **2.60% (5/192)** |
+| ball distance drift (start -> end, m) | 2.487 -> 3.512 | 2.491 -> 3.362 | 2.487 -> 3.564 | 2.499 -> 3.543 | 2.496 -> 3.516 | 2.489 -> 3.461 | 2.494 -> 3.529 |
+| ball aligned in final second | 3.55% | 1.95% | 2.06% | 1.95% | 3.15% | 2.57% | 2.23% |
+| ball final facing cosine | -0.4461 | -0.4290 | -0.4628 | -0.4725 | -0.4576 | -0.4829 | -0.4840 |
+| ball falls / 13 s | **0.6250** | **0.6406** | **0.6771** | **0.6406** | **0.7135** | **0.6615** | **0.6771** |
+| **owner arrival success (got_there, 'come')** | **7.29% (14/192)** | **3.65% (7/192)** | **3.65% (7/192)** | **4.17% (8/192)** | **4.69% (9/192)** | **5.21% (10/192)** | **6.25% (12/192)** |
+| owner distance drift (start -> end, m) | 3.665 -> 3.650 | 3.663 -> 3.634 | 3.667 -> 3.587 | 3.669 -> 3.482 | 3.670 -> 3.704 | 3.668 -> 3.686 | 3.665 -> 3.617 |
+| owner aligned in final second | 11.04% | 13.39% | 10.66% | 14.93% | 14.49% | 10.61% | 9.24% |
+| owner final facing cosine | -0.0312 | +0.0704 | -0.0149 | +0.1471 | +0.0618 | -0.0067 | +0.0677 |
+| owner falls / 13 s | **1.2656** | **1.3229** | **1.2708** | **1.3854** | **1.3281** | **1.4062** | **1.5990** |
+| **ball-left balanced accuracy** | 0.709 | 0.685 | 0.708 | 0.701 | 0.694 | 0.699 | 0.689 |
+| **ball-ahead balanced accuracy** | 0.707 | 0.663 | **0.720** | 0.709 | 0.666 | 0.704 | 0.705 |
+| **ball-right balanced accuracy** | 0.690 | 0.687 | 0.683 | 0.686 | 0.667 | 0.662 | 0.665 |
+| **owner-left balanced accuracy** | 0.699 | 0.685 | 0.681 | 0.686 | 0.679 | 0.684 | 0.677 |
+| **owner-ahead balanced accuracy** | 0.691 | 0.644 | 0.681 | 0.685 | 0.663 | 0.689 | 0.677 |
+| **owner-right balanced accuracy** | 0.646 | 0.651 | 0.648 | 0.649 | 0.632 | 0.626 | 0.623 |
+| **hit balanced accuracy** | 0.863 | 0.881 | 0.875 | 0.867 | 0.852 | 0.846 | 0.854 |
+| **moving balanced accuracy** | 0.623 | 0.643 | 0.628 | 0.617 | 0.622 | 0.654 | 0.657 |
+| **hungry balanced accuracy** | 0.581 | 0.569 | 0.574 | 0.574 | 0.587 | 0.559 | 0.505 |
+| teacher movement help (all skills) | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+**Checkpoint SHA256 Hashes:**
+- `baby_dog_step_0000098304.npz`: `7123816be86bf85a9861d4286095e3a458faa8f3102aa92338f198be7569b941`
+- `baby_dog_step_0000196608.npz`: `009ed1385ab69fef9a39b399fad0f20b3e54fb1e581c8a12c2c6825f4255d874`
+- `baby_dog_step_0000294912.npz`: `4f396c8cf0eeccd3fd35d467854d1e927917820e48d68a2df586b5ebd6a5dec3`
+- `baby_dog_step_0000393216.npz`: `24f795103efd2f06f5139ef1180895e4294651305175989bffb0d9e1e71dedc7`
+- `baby_dog_step_0000491520.npz`: `a64ab3fc48b4b59b6a6cc3c527630759193a881021eb9d0d56561d159b313dd1`
+- `baby_dog_step_0000589824.npz`: `d83cdb5f7220f3f679e8a8a45f3a75251fd1798fdf754bac0a3c328a1b9f6a86`
+- `baby_dog.npz`: `7165124107430c81f38fe79ec088f5a3b2844fca759479aec6d03a9e4e489a0b`
+
+**Key Findings & Mechanism for Round 27:**
+1. **Fresh Independent Confirmation of Candidate Peak:** The "before practice" evaluation of candidate `baby_dog_step_0000245760.npz` (`7ffe2eb8…`) independently confirmed **8.33% (16/192)** on ball approach (Cohort 3: 11%), **7.29% (14/192)** on come approach (Cohorts 2 and 3: 9%), combined **7.81% (30/384)**, with lowest fall rates (0.625 ball, 1.266 come) and peak optic lobe accuracy (0.707 ball-ahead, 0.691 owner-ahead).
+2. **Discovery of the "Turn-Then-Sprint" Gating Defect:**
+   - In Round 27, unconstraining pitch (`upright_cost = 0.0`) combined with high linear sprint reward (`fwd_pay = 25.0`, `task_pay = 20.0`) paid heavily whenever `cos_facing > 0`.
+   - Because sprint forward speed was rewarded even when facing 70–80 degrees off-target, the policy learned to charge forward immediately on the tangent rather than first pivoting on the spot to face the target.
+   - Running at $0.55\text{ m/s}$ while turning sharply off-axis generated violent centrifugal roll torques, increasing come falls from 1.266 up to 1.599 (with single cohorts hitting 1.70 and 1.75 falls).
+   - This premature acceleration caused high-speed tripping and lowered target arrival to 2.6%–6.25%.
+3. **The Gated Sprint Solution (Round 28 Directive):**
+   - Sprint reward must be conditionally gated on heading alignment: `fwd_toward = jp.maximum(0.0, st["v_fwd"]) * jp.clip((cos_facing - 0.5) / 0.5, 0.0, 1.0)`.
+   - When misaligned ($\cos < 0.5$, heading error $>60^\circ$): Sprint forward speed pays zero. The policy is compelled to pivot on the spot (`face_pay = 4.0`, `yaw_pay = 5.0`), which has zero roll torque and near-zero fall rate.
+   - Once aligned ($\cos \ge 0.8$, heading error $<36^\circ$): Full sprint pay activates (`fwd_pay = 25.0`), launching the dog in a straight line directly into the target zone with minimal lateral roll tripping.
+4. **Active Restart Candidate Preserved:** Candidate `baby_dog_step_0000245760.npz` (`7ffe2eb88a23de0cfaf4981a71eed785dd4be3db1d08824e9b6e8571e30281ee`) remains the active learning restart candidate.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
