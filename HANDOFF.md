@@ -9,8 +9,8 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 18 Oct 13:20 Dubai (09:20 UTC): Round 24 CPU Preflight VERIFIED; Round 24 GPU Job QUEUED/RUNNING on Kaggle 2x T4 GPU; Quota 17.42h remaining.**
-- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round24`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round24) (version 1) is **QUEUED/RUNNING** on 2x Nvidia Tesla T4 GPU.
+**Current state, 18 Oct 13:58 Dubai (09:58 UTC): Round 24 CPU Preflight VERIFIED; Round 24 GPU Job RUNNING on Kaggle 2x T4 GPU; Quota 17.42h remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round24`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round24) (version 1) is **RUNNING** on 2x Nvidia Tesla T4 GPU (allocated at 13:58 Dubai / 09:58 UTC).
   - Job parameters: 1.5M steps (~91 updates), 512 envs (256/GPU), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 fresh independent cohorts (192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
   - Architectural Innovations for Round 24:
     1. **Responsive Pivot Steering ($1.35\text{ rad/s}$)**:
