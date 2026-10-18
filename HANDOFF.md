@@ -9,20 +9,20 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 18 Oct 15:35 Dubai (11:35 UTC): Round 24 COMPLETED & VERIFIED; All-Time Project Records Shattered (Come 9.90%, Ball 7.81%, Combined 7.81%); Promoted Learning Restart Candidate `35b522d4…`; Quota 15.98h remaining.**
-- **Latest Promoted Learning Restart Candidate (Verified)**:
-  - Checkpoint: `baby_dog_step_0000491520.npz` (SHA256 `35b522d46859954a5f176aec168d16ba94d6fcd0da0b2d372b2c9ff7e73be512`) from `results/baby_dog_vision_approach_round24/`.
-  - Kernel source: `karang1908/bio-bot-baby-dog-vision-approach-round24`.
+**Current state, 18 Oct 15:37 Dubai (11:37 UTC): Round 25 CPU Preflight VERIFIED; Round 25 GPU Job RUNNING on Kaggle 2x T4 GPU; Quota 15.98h remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round25`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round25) (version 1) is **RUNNING** on 2x Nvidia Tesla T4 GPU (allocated immediately at 15:37 Dubai / 11:37 UTC).
+  - Job parameters: 1.5M steps (~91 updates), 512 envs (256/GPU), 6 evaluations (every ~248k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
+  - Architectural Innovations for Round 25:
+    1. **Strict Cruise Yaw Suppression ($0.35\text{ rad/s}$)**:
+       - Uses `yaw_scale = 1.0 - 0.74 * align_gate`. In forward sprint cruise ($\text{align\_gate} = 1.0$), yaw is capped to $\le 0.35\text{ rad/s}$ ($a_\text{lat} \le 0.021\text{ g}$), preventing centripetal tipping while maintaining full $1.35\text{ rad/s}$ agility during in-place pivoting ($\text{align\_gate} = 0$).
+    2. **Balanced Task Scale & Fine-Tuned Vision**:
+       - Resumes directly from record candidate `baby_dog_step_0000491520.npz` (`35b522d4…`, holding 9.90% "come" and 7.81% combined arrival). Sets `task_scale = 300.0` and `vision_lr = 3e-4` to stabilize both "come" and "ball" representations simultaneously without oscillating.
+    3. **High-Resolution Evaluation Checkpoints (6 Evals)**:
+       - Evaluates every 248k steps across 3 fresh cohorts to capture the exact peak progression toward >15% sustained arrival.
+  - Resumed from promoted record candidate `baby_dog_step_0000491520.npz` (SHA256 `35b522d46859954a5f176aec168d16ba94d6fcd0da0b2d372b2c9ff7e73be512`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round24`.
   - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
   - Mocap dataset: `go2_dog_motions.npz` attached via `--dataset bio-bot-dog-mocap`.
-  - All-Time Project Records:
-    - Target arrival under "come": **9.90% (19 / 192 lives)** across 3 fresh independent cohorts (beating Round 23 record of 7.29% by +36% relative). Single cohort peaks: **12.50% (8 / 64)** in Cohort 1 and **10.94% (7 / 64)** in Cohort 3.
-    - Target arrival under "ball": **7.81% (15 / 192 lives)** across 3 fresh independent cohorts at step 1.47M (`a7c0c779…`), beating Round 23 record of 6.77%. Single cohort peak: **12.50% (8 / 64)** in Cohort 3.
-    - Combined target arrival: **30 / 384 lives (7.81%)** at 0.5M steps, all-time multi-task project record.
-    - Distant vision breakthrough: `owner-ahead` balanced accuracy jumped from **0.559 to 0.664** (+10.5% points) and `ball-right` from **0.637 to 0.693** (+5.6% points), proving that `vision_lr = 5e-4` solved the distant target perception bottleneck.
-    - Ball orientation breakthrough: Final facing cosine improved from **-0.489 to -0.167**, aligned in final second reached 5.85%.
-    - Net distance closing under "come": -3.7 cm at 0.5M, -4.3 cm at final 1.49M ($3.665\text{ m} \to 3.622\text{ m}$).
-    - 100% nominal motor skill retention without teacher movement help (`help_ = 0.00`).
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round25-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round25-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round25_preflight/`. All 11 assertions passed, candidate SHA256 verified (`35b522d4…`).
 - **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **15.98 hours remaining** (14.02h used out of 30.00h, resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
