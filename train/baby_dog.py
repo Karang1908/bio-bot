@@ -1583,7 +1583,9 @@ def practice(args, bd, out: Path) -> dict:
                 there = (gap1 < near_of[ins]) | (head_gap1 < near_of[ins])
                 proximity = jp.clip((2.0 * near_of[ins] - min_gap1) / (2.0 * near_of[ins] + 1e-6), 0.0, 1.0)
                 turned = jp.where(done, 0.0, jp.clip((cos_facing - facing_before) / bd.CTRL_DT, -2.0, 2.0))
-                fwd_toward = jp.maximum(0.0, st["v_fwd"]) * jp.clip(cos_facing, 0.0, 1.0)
+                align_floor = getattr(args, "align_floor", 0.5)
+                align_gate = jp.clip((cos_facing - align_floor) / (1.0 - align_floor + 1e-6), 0.0, 1.0)
+                fwd_toward = jp.maximum(0.0, st["v_fwd"]) * align_gate
                 yaw_dir = jp.clip(theta_bearing / 0.35, -1.0, 1.0)
                 yaw_toward = st["wz"] * yaw_dir
                 # the body scores "stand still" when no motion is asked; a task word asks it to go somewhere (turning or walking)
@@ -2363,6 +2365,7 @@ def main() -> None:
     ap.add_argument("--roll_cost", type=float, default=3.0, help="practice: penalty for lateral roll tilt during task approach")
     ap.add_argument("--side_cost", type=float, default=1.0, help="practice: penalty for lateral drift velocity during task approach")
     ap.add_argument("--task_fall_cost", type=float, default=3.0, help="practice: event penalty for falling during task approach")
+    ap.add_argument("--align_floor", type=float, default=0.5, help="practice: alignment cosine floor below which forward sprint reward is zero")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--bias0", type=float, default=0.3)
     ap.add_argument("--goal_scale", type=float, default=2.0)
