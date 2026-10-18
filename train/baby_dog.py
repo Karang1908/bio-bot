@@ -81,7 +81,7 @@ SAY = ["ball-left", "ball-ahead", "ball-right", "owner-left", "owner-ahead", "ow
 VOICE = 3.0              # how much learning to say what is true counts (at 0.5 it barely trained seeing)
 FACE_PAY = 4.0           # "ball" / "come": reward per rad/s of turning to face what was asked (looking before going)
 FWD_PAY = 20.0           # "ball" / "come": reward for forward speed aligned with task target
-YAW_PAY = 4.0            # "ball" / "come": reward for yaw rate directed towards task target
+YAW_PAY = 8.0            # "ball" / "come": reward for yaw rate directed towards task target
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
@@ -1511,18 +1511,18 @@ def practice(args, bd, out: Path) -> dict:
                     head_gap0 = jp.linalg.norm(head0[:, :2] - goal_b, axis=-1)
                     d_target0 = jp.minimum(gap0, head_gap0)
                     is_near = (gap0 < near_of[ins]) | (head_gap0 < near_of[ins])
-                    align_gate = jp.clip((jp.cos(theta_err) - 0.60) / 0.35, 0.0, 1.0)
-                    v_sprint = 0.60
-                    brake = jp.clip(d_target0 / (1.5 * near_of[ins] + 1e-6), 0.25, 1.0)
-                    target_fwd = jp.where(is_near, 0.0, v_sprint * align_gate * brake)
-                    yaw_scale = 1.0 - 0.65 * align_gate
-                    target_yaw = jp.where(is_near, 0.0, jp.clip(1.5 * theta_err, -1.2 * yaw_scale, 1.2 * yaw_scale))
+                    align_gate = jp.clip((jp.cos(theta_err) - 0.50) / 0.40, 0.0, 1.0)
+                    v_sprint = 0.65
+                    brake = jp.where(is_near, 0.0, 1.0)
+                    target_fwd = v_sprint * align_gate * brake
+                    yaw_scale = 1.0 - 0.40 * align_gate
+                    target_yaw = jp.where(is_near, 0.0, jp.clip(2.0 * theta_err, -1.2 * yaw_scale, 1.2 * yaw_scale))
                     p_fwd = jp.where(spoke, 0.0, prev_cmd[:, 0])
                     p_yaw = jp.where(spoke, 0.0, prev_cmd[:, 2])
-                    max_fwd_accel = 1.0 * bd.CTRL_DT
-                    max_fwd_decel = 2.0 * bd.CTRL_DT
+                    max_fwd_accel = 1.2 * bd.CTRL_DT
+                    max_fwd_decel = 2.5 * bd.CTRL_DT
                     v_fwd_cmd = jp.clip(target_fwd, p_fwd - max_fwd_decel, p_fwd + max_fwd_accel)
-                    max_yaw_accel = 3.0 * bd.CTRL_DT
+                    max_yaw_accel = 4.0 * bd.CTRL_DT
                     v_yaw_cmd = jp.clip(target_yaw, p_yaw - max_yaw_accel, p_yaw + max_yaw_accel)
                     task_cmd = jp.stack([v_fwd_cmd, jp.zeros_like(v_fwd_cmd), v_yaw_cmd], -1)
                     env = {**env, "info": {**env["info"], "cmd": jp.where(is_task[ins][:, None], task_cmd, env["info"]["cmd"])}}
@@ -1566,19 +1566,21 @@ def practice(args, bd, out: Path) -> dict:
                     Rh = d.xmat[:, base]
                     to = goal - d.xpos[:, base, :2]
                     return jp.sum(Rh[:, :2, 0] * to, -1) / (jp.linalg.norm(Rh[:, :2, 0], axis=-1) * jp.linalg.norm(to, axis=-1) + 1e-6)
-                def lateral(d, goal):                    # sine of the angle (positive = goal is to the left)
+                def bearing(d, goal):                    # signed angle to the goal in radians (-pi to +pi)
                     Rh = d.xmat[:, base]
                     to = goal - d.xpos[:, base, :2]
-                    return jp.sum(Rh[:, :2, 1] * to, -1) / (jp.linalg.norm(Rh[:, :2, 1], axis=-1) * jp.linalg.norm(to, axis=-1) + 1e-6)
+                    fwd = jp.sum(Rh[:, :2, 0] * to, -1)
+                    lat = jp.sum(Rh[:, :2, 1] * to, -1)
+                    return jp.arctan2(lat, fwd)
                 cos_facing = facing(env["d"], goal1)
-                sin_lat = lateral(env["d"], goal1)
+                theta_bearing = bearing(env["d"], goal1)
                 raw_closer = jp.clip((gap0 - gap1) / bd.CTRL_DT, -1.0, 1.0)
                 closer = jp.where(done, 0.0, jp.where(cos_facing < 0.0, jp.maximum(0.0, raw_closer), raw_closer))
                 there = (gap1 < near_of[ins]) | (head_gap1 < near_of[ins])
                 proximity = jp.clip((2.0 * near_of[ins] - min_gap1) / (2.0 * near_of[ins] + 1e-6), 0.0, 1.0)
                 turned = jp.where(done, 0.0, jp.clip((cos_facing - facing_before) / bd.CTRL_DT, -2.0, 2.0))
                 fwd_toward = jp.maximum(0.0, st["v_fwd"]) * jp.clip(cos_facing, 0.0, 1.0)
-                yaw_dir = jp.clip(sin_lat / 0.25, -1.0, 1.0)
+                yaw_dir = jp.clip(theta_bearing / 0.35, -1.0, 1.0)
                 yaw_toward = st["wz"] * yaw_dir
                 # the body scores "stand still" when no motion is asked; a task word asks it to go somewhere (turning or walking)
                 still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
