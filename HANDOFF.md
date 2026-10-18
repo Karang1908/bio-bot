@@ -9,13 +9,17 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 18 Oct 23:00 Dubai (19:00 UTC): Round 26 COMPLETED & ANALYZED; Round 27 Decoupled Sprint Formulated; Quota 12.93h remaining.**
-- **Latest Completed GPU Job**: [`bio-bot-baby-dog-vision-approach-round26`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round26) (version 1) on 2x Nvidia Tesla T4 GPU.
-  - Ran 18 updates (294,912 steps, 83.4 min runtime / 75 min cap reached, `CANCEL_ACKNOWLEDGED`). Outputs fetched to `results/baby_dog_vision_approach_round26/`.
-  - **Key Result**: Fall rates were successfully halved during task approaches (ball falls dropped to 0.6250 vs ~1.15; come falls held at 1.2604 vs 1.66–1.70).
-  - **Causal Discovery**: The blanket upright penalty `4.0 * (1.0 - up)` penalized torso pitch oscillations, which quadrupeds physically require to sprint. The policy trotted conservatively at ~0.35 m/s rather than sprinting at $\ge 0.50$ m/s. Over the 7.5 seconds available in a 10s life, a trot covers only $2.45$ m (falling short of the $2.67$ m travel to the owner), capping arrivals at 4.2%–5.7%.
-  - **Round 27 Directive**: Decouple pitch from roll. Penalize lateral roll tilt and lateral drift velocity (`- 0.5 * jp.abs(st["v_side"])`), while eliminating pitch penalty to enable full sprinting, and increase target forward sprint pay (`fwd_pay = 25.0`, `task_pay = 20.0`) to target $\ge 0.52$ m/s sprint velocity.
-- **Active Promoted Candidate**: Checkpoint `baby_dog_step_0000245760.npz` (SHA256 `7ffe2eb88a23de0cfaf4981a71eed785dd4be3db1d08824e9b6e8571e30281ee`) from Round 25 remains the active restart candidate (holding 8.33% come, 7.29% ball, 12.50% single-cohort peaks, lowest falls, and highest optic lobe spatial accuracy).
+**Current state, 18 Oct 23:02 Dubai (19:02 UTC): Round 27 Preflight VERIFIED; Round 27 GPU Training RUNNING on Kaggle 2x T4 GPU; Quota 12.93h remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round27`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round27) (version 1) on 2x Nvidia Tesla T4 GPU (immediately `RUNNING`).
+  - Job parameters: 589,824 steps (36 updates $\times$ 16,384 steps), 512 envs (256/GPU), 6 evaluations (every 6 updates = ~98k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
+  - Architectural Innovations for Round 27:
+    1. **Decoupled Pitch/Roll Stabilization**: Replaces blanket upright penalty with pure lateral roll tilt damping (`roll_cost = 3.0 * |R[2,1]|`) and lateral drift damping (`side_cost = 1.0 * |v_side|`), freeing torso pitch oscillation required for quadruped high-speed gallop/sprint.
+    2. **Boosted Forward Sprint Pay (`fwd_pay = 25.0`, `task_pay = 20.0`)**: Strongly rewards forward speed aligned with the target ($+23.5\text{ reward/s}$ at $0.55\text{ m/s}$ sprint), enabling the policy to cross the kinematic travel distance ($2.67\text{ m}$) well within the 10-second life time budget.
+    3. **Event Fall Penalty Preserved (`task_fall_cost = 3.0`)**: Retains the fall penalty that halved falls in Round 26.
+  - Resumed from promoted record candidate `baby_dog_step_0000245760.npz` (SHA256 `7ffe2eb88a23de0cfaf4981a71eed785dd4be3db1d08824e9b6e8571e30281ee`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round25`.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+  - Mocap dataset: `go2_dog_motions.npz` attached via `--dataset bio-bot-dog-mocap`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round27-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round27-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round27_preflight/`. All 11 assertions passed, candidate SHA256 verified (`7ffe2eb8…`).
 - **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **12.93 hours remaining** (resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
