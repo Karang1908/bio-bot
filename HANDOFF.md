@@ -9,21 +9,21 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 18 Oct 11:00 Dubai (07:00 UTC): Round 22 COMPLETED & ANALYZED; Round 21 Checkpoint `6220964d…` Re-verified as Active Learning Restart Candidate; Quota 19.13h remaining.**
-- **Latest Completed GPU Job**: [`bio-bot-baby-dog-vision-approach-round22`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round22) (version 1) completed all 91 updates (1,490,944 steps, ~85.1 min runtime) on 2x Nvidia Tesla T4 GPU. All outputs ingested into `results/baby_dog_vision_approach_round22/`.
-  - **Key Evaluation Outcomes (192 lives per snapshot across 3 fresh independent cohorts, teacher help 0.00 from rest)**:
-    - Baseline (re-evaluating candidate `6220964d…`): **6.25% (12/192)** on 'ball', **5.21% (10/192)** on 'come'.
-    - 1.5M snap: **4.69% (9/192)** on 'ball', **5.21% (10/192)** on 'come'.
-    - Final snapshot (step 1,490,944): settled at **3.65% (7/192)** for both tasks.
-  - **Causal Mechanism & Stability Tradeoff**:
-    - The more aggressive sprint kinematics ($v_\text{sprint} = 0.65\text{ m/s}$, max sprint yaw $0.72\text{ rad/s}$, slew rate accel $1.2\text{ m/s}^2$ / $4.0\text{ rad/s}^2$) elevated locomotion falls across all gaits:
-      - Walk falls rose from $1.03 \to 1.43\text{ falls / 13s}$ (+36%).
-      - Owner task falls rose from $0.88 \to 1.18\text{ falls / 13s}$ (+34%).
-      - Mean movement falls rose from $0.73 \to 0.96\text{ falls / 13s}$ (+32%).
-    - In a 10s evaluation episode, a fall costs $\sim 2.5\text{ seconds}$, virtually precluding target arrival before timeout.
-    - Capping sprint yaw strictly to $\le 0.42\text{ rad/s}$ (`yaw_scale = 1.0 - 0.65 * align_gate`) and using $v_\text{sprint} = 0.60\text{ m/s}$ with $1.0\text{ m/s}^2$ accel is essential to suppress falls back below $1.0 / 13\text{s}$.
-  - **Active Learning Restart Candidate**:
-    - Checkpoint `baby_dog_step_0001490944.npz` (`6220964dbb25491b40b7be93dba418c611051d1b8f1a0b7277dc6f0cec9bd323`) from Round 21 remains the **active learning restart candidate**, having demonstrated the lowest fall rates and highest sustained arrival ($6.25\%$ come, $6.25\%$ ball) across multiple evaluations.
+**Current state, 18 Oct 11:10 Dubai (07:10 UTC): Round 23 CPU Preflight VERIFIED; Round 23 GPU Job RUNNING on Kaggle 2x T4 GPU; Quota 19.13h remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round23`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round23) (version 1) is **RUNNING** on 2x Nvidia Tesla T4 GPU (allocated immediately without queue wait).
+  - Job parameters: 1.5M steps (~91 updates), 512 envs (256/GPU), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 fresh independent cohorts (192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
+  - Architectural Innovations:
+    1. **Conservative Sprint Yaw Suppression**:
+       - Caps yaw rate during high-speed sprint cruise ($\text{align\_gate} = 1$) to $\le 0.42\text{ rad/s}$ via `yaw_scale = 1.0 - 0.65 * align_gate`, suppressing lateral accelerations ($a_\text{lat} \le 0.25\text{ m/s}^2 \approx 0.026\text{ g}$) to eliminate the centrifugal tipping observed in Round 22.
+    2. **Smooth Boundary Tapering Braking**:
+       - In Round 22, maintaining full sprint speed up to the boundary resulted in sudden $2.5\text{ m/s}^2$ deceleration and boundary tripping. In Round 23, `brake = jp.clip(d_target0 / (1.5 * near_of[ins] + 1e-6), 0.35, 1.0)` gently tapers sprint speed to $0.21\text{ m/s}$ at the boundary, ensuring smooth momentum without pitch-down instability.
+    3. **Restored Smooth Slew Rates**:
+       - Restored forward acceleration limit to $1.0\text{ m/s}^2$ (braking $2.0\text{ m/s}^2$) and yaw acceleration limit to $3.0\text{ rad/s}^2$, matching the stable Round 21 profile.
+    4. **Monotonic Signed Bearing Yaw Reward Retained**:
+       - Retains exact signed angular bearing $\theta_\text{bearing} = \text{arctan2}(y, x)$ and `yaw_dir = jp.clip(theta_bearing / 0.35, -1.0, 1.0)`, paired with a balanced `YAW_PAY = 5.0` to provide consistent orientation guidance without overpowering forward locomotion.
+  - Resumed from promoted record candidate `baby_dog_step_0001490944.npz` (`6220964d…`, Round 21 project record, 6.25% 'come', 4.69% 'ball' arrival) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round21`.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round23-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round23-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round23_preflight/`. All 11 assertions passed, candidate SHA256 verified (`4cb15436…`).
 - **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **19.13 hours remaining** (10.87h used out of 30.00h, resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
