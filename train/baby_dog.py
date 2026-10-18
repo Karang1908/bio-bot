@@ -79,9 +79,9 @@ CURIOSITY = 2.0          # reward per unit of learning progress (its sight surpr
 SAY = ["ball-left", "ball-ahead", "ball-right", "owner-left", "owner-ahead", "owner-right",
        "hungry", "hot", "hit", "fallen", "moving"]
 VOICE = 3.0              # how much learning to say what is true counts (at 0.5 it barely trained seeing)
-FACE_PAY = 4.0           # "ball" / "come": reward per rad/s of turning to face what was asked (looking before going)
-FWD_PAY = 20.0           # "ball" / "come": reward for forward speed aligned with task target
-YAW_PAY = 5.0            # "ball" / "come": reward for yaw rate directed towards task target
+FACE_PAY = 8.0           # "ball" / "come": reward per rad/s of turning to face what was asked (accelerated orientation)
+FWD_PAY = 35.0           # "ball" / "come": reward for forward speed aligned with task target (straight gallop)
+YAW_PAY = 10.0           # "ball" / "come": reward for yaw rate directed towards task target (rapid in-place pivot)
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
