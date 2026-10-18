@@ -9,19 +9,20 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 18 Oct 13:10 Dubai (09:10 UTC): Round 23 COMPLETED & VERIFIED; All-Time Project Records Achieved (Come 7.29%, Ball 6.77%, Combined 7.03%); Promoted Learning Restart Candidate `50035958…`; Quota 17.42h remaining.**
-- **Latest Promoted Learning Restart Candidate (Verified)**:
-  - Checkpoint: `baby_dog_step_0001490944.npz` (SHA256 `500359581b7659bf2d06295a782e7b3c2b06486e0c8d2831430fa956c89eaf21`) from `results/baby_dog_vision_approach_round23/`.
-  - Kernel source: `karang1908/bio-bot-baby-dog-vision-approach-round23`.
+**Current state, 18 Oct 13:20 Dubai (09:20 UTC): Round 24 CPU Preflight VERIFIED; Round 24 GPU Job QUEUED/RUNNING on Kaggle 2x T4 GPU; Quota 17.42h remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round24`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round24) (version 1) is **QUEUED/RUNNING** on 2x Nvidia Tesla T4 GPU.
+  - Job parameters: 1.5M steps (~91 updates), 512 envs (256/GPU), 3 evaluations (0.5M, 1.0M, 1.5M steps), 3 fresh independent cohorts (192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
+  - Architectural Innovations for Round 24:
+    1. **Responsive Pivot Steering ($1.35\text{ rad/s}$)**:
+       - Matches the dog's nominal turning agility ($+1.351\text{ rad/s}$) during in-place pivoting ($\text{align\_gate} = 0$, $\text{yaw\_scale} = 1.0$) by expanding pivot clamp to $1.35\text{ rad/s}$ (saving ~0.3s of orientation acquisition), while keeping high-speed sprint cruise yaw safely throttled ($\le 0.47\text{ rad/s}$, $a_\text{lat} \le 0.029\text{ g}$).
+    2. **Sharpened Optic Lobe Learning Rate (`vision_lr = 5e-4`, +67%)**:
+       - Accelerates convergence of spatial receptive field filters in optic lobes (`ol_e1, ol_e2, ol_l1, ol_l2, rf_e, rf_l`) to distinguish the human owner and ball at long distances ($>2.5\text{ m}$) where targets subtend only 2-3 pixels.
+    3. **Steeper In-Circle Potential Well (`reach_pay = 35.0`, `prox_pay = 12.0`)**:
+       - Strongly rewards decelerating and holding position inside the arrival circle ($1.0\text{ m}$ for "come", $0.35\text{ m}$ for "ball"), preventing overshoot drift.
+  - Resumed from promoted record candidate `baby_dog.npz` (SHA256 `3ae459265ef9354fd14f29e9cc291da191b9b3d14fc23fdb7de88b2bf3e0a3ac`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round23`.
   - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
   - Mocap dataset: `go2_dog_motions.npz` attached via `--dataset bio-bot-dog-mocap`.
-  - All-Time Project Records:
-    - Target arrival under "come": **7.29% (14 / 192 lives)** across 3 fresh independent cohorts (surpassing Round 21 record of 6.25%).
-    - Target arrival under "ball": **6.77% (13 / 192 lives)** across 3 fresh independent cohorts (surpassing Round 21 record of 4.69%).
-    - Combined target arrival: **27 / 384 lives (7.03%)**, single cohort peak **11% (7 / 64)** on "come" and **8% (5 / 64)** on "ball".
-    - Net distance closing under "come": **-9.2 cm** ($3.665\text{ m} \to 3.573\text{ m}$) with 13.84% alignment in the final second.
-    - Locomotion fall stability: Mean movement falls $0.8876\text{ falls / 13s}$ (down from 0.9628 in Round 22).
-    - 100% nominal motor skill retention without teacher movement help (`help_ = 0.00`).
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round24-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round24-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round24_preflight/`. All 11 assertions passed, candidate SHA256 verified (`3ae45926…`).
 - **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **17.42 hours remaining** (12.58h used out of 30.00h, resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
