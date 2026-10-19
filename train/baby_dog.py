@@ -65,9 +65,9 @@ JUMP_REWARD = 1.0        # reward per second with all four feet off the ground w
 SELF_MODEL = 0.5         # in the park: how much predicting its own senses counts (its model of itself)
 # goals in the park (DogMind step 5), scored by outcome only: nobody shows it how
 TASKS = ["ball", "come"]  # "ball": go to the ball; "come": go to the owner
-TASK_PAY = 16.0          # reward per m/s of getting closer to what was asked
-REACH_PAY = 25.0         # reward per second with its nose at the ball (or by the owner)
-PROX_PAY = 8.0           # reward per second within proximity funnel (smooth shaping toward arrival)
+TASK_PAY = 35.0          # reward per m/s of getting closer to what was asked (decisive forward drive)
+REACH_PAY = 50.0         # reward per second with its nose at the ball (or by the owner)
+PROX_PAY = 16.0          # reward per second within proximity funnel (smooth shaping toward arrival)
 NEAR = {"ball": 0.35, "come": 1.0}   # m: at the ball, by the owner
 HIT_COST = 2.0           # being hit by a thrown thing costs about as much as a fall
 # drives (DogMind step 6): free time when nobody speaks, hunger (the battery) and curiosity
@@ -79,9 +79,9 @@ CURIOSITY = 2.0          # reward per unit of learning progress (its sight surpr
 SAY = ["ball-left", "ball-ahead", "ball-right", "owner-left", "owner-ahead", "owner-right",
        "hungry", "hot", "hit", "fallen", "moving"]
 VOICE = 3.0              # how much learning to say what is true counts (at 0.5 it barely trained seeing)
-FACE_PAY = 8.0           # "ball" / "come": reward per rad/s of turning to face what was asked (accelerated orientation)
+FACE_PAY = 4.0           # "ball" / "come": reward per rad/s of turning to face what was asked
 FWD_PAY = 35.0           # "ball" / "come": reward for forward speed aligned with task target (straight gallop)
-YAW_PAY = 10.0           # "ball" / "come": reward for yaw rate directed towards task target (rapid in-place pivot)
+YAW_PAY = 4.0            # "ball" / "come": reward for yaw rate directed towards task target
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
@@ -2365,7 +2365,7 @@ def main() -> None:
     ap.add_argument("--roll_cost", type=float, default=3.0, help="practice: penalty for lateral roll tilt during task approach")
     ap.add_argument("--side_cost", type=float, default=1.0, help="practice: penalty for lateral drift velocity during task approach")
     ap.add_argument("--task_fall_cost", type=float, default=3.0, help="practice: event penalty for falling during task approach")
-    ap.add_argument("--align_floor", type=float, default=0.5, help="practice: alignment cosine floor below which forward sprint reward is zero")
+    ap.add_argument("--align_floor", type=float, default=0.25, help="practice: alignment cosine floor below which forward sprint reward is zero")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--bias0", type=float, default=0.3)
     ap.add_argument("--goal_scale", type=float, default=2.0)
