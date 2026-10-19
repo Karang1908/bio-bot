@@ -9,18 +9,18 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 19 Oct 06:15 Dubai (02:15 UTC): Round 30 Completed & VERIFIED; Checkpoint 98k Candidate Promoted (8.33% ball, 12.50% cohort peak); Kaggle Quota: 6.87h GPU / 20.00h TPU remaining; Ready for Round 31.**
-- **Latest Completed Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round30`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round30) (version 1) on 2x Nvidia Tesla T4 GPU.
-  - Completed all 36 updates (589,824 steps, 89.5 min runtime) to `KernelWorkerStatus.COMPLETE`. All outputs fetched to `results/baby_dog_vision_approach_round30/`.
-  - Peak Candidate Checkpoint at 98,304 steps (`baby_dog_step_0000098304.npz`, SHA256 `dc964638c87ba65a3ed64ed60347a8efe413cf618fcd33ee33d54c9353ff6bb2`):
-    - **8.33% ball arrival (16/192)**, with single cohort reaching **12.50% (8/64)**.
-    - **5.73% come arrival (11/192)**.
-    - Combined **7.03% (27/384)**.
-    - 100% motor retention: walk (+0.407 m/s), pace (+0.570 m/s), run (+0.550 m/s), turn-left (+1.326 rad/s), turn-right (-1.139 rad/s), sit (0.507 / 0.623), lie-down (0.039 / 0.969), teacher help strictly 0.00.
-  - Project record holder remains `baby_dog_step_0000245760.npz` (`7ffe2eb88a23de0cfaf4981a71eed785dd4be3db1d08824e9b6e8571e30281ee`): 8.33% ball, 7.29% come, 7.81% combined.
-- **Key Physical Mechanisms Identified in Round 30**:
-  1. **Ball Overshoot Mechanism**: When heading toward the ball, the dog enters the 0.35m arrival zone and continues galloping forward, ending at 3.38m–3.72m facing away (end cosine -0.40 to -0.50).
-  2. **Owner Distance-Velocity Bottleneck**: Owner radius is 2.0–5.0m (mean 3.67m, target cylinder 1.0m, travel 2.67m). Aligning heading takes ~1.5s at physical turn limit 1.35 rad/s. A trot at 0.40 m/s covers $7.5\text{ s} \times 0.40 = 3.0\text{ m}$, leaving distant owner spawns unreachable within the 9-second active window. Unlocking >15% arrival on "come" requires accelerating the forward velocity to gallop speed (>0.50–0.55 m/s) when aligned.
+**Current state, 19 Oct 06:25 Dubai (02:25 UTC): Round 31 Preflight VERIFIED; Round 31 GPU Training ACTIVE on Kaggle 2x T4 GPU; Quota 6.87h GPU / 20.00h TPU remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round31`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round31) (version 1) on 2x Nvidia Tesla T4 GPU.
+  - Job parameters: 589,824 steps (36 updates $\times$ 16,384 steps), 512 envs (256/GPU), 6 evaluations (every 6 updates = ~98k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
+  - Architectural Innovations for Round 31:
+    1. **Gallop Sprint Bonus (`sprint_pay = 40.0`, `sprint_floor = 0.42`)**: In addition to linear forward propulsion, rewards forward velocity exceeding the gallop threshold ($>0.42\text{ m/s}$) when aligned (`align_gate * sprint_bonus`). Creates an overwhelming $+18.7/\text{s}$ incentive to run at full speed ($0.55\text{ m/s}$), ensuring the quadruped covers $3.5\text{m}+$ distances before the 9-second window expires.
+    2. **Supercharged Target Payoffs (`task_pay = 45.0`, `reach_pay = 80.0`, `prox_pay = 20.0`)**: Strongly rewards closing distance and arriving within the goal cylinder ($<0.35\text{m}$ ball, $<1.00\text{m}$ owner).
+    3. **Smoothed Alignment Floor (`align_floor = 0.25`)**: Retained from Round 30, allowing propulsion to engage within $75^\circ$ heading error.
+    4. **Preserved Decoupled Stability**: `roll_cost = 3.0`, `side_cost = 1.0`, `upright_cost = 0.0`, and `task_fall_cost = 3.0`.
+  - Resumed from Round 30 peak candidate `baby_dog_step_0000098304.npz` (SHA256 `dc964638c87ba65a3ed64ed60347a8efe413cf618fcd33ee33d54c9353ff6bb2`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round30`.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+  - Mocap dataset: `go2_dog_motions.npz` attached via `--dataset bio-bot-dog-mocap`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round31-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round31-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round31_preflight/`. All assertions passed, candidate SHA256 verified (`dc964638…`), checkpoint confirmed (`after 0.1M steps`).
 - **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **6.87 hours remaining** (resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
