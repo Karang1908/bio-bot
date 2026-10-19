@@ -3308,7 +3308,45 @@ All outputs fetched to `results/baby_dog_vision_approach_round34/`: `baby_dog.np
 5. **Causal Analysis of the Overshoot Bottleneck:**
    - The anti-overshoot mechanics (`near_brake`, sprint fade, stay bonus) demonstrably work: they produced the greatest net distance closing (-0.145 m) and highest facing alignment (15.35%, +0.0868 cos) in the project's history.
    - However, for the smaller ball sphere (`NEAR["ball"] = 0.35m`), the deceleration zone (`1.5 * near_of = 0.525m`) is entered at $v_{\text{fwd}} \sim 0.55\text{ m/s}$, meaning the dog has only ~0.95 seconds to shed its forward momentum before overshooting the 0.35 m radius. For the owner (`NEAR["owner"] = 1.0m`, deceleration zone `1.5m`), the dog has ~2.7 seconds, allowing smooth capture and sustained closing.
-   - Candidate promotion: `baby_dog_step_0000393216.npz` (`402c9308…`, -0.145 m owner closing, 15.35% alignment, +0.0868 cos) and `baby_dog_step_0000196608.npz` (`265a61e6…`, 6.77% Come, 4.69% Ball, +0.0706 cos) are promoted as the active restart candidates.
+### Visual target approach round 35 (expanded 1.2m deceleration zone and continuous brake scaling trial on 2x Nvidia Tesla T4 GPU)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round35 (version 1).
+Trial executed on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU) resuming from candidate checkpoint `baby_dog_step_0000393216.npz` (`402c9308…`, Round 34 checkpoint 6 record candidate).
+Status: `KernelWorkerStatus.CANCEL_ACKNOWLEDGED` due to the 2,400s (40 min) wrapper timeout.
+
+**Execution & Timing Breakdown:**
+1. Remote package installation and environment setup: 13.9 min (0.0 to 13.9 min).
+2. Full baseline evaluation across 3 independent cohorts (192 lives total): 20.8 min duration (13.9 min to 34.7 min).
+3. JIT compilation of `pmap_iteration` on 2x T4: ~5.5 min (34.7 min to 40.2 min).
+4. Update 1 completed at 40.15 min; kernel hit the 2,400s cap and terminated cleanly before intermediate checkpointing.
+5. All logs and baseline evaluation JSONs ingested into `results/baby_dog_vision_approach_round35/`: `practice.json`, `log.txt`, `resume.json`, `teacher.json`, `poses.json`.
+6. Kaggle weekly GPU quota: **29.84h used / 30.00h (0.16h / 9.6 min remaining)**, resetting 24 Oct 00:00 UTC. Kaggle GPU capacity is exhausted for multi-update runs.
+
+**Measured Baseline Outcomes (three cohorts, 192 lives, before practice):**
+- **Nominal Motor Skill Retention (100% Preserved):**
+  - Walk speed: **+0.4041 m/s** (falls 1.68 / 13s)
+  - Pace speed: **+0.5625 m/s** (falls 1.02 / 13s)
+  - Canter speed: **+0.3950 m/s** (falls 1.26 / 13s)
+  - Run speed: **+0.5499 m/s** (falls 1.01 / 13s)
+  - Turn-left yaw: **+1.3867 rad/s** (falls 0.92 / 13s, matching real dog ground truth +1.383 rad/s)
+  - Turn-right yaw: **-1.1459 rad/s** (falls 0.80 / 13s, ground truth -1.180 rad/s)
+  - Back speed: **-0.0667 m/s** (falls 0.93 / 13s)
+  - Jump speed: **+0.2209 m/s** (falls 1.48 / 13s)
+  - Sit pose: pitch **+0.4934 rad** / trunk **0.6218** (teacher +0.48 / 0.60)
+  - Lie-down pose: pitch **+0.0316 rad** / trunk **0.9613**
+  - Teacher movement help strictly **0.00** across all skills.
+- **Visual Target Baseline Performance (192 lives):**
+  - Ball arrival (`got_there` within 0.35 m): **4.69% (9/192)**; distance drift 2.498 m -> 3.417 m; facing cosine -0.027 -> -0.427; aligned in last second 4.80%; falls 0.708 / 13s.
+  - Owner arrival (`got_there` within 1.0 m): **4.69% (9/192)**; distance drift 3.666 m -> 3.662 m; facing cosine +0.039 -> +0.001; aligned in last second 9.79%; falls 1.573 / 13s.
+  - Dodge hazard reaction: hit 77.08%, reacted before arrival 23.44%, median reaction latency 20 ms.
+- **Sensory Readout Balanced Accuracy:**
+  - `ball-ahead`: 0.676, `ball-left`: 0.689, `ball-right`: 0.676
+  - `owner-ahead`: 0.664, `owner-left`: 0.680, `owner-right`: 0.645
+  - `hit`: 0.863, `moving`: 0.624, `hungry`: 0.572
+
+**Mechanism & Transition to Google Colab Free Tier GPU:**
+- The 40-minute timeout cap on Kaggle was consumed by baseline evaluation (21 min) + package setup (14 min) + XLA compilation (5.5 min), leaving insufficient time for training updates.
+- With Kaggle GPU quota at 0.16h remaining, execution transitions to Google Colab Free Tier GPU as specified in `AGENTS.md`.
 
 ## 7. Open problems and next steps
 
@@ -3400,6 +3438,11 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
     (`reason: 'pruned'`). **Fixed:** Run training directly inside the kernel (via `scripts/run_colab_round16.py` with streaming output),
     keeping the kernel continuously in `BUSY` state where Colab automatically maintains session liveness. Upgraded file monitor to use
     non-blocking HTTP REST endpoints (`colab ls` and `colab download`) so snapshot downloads never contend with the busy kernel.
+21. **Kaggle timeout cap (--timeout 2400) vs baseline evaluation duration.** In Round 35, remote package installation took 13.9 min,
+    the 3-cohort 192-life baseline evaluation took 20.8 min, and JIT compilation of `pmap_iteration` took 5.5 min. The 2,400s (40 min)
+    timeout expired right as update 1 completed (at 40.15 min), before intermediate checkpoints could be written. Short bounded
+    trials with full baseline evaluations require timeouts calibrated to baseline + update durations, or execution on platforms without
+    rigid 40-minute caps.
 
 
 ---
