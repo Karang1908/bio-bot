@@ -9,22 +9,19 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 19 Oct 08:15 Dubai (04:15 UTC): Round 31 COMPLETED & VERIFIED; Quota 5.45h GPU / 20.00h TPU remaining.**
-- **Completed Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round31`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round31) (version 3) on 2x Nvidia Tesla T4 GPU completed cleanly (`KernelWorkerStatus.COMPLETE`, 89.0 min runtime).
-  - All outputs fetched to `results/baby_dog_vision_approach_round31/`: `baby_dog.npz`, snapshots at 98k, 196k, 294k, 393k, 491k, 589k steps, `practice.json`, and `log.txt`.
-  - Checkpoint SHA256 hashes verified:
-    - `baby_dog_step_0000098304.npz`: `91f277e1195b81df47b26b61c64c1813df6bfab41f3954349bedc8a43ca42b3b`
-    - `baby_dog_step_0000196608.npz`: `b2677a290559108e7e53a57e34760a1f7adc1aa770fea539cb5bb18652e5dec3`
-    - `baby_dog_step_0000294912.npz`: `f2e40acaf306cb6f107dd5f524bff949683a46db5a630e8b5a9603f07d6eecd6`
-    - `baby_dog_step_0000393216.npz`: `6e557929e212207328bc6eae60e62f5de72823763ba1cbe879acfafc0f052b05`
-    - `baby_dog_step_0000491520.npz`: `e8b6cf40b94f5112edb5a70f9179f2890886837a9175038545f31a4939dae76d`
-    - `baby_dog_step_0000589824.npz`: `41e8021ce2e1123783530341f6202e85261db1417389d2454b49aa380d0702e3`
-    - `baby_dog.npz`: `393ca8571c1a6acf33fbb49f2f6696a94890edc7dfb7927573ad6d3b46c36ccd`
-  - Key Measured Results (across 192 lives per eval, help strictly 0.00 from rest):
-    1. **100% Motor Retention Preserved**: Walk (+0.415 m/s), pace (+0.574 m/s), run (+0.563 m/s), turn-left (+1.320 rad/s), turn-right (-1.133 rad/s), sit (0.502 / 0.621), lie-down (0.034 / 0.962), falls 1.05 / 13s. Run speed accelerated by +0.026 m/s.
-    2. **Target Arrival**: Ball reached 5.73% (11/192) at 0.10M and 0.60M (Cohort 2 peaked at 9.38% (6/64)). Owner reached 8.85% (17/192) at baseline (Cohort 3 peaked at 15.63% (10/64)), 6.77% (13/192) at 0.10M, 6.25% (12/192) at 0.40M and 0.50M. Combined arrival: 24/384 (6.25%) at 0.10M.
-    3. **Causal Mechanism Discovered**: The arrival rates (~5% ball, ~7-9% owner) match the exact geometric chance rate of a forward straight-line trot intersecting a stationary target randomly positioned on the circle ($2 \times \text{near\_of} / 2\pi r = 4.5\%$ for ball, $8.7\%$ for owner). While sensory perception of target angle is high (`ball-ahead` 0.709, `owner-ahead` 0.660), forward motion reward heavily out-competed turning reward during practice, leading the policy to trot straight rather than steer into alignment when misaligned.
-- **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **5.45 hours remaining** (resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
+**Current state, 19 Oct 08:25 Dubai (04:25 UTC): Round 32 Preflight VERIFIED; Round 32 GPU Training ACTIVE on Kaggle 2x T4 GPU; Quota 5.35h GPU / 20.00h TPU remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round32`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round32) (version 1) on 2x Nvidia Tesla T4 GPU.
+  - Job parameters: 589,824 steps (36 updates $\times$ 16,384 steps), 512 envs (256/GPU), 6 evaluations (every 6 updates = ~98k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
+  - Architectural Innovations for Round 32 (Addressing the Straight-Line Collision Deficit):
+    1. **Active Yaw Turning Reward Dominance (`yaw_pay = 25.0`, `face_pay = 20.0`)**: Elevates turning reward from $+5.4/\text{s} \to +54.0/\text{s}$ during active reorientation. Turning toward the target now matches forward sprint reward, breaking the straight-trot attractor.
+    2. **Misaligned Forward Surge Penalty (`misalign_cost = 8.0`)**: Penalizes forward translation when heading is misaligned with the target (`(1.0 - align_gate) * v_fwd`). Running away or trotting blind into empty space now incurs negative reward, forcing the policy to pivot in place ($v_{\text{fwd}} \approx 0$) before engaging forward sprint.
+    3. **Preserved Gallop Sprint & Supercharged Target Payoffs**: Retains `sprint_pay = 40.0` ($v_{\text{fwd}} > 0.42\text{ m/s}$), `fwd_pay = 45.0`, `task_pay = 45.0`, `reach_pay = 80.0`, `prox_pay = 20.0`, and `align_floor = 0.25`.
+    4. **Preserved Decoupled Stability**: `roll_cost = 3.0`, `side_cost = 1.0`, `upright_cost = 0.0`, and `task_fall_cost = 3.0`.
+  - Resumed from candidate `baby_dog_step_0000098304.npz` (SHA256 `dc964638c87ba65a3ed64ed60347a8efe413cf618fcd33ee33d54c9353ff6bb2`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round30`.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+  - Mocap dataset: `go2_dog_motions.npz` attached via `--dataset bio-bot-dog-mocap`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round32-preflight-check`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round32-preflight-check) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round32_preflight_check/`. All assertions passed, candidate SHA256 verified (`dc964638…`), checkpoint confirmed (`after 0.1M steps`).
+- **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **5.35 hours remaining** (resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
 
