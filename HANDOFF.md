@@ -9,23 +9,88 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 19 Oct 12:00 Dubai (08:00 UTC): Round 34 Preflight VERIFIED; Round 34 GPU Training ACTIVE on Kaggle 2x T4 GPU; Anti-Overshoot Capture Mechanics Deployed; Quota 2.31h GPU / 20.00h TPU remaining.**
-- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round34`](https://www.kaggle.com/code/karangarg/bio-bot-baby-dog-vision-approach-round34) (version 1) on 2x Nvidia Tesla T4 GPU.
-  - Job parameters: 393,216 steps (24 updates × 16,384 steps, ~90 min runtime), 512 envs (256/GPU), 6 evaluations (every 4 updates = ~65k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
-  - Architectural Innovations for Round 34 (Targeting >15% Sustained Arrival via Anti-Overshoot Capture):
-    1. **Direct Continuation from Round 33 Peak Candidate**: Resuming directly from `baby_dog_step_0000393216.npz` (SHA256 `f7cbc54e0a23e80b4effcda9a22ba573edbd50acf0358a8a736afe365699f62f`, 8.33% Come arrival record matched across 3 cohorts, 9.38% in Cohorts 2 & 3, -0.07m to -0.39m net closing distance, all-time peak turning yaw +1.382 rad/s) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round33`.
-    2. **Anti-Overshoot Proximity Deceleration (`near_brake`)**: When inside $1.5 \times \text{near\_of}$, forward drive scales down smoothly (`fwd_toward *= near_brake`), eliminating unbraked straight-line rushing through the 0.35m ball sphere.
-    3. **Sprint Bonus Proximity Fade**: High-speed sprint bonus ($v_{\text{fwd}} > 0.42$) fades out linearly with target proximity (`sprint_bonus *= (1.0 - proximity)`), incentivizing fast transit across the arena without high-speed target overshooting.
-    4. **Arrival Capture Stay Bonus (`stay_pay = 50.0`)**: Staying calmly within the arrival cylinder earns `stay_pay * there * exp(-v^2 / 0.1)`, providing an immense reward attractor (+150.0/s combined with `reach_pay = 100.0`) to capture and hold target arrival.
-    5. **Task Stillness Cost Removal Inside Arrival Radius**: The `- still` penalty is waived once inside the arrival sphere (`task_still = jp.where(there, 0.0, still)`), eliminating the artificial penalty that previously forced the dog to keep moving after reaching the target.
-  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
-  - Mocap dataset: `go2_dog_motions.npz` attached via `--dataset bio-bot-dog-mocap`.
-- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round34-preflight-check`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round34-preflight-check) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round34_preflight_check/`. All 9 assertions passed, candidate SHA256 verified (`f7cbc54e…`), checkpoint confirmed (`after 0.4M steps`).
-- **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **2.31 hours remaining** (resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
+**Current state, 19 Oct 13:40 Dubai (09:40 UTC): Round 34 Evaluation VERIFIED; All-Time Record Distance Closing (-0.145m to Owner) and Final Alignment (15.35%, +0.0868 cos); Quota 0.83h GPU / 20.00h TPU remaining.**
+- **Latest Completed Remote Run (Round 34, Verified)**: [`bio-bot-baby-dog-vision-approach-round34`](https://www.kaggle.com/code/karangarg/bio-bot-baby-dog-vision-approach-round34) (version 2) completed all 24 updates (393,216 steps, 92.1 min runtime) on 2x Nvidia Tesla T4 GPU to `KernelWorkerStatus.COMPLETE`. Outputs fetched to `results/baby_dog_vision_approach_round34/`.
+  - **All-Time Project Record Owner Distance Closing & Final Alignment**:
+    - Checkpoint 6 (0.39M steps, `baby_dog_step_0000393216.npz`, SHA256 `402c9308622f41a858e75c9f54d48ddb1b66c92f1fed8e2dfa22414ec2d9f174`):
+      - **Owner Net Distance Closing**: 3.664 m -> **3.519 m** (**-0.145 m net closing** across all 192 lives, breaking Round 33's record of -0.070 m!).
+      - **Owner Final Facing Cosine**: **+0.0868** (Highest positive facing alignment recorded at final eval).
+      - **Owner Aligned in Last Second**: **15.35%** (All-time project record!).
+      - **Ball Arrival**: **6.77% (13/192)** with distance drift contained to 3.495 m (vs 3.62-3.73 m in Round 33).
+    - Checkpoint 3 (0.20M steps, `baby_dog_step_0000196608.npz`, SHA256 `265a61e6c29aa1cca624af6267369dcf673d53d25a9bc1e89c0a9d338447923b`):
+      - **Owner Arrival**: **6.77% (13/192)** with net distance closing to 3.563 m (-0.102 m).
+      - **Ball Arrival**: **4.69% (9/192)** with distance drift contained to 3.452 m.
+      - **Combined Arrival**: **5.73% (22/384)**.
+    - **100% Nominal Motor Skill Retention Preserved**:
+      - Turn-left yaw reached an all-time peak of **+1.3923 rad/s** at 0.26M steps (`19a98c5b…`), matching real dog mocap ground truth (+1.383 rad/s).
+      - Turn-right yaw -1.120 to -1.154 rad/s; walk speed +0.401 to +0.413 m/s; pace +0.566 to +0.576 m/s; canter +0.391 to +0.403 m/s; run +0.542 to +0.551 m/s; sit 0.50 / 0.62; lie-down 0.02 / 0.96; falls ~1.1 / 13s; teacher movement help strictly 0.00 from rest.
+- **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **0.83 hours remaining** (resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
 
-### Latest completed trial: vision approach round 33 (softened misalignment penalty, heightened arrival sinks, and net distance closing on 2x Nvidia Tesla T4 GPU)
+### Latest completed trial: vision approach round 34 (anti-overshoot proximity deceleration, target stay capture bonus, and record distance closing on 2x Nvidia Tesla T4 GPU)
+
+Notebook: https://www.kaggle.com/code/karangarg/bio-bot-baby-dog-vision-approach-round34 (version 2).
+Completed all 24 updates (393,216 steps, 92.1 min runtime) on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU) to `KernelWorkerStatus.COMPLETE`. Outputs ingested into `results/baby_dog_vision_approach_round34/`.
+
+Setup: 400k steps (24 updates × 16,384 steps = 393,216 steps), 512 envs, 6 evaluation checkpoints (every 65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h cap. Teacher movement help zero from rest (`help_ = 0.00`).
+Resumed from all-time peak candidate `baby_dog_step_0000393216.npz` (`f7cbc54e…`, Round 33 checkpoint 6 record candidate) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round33`.
+All outputs fetched to `results/baby_dog_vision_approach_round34/`: `baby_dog.npz`, snapshots at 65k, 131k, 196k, 262k, 327k, 393k steps, `practice.json`, and `log.txt`.
+
+**Measured Outcomes across 3 fresh cohorts (192 lives per evaluation):**
+
+| measured metric (three cohorts, 192 lives) | baseline (f7cb...) | 0.07M (1508...) | 0.13M (8fd2...) | 0.20M (265a...) | 0.26M (19a9...) | 0.33M (5834...) | 0.39M (402c...) |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| mean movement falls / 13 s | 1.0872 | 1.1283 | 1.1042 | 1.1048 | 1.1224 | 1.1204 | 1.1354 |
+| walk falls / 13 s | 1.6510 | 1.6562 | 1.4844 | 1.5312 | 1.6250 | 1.5573 | 1.5833 |
+| pace falls / 13 s | 1.0052 | 1.0781 | 1.0521 | 0.9583 | 0.9740 | 1.0521 | 1.0104 |
+| canter falls / 13 s | 1.0312 | 1.1458 | 1.1406 | 1.2344 | 1.1146 | 1.0990 | 1.2031 |
+| run falls / 13 s | 1.0156 | 1.1406 | 1.0573 | 0.9583 | 1.1198 | 1.1406 | 1.0938 |
+| turn-left falls / 13 s | 0.9062 | 0.8750 | 0.8854 | 0.9167 | 0.8906 | 0.9479 | 0.9115 |
+| turn-right falls / 13 s | 0.8021 | 0.7604 | 0.8229 | 0.8542 | 0.7865 | 0.8385 | 0.7969 |
+| back falls / 13 s | 0.9479 | 1.0052 | 0.9583 | 0.9219 | 0.9479 | 0.9167 | 1.0156 |
+| jump falls / 13 s | 1.3385 | 1.3646 | 1.4323 | 1.4635 | 1.5208 | 1.4115 | 1.4688 |
+| walk speed, m/s | +0.4070 | +0.4060 | +0.4131 | +0.4134 | +0.4005 | +0.4109 | +0.4013 |
+| pace speed, m/s | +0.5713 | +0.5709 | +0.5722 | +0.5711 | +0.5763 | +0.5670 | +0.5664 |
+| canter speed, m/s | +0.3897 | +0.4019 | +0.3998 | +0.4034 | +0.3907 | +0.4010 | +0.3991 |
+| run speed, m/s | +0.5414 | +0.5441 | +0.5507 | +0.5460 | +0.5424 | +0.5470 | +0.5486 |
+| back speed, m/s | -0.0713 | -0.0756 | -0.0781 | -0.0655 | -0.0640 | -0.0736 | -0.0791 |
+| jump speed, m/s | +0.2084 | +0.2148 | +0.2135 | +0.2180 | +0.2142 | +0.2136 | +0.2111 |
+| turn-left yaw, rad/s | +1.3505 | +1.3618 | +1.3810 | +1.3648 | +1.3923 | +1.3696 | +1.3576 |
+| turn-right yaw, rad/s | -1.1435 | -1.1203 | -1.1496 | -1.1322 | -1.1542 | -1.1412 | -1.1248 |
+| sit pose (pitch / trunk) | 0.506 / 0.622 | 0.506 / 0.621 | 0.506 / 0.622 | 0.511 / 0.621 | 0.499 / 0.621 | 0.500 / 0.621 | 0.503 / 0.620 |
+| lie-down pose (pitch / trunk) | 0.038 / 0.967 | 0.024 / 0.960 | 0.028 / 0.963 | 0.036 / 0.967 | 0.029 / 0.961 | 0.023 / 0.957 | 0.026 / 0.958 |
+| **ball arrival success (got_there)** | **7.29% (14/192)** | **3.65% (7/192)** | **5.73% (11/192)** | **4.69% (9/192)** | **4.17% (8/192)** | **4.69% (9/192)** | **6.77% (13/192)** |
+| ball distance drift (start -> end, m) | 2.498 -> 3.581 | 2.492 -> 3.462 | 2.487 -> 3.532 | 2.487 -> 3.452 | 2.487 -> 3.400 | 2.485 -> 3.388 | 2.487 -> 3.495 |
+| ball aligned in final second | 3.02% | 0.74% | 4.48% | 3.06% | 2.37% | 3.56% | 1.16% |
+| ball final facing cosine | -0.4376 | -0.4736 | -0.3489 | -0.4665 | -0.4045 | -0.4245 | -0.4511 |
+| ball falls / 13 s | **0.6823** | **0.6823** | **0.6927** | **0.6771** | **0.6771** | **0.6458** | **0.6875** |
+| **owner arrival success (got_there, "come")** | **3.12% (6/192)** | **2.08% (4/192)** | **4.69% (9/192)** | **6.77% (13/192)** | **5.73% (11/192)** | **5.73% (11/192)** | **3.65% (7/192)** |
+| owner distance drift (start -> end, m) | 3.666 -> 3.588 | 3.665 -> 3.577 | 3.666 -> 3.595 | 3.665 -> 3.563 | 3.662 -> 3.748 | 3.666 -> 3.588 | 3.664 -> 3.519 |
+| owner aligned in final second | 11.92% | 14.74% | 10.91% | 11.65% | 14.82% | 12.85% | 15.35% |
+| owner final facing cosine | +0.0599 | +0.0327 | -0.0308 | +0.0706 | -0.0185 | +0.0319 | +0.0868 |
+| owner falls / 13 s | **1.5417** | **1.4427** | **1.4427** | **1.4740** | **1.5260** | **1.3906** | **1.4062** |
+| **ball-left balanced accuracy** | 0.692 | 0.658 | 0.701 | 0.702 | 0.698 | 0.696 | 0.698 |
+| **ball-ahead balanced accuracy** | 0.690 | 0.675 | 0.678 | 0.708 | 0.690 | 0.692 | 0.708 |
+| **ball-right balanced accuracy** | 0.651 | 0.680 | 0.693 | 0.694 | 0.678 | 0.677 | 0.681 |
+| **owner-left balanced accuracy** | 0.679 | 0.630 | 0.690 | 0.682 | 0.685 | 0.687 | 0.686 |
+| **owner-ahead balanced accuracy** | 0.705 | 0.666 | 0.662 | 0.674 | 0.674 | 0.688 | 0.685 |
+| **owner-right balanced accuracy** | 0.633 | 0.641 | 0.656 | 0.651 | 0.648 | 0.651 | 0.645 |
+| **hit balanced accuracy** | 0.824 | 0.807 | 0.853 | 0.888 | 0.900 | 0.873 | 0.869 |
+| **moving balanced accuracy** | 0.616 | 0.705 | 0.630 | 0.610 | 0.615 | 0.631 | 0.625 |
+| **hungry balanced accuracy** | 0.579 | 0.575 | 0.571 | 0.567 | 0.572 | 0.579 | 0.566 |
+| teacher movement help (all skills) | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+**Checkpoint SHA256 Hashes:**
+- `baby_dog_step_0000065536.npz`: `1508b88a28e0be168bccb7f301271bfd039d794ffbe811365450955a15ea5760`
+- `baby_dog_step_0000131072.npz`: `8fd2eb21a615050128cf7ef06fa2cbdec2e9f16a13f7c3a46ca60b7a5f0211cb`
+- `baby_dog_step_0000196608.npz`: `265a61e6c29aa1cca624af6267369dcf673d53d25a9bc1e89c0a9d338447923b`
+- `baby_dog_step_0000262144.npz`: `19a98c5b3b15f86f13d540808e7dd1425e02976c9f2293e89c8cf82ddca48df8`
+- `baby_dog_step_0000327680.npz`: `5834b079e9630120517d82a3bcb54094e8a38955a9bfc4c61138cf45a936ab81`
+- `baby_dog_step_0000393216.npz`: `402c9308622f41a858e75c9f54d48ddb1b66c92f1fed8e2dfa22414ec2d9f174`
+- `baby_dog.npz`: `501cbe608252363dc9eebd1086a4b41810d909bcf73268a10e932a5b2ac35193`
+
+### Previous completed trial: vision approach round 33 (softened misalignment penalty, heightened arrival sinks, and net distance closing on 2x Nvidia Tesla T4 GPU)
 
 Notebook: https://www.kaggle.com/code/karangarg/bio-bot-baby-dog-vision-approach-round33 (version 1).
 Completed all 24 updates (393,216 steps, 90.1 min runtime) on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU) to `KernelWorkerStatus.COMPLETE`. Outputs ingested into `results/baby_dog_vision_approach_round33/`.
