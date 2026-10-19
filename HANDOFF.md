@@ -9,16 +9,18 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 19 Oct 10:10 Dubai (06:10 UTC): Round 32 COMPLETED, EVALUATED & VERIFIED: Checkpoint 4 (0.40M steps, `d23d8f2c…`) sets ALL-TIME PROJECT RECORD on ball (8.85%, 17/192) and combined (8.59%, 33/384) with 100% nominal motor skill retention; Promoted to active restart base; Quota 3.82h GPU / 20.00h TPU remaining.**
-- **Latest Completed Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round32`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round32) (version 1) on 2x Nvidia Tesla T4 GPU.
-  - Completed all 36 updates (589,824 steps, 91.0 min runtime) to `KernelWorkerStatus.COMPLETE`. All outputs fetched to `results/baby_dog_vision_approach_round32/`.
-  - Checkpoint 4 (`baby_dog_step_0000393216.npz`, SHA256: `d23d8f2c91d7f9d83f30d408a62e40285864046e91a3462b70755ac83008ef2e`) achieved:
-    - **Ball Arrival:** **8.85% (17/192)** across 3 cohorts — NEW ALL-TIME PROJECT RECORD ON BALL.
-    - **Owner Arrival:** **8.33% (16/192)** across 3 cohorts.
-    - **Combined Target Arrival:** **8.59% (33/384)** across 3 cohorts — NEW ALL-TIME PROJECT RECORD COMBINED.
-    - **Net Distance Reduction to Owner:** 3.667 m -> 3.570 m (-0.097 m closing distance, first net distance closing in project history).
-    - **100% Nominal Motor Skill Retention Preserved:** walk (+0.398 m/s), pace (+0.568 m/s), canter (+0.398 m/s), run (+0.549 m/s), turn-left (+1.328 rad/s), turn-right (-1.141 rad/s), sit (0.505 / 0.620), lie-down (0.033 / 0.966), falls 1.12 / 13s, teacher help strictly 0.00.
-  - Active Restart Promotion: Candidate `baby_dog_step_0000393216.npz` (`d23d8f2c…`) is officially promoted as the active restart base for Round 33.
+**Current state, 19 Oct 10:15 Dubai (06:15 UTC): Round 33 Preflight VERIFIED; Round 33 GPU Training ACTIVE on Kaggle 2x T4 GPU; Quota 3.82h GPU / 20.00h TPU remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round33`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round33) (version 1) on 2x Nvidia Tesla T4 GPU.
+  - Job parameters: 393,216 steps (24 updates $\times$ 16,384 steps, ~60 min runtime), 512 envs (256/GPU), 6 evaluations (every 4 updates = ~65k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
+  - Architectural Innovations for Round 33 (Targeting >15% Sustained Arrival):
+    1. **Direct Continuation from All-Time Project Record Candidate**: Resuming directly from `baby_dog_step_0000393216.npz` (SHA256 `d23d8f2c91d7f9d83f30d408a62e40285864046e91a3462b70755ac83008ef2e`, Round 32 record holder: 8.85% ball, 8.33% come, 8.59% combined, -9.7 cm net distance reduction to owner) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round32`.
+    2. **Softened Misaligned Surge Penalty (`misalign_cost = 4.0`, halved from 8.0)**: Relieves excessive negative policy gradient during turning gait cycles ($v_{\text{fwd}} \sim 0.15\text{ m/s}$) while preserving strong penalty against blind forward charging into empty space.
+    3. **Heightened Arrival Payoffs (`reach_pay = 100.0`, `task_pay = 50.0`, `prox_pay = 25.0`)**: Maximizes policy gradient pull toward and within the arrival cylinder (`near_of`).
+    4. **Preserved Active Turning Dominance & Gallop Sprint**: Retains `yaw_pay = 25.0`, `face_pay = 20.0`, `sprint_pay = 40.0` ($v_{\text{fwd}} > 0.42\text{ m/s}$), `fwd_pay = 45.0`, and `align_floor = 0.25`.
+    5. **Targeted 24-Update Duration (393k Steps)**: Matched to the exact empirical learning peak discovered in Round 32, preventing late-stage policy degradation.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+  - Mocap dataset: `go2_dog_motions.npz` attached via `--dataset bio-bot-dog-mocap`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round33-preflight-check`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round33-preflight-check) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round33_preflight_check/`. All 11 assertions passed, candidate SHA256 verified (`d23d8f2c…`), checkpoint confirmed (`after 0.4M steps`).
 - **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **3.82 hours remaining** (resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
