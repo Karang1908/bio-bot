@@ -9,17 +9,18 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 19 Oct 11:50 Dubai (07:50 UTC): Round 33 COMPLETED; 8.33% Come Arrival Record Matched with Net Distance Reduction (-0.07m to -0.39m); Checkpoint 4 Reached 6.25% Ball / 7.29% Come; 100% Motor Skills Intact; Quota 2.31h GPU / 20.00h TPU remaining.**
-- **Completed Trial**: [`bio-bot-baby-dog-vision-approach-round33`](https://www.kaggle.com/code/karangarg/bio-bot-baby-dog-vision-approach-round33) (version 1) on 2x Nvidia Tesla T4 GPU.
-  - Job parameters: 393,216 steps (24 updates × 16,384 steps, 90.1 min runtime), 512 envs (256/GPU), 6 evaluations (every 4 updates = ~65k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest), completed to `KernelWorkerStatus.COMPLETE`.
-  - All outputs fetched to `results/baby_dog_vision_approach_round33/`: `baby_dog.npz`, snapshots at 65k, 131k, 196k, 262k, 327k, 393k steps, `practice.json`, and `log.txt`.
-  - Key Outcomes:
-    1. **Owner Arrival ("Come")**: **8.33% (16/192)** at 0.39M steps (`f7cbc54e…`), matching the all-time project record across 3 independent cohorts. Cohorts 2 and 3 both reached **9.38% (6/64)**, with Cohort 2 closing net distance from 3.90 m -> 3.51 m (-0.39 m net closing!).
-    2. **Balanced Performance at Checkpoint 4 (0.26M steps, `864fc52a…`)**: Ball arrival **6.25% (12/192)** (Cohort 3 reached **9.38% (6/64)** with ending distance closing to 3.20 m); Owner arrival **7.29% (14/192)**; Combined arrival **6.77% (26/384)**.
-    3. **100% Nominal Motor Skill Retention Preserved**: walk (+0.412 m/s), pace (+0.570 m/s), canter (+0.395 m/s), run (+0.551 m/s), turn-left (+1.350 rad/s), turn-right (-1.131 rad/s), sit (0.502 / 0.621), lie-down (0.031 / 0.965), falls 1.09 / 13s, teacher movement help strictly 0.00 across all skills.
-    4. **Active Restart Candidates**:
-       - `baby_dog_step_0000393216.npz` (`f7cbc54e0a23e80b4effcda9a22ba573edbd50acf0358a8a736afe365699f62f`, Round 33: 8.33% Come, net distance reduction -0.07m to -0.39m, peak turning yaw +1.382 rad/s).
-       - `baby_dog_step_0000393216.npz` (`d23d8f2c91d7f9d83f30d408a62e40285864046e91a3462b70755ac83008ef2e`, Round 32: 8.85% Ball record, 8.33% Come, 8.59% combined).
+**Current state, 19 Oct 12:00 Dubai (08:00 UTC): Round 34 Preflight VERIFIED; Round 34 GPU Training ACTIVE on Kaggle 2x T4 GPU; Anti-Overshoot Capture Mechanics Deployed; Quota 2.31h GPU / 20.00h TPU remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round34`](https://www.kaggle.com/code/karangarg/bio-bot-baby-dog-vision-approach-round34) (version 1) on 2x Nvidia Tesla T4 GPU.
+  - Job parameters: 393,216 steps (24 updates × 16,384 steps, ~90 min runtime), 512 envs (256/GPU), 6 evaluations (every 4 updates = ~65k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
+  - Architectural Innovations for Round 34 (Targeting >15% Sustained Arrival via Anti-Overshoot Capture):
+    1. **Direct Continuation from Round 33 Peak Candidate**: Resuming directly from `baby_dog_step_0000393216.npz` (SHA256 `f7cbc54e0a23e80b4effcda9a22ba573edbd50acf0358a8a736afe365699f62f`, 8.33% Come arrival record matched across 3 cohorts, 9.38% in Cohorts 2 & 3, -0.07m to -0.39m net closing distance, all-time peak turning yaw +1.382 rad/s) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round33`.
+    2. **Anti-Overshoot Proximity Deceleration (`near_brake`)**: When inside $1.5 \times \text{near\_of}$, forward drive scales down smoothly (`fwd_toward *= near_brake`), eliminating unbraked straight-line rushing through the 0.35m ball sphere.
+    3. **Sprint Bonus Proximity Fade**: High-speed sprint bonus ($v_{\text{fwd}} > 0.42$) fades out linearly with target proximity (`sprint_bonus *= (1.0 - proximity)`), incentivizing fast transit across the arena without high-speed target overshooting.
+    4. **Arrival Capture Stay Bonus (`stay_pay = 50.0`)**: Staying calmly within the arrival cylinder earns `stay_pay * there * exp(-v^2 / 0.1)`, providing an immense reward attractor (+150.0/s combined with `reach_pay = 100.0`) to capture and hold target arrival.
+    5. **Task Stillness Cost Removal Inside Arrival Radius**: The `- still` penalty is waived once inside the arrival sphere (`task_still = jp.where(there, 0.0, still)`), eliminating the artificial penalty that previously forced the dog to keep moving after reaching the target.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+  - Mocap dataset: `go2_dog_motions.npz` attached via `--dataset bio-bot-dog-mocap`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round34-preflight-check`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round34-preflight-check) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round34_preflight_check/`. All 9 assertions passed, candidate SHA256 verified (`f7cbc54e…`), checkpoint confirmed (`after 0.4M steps`).
 - **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **2.31 hours remaining** (resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
