@@ -68,6 +68,7 @@ TASKS = ["ball", "come"]  # "ball": go to the ball; "come": go to the owner
 TASK_PAY = 50.0          # reward per m/s of getting closer to what was asked (decisive forward drive)
 REACH_PAY = 100.0        # reward per second with its nose at the ball (or by the owner)
 PROX_PAY = 25.0          # reward per second within proximity funnel (smooth shaping toward arrival)
+STAY_PAY = 50.0          # reward bonus for staying calmly inside arrival radius (prevents overshoot)
 NEAR = {"ball": 0.35, "come": 1.0}   # m: at the ball, by the owner
 HIT_COST = 2.0           # being hit by a thrown thing costs about as much as a fall
 # drives (DogMind step 6): free time when nobody speaks, hunger (the battery) and curiosity
@@ -1589,14 +1590,18 @@ def practice(args, bd, out: Path) -> dict:
                 turned = jp.where(done, 0.0, jp.clip((cos_facing - facing_before) / bd.CTRL_DT, -2.0, 2.0))
                 align_floor = getattr(args, "align_floor", ALIGN_FLOOR)
                 align_gate = jp.clip((cos_facing - align_floor) / (1.0 - align_floor + 1e-6), 0.0, 1.0)
-                fwd_toward = jp.maximum(0.0, st["v_fwd"]) * align_gate
+                near_brake = jp.where(there, 0.0, jp.clip(min_gap1 / (1.5 * near_of[ins] + 1e-6), 0.0, 1.0))
+                fwd_toward = jp.maximum(0.0, st["v_fwd"]) * align_gate * near_brake
                 sprint_floor = getattr(args, "sprint_floor", SPRINT_FLOOR)
                 sprint_pay = getattr(args, "sprint_pay", SPRINT_PAY)
-                sprint_bonus = jp.maximum(0.0, st["v_fwd"] - sprint_floor) * align_gate
+                sprint_bonus = jp.maximum(0.0, st["v_fwd"] - sprint_floor) * align_gate * (1.0 - proximity)
                 yaw_dir = jp.clip(theta_bearing / 0.35, -1.0, 1.0)
                 yaw_toward = st["wz"] * yaw_dir
                 # the body scores "stand still" when no motion is asked; a task word asks it to go somewhere (turning or walking)
                 still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
+                stay_pay = getattr(args, "stay_pay", STAY_PAY)
+                stay_bonus = stay_pay * there * jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.1)
+                task_still = jp.where(there, 0.0, still)
                 face_pay = getattr(args, "face_pay", FACE_PAY)
                 task_pay = getattr(args, "task_pay", TASK_PAY)
                 reach_pay = getattr(args, "reach_pay", REACH_PAY)
@@ -1604,14 +1609,14 @@ def practice(args, bd, out: Path) -> dict:
                 fwd_pay = getattr(args, "fwd_pay", FWD_PAY)
                 yaw_pay = getattr(args, "yaw_pay", YAW_PAY)
                 misalign_cost = getattr(args, "misalign_cost", MISALIGN_COST) * jp.maximum(0.0, st["v_fwd"]) * (1.0 - align_gate)
-                task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + prox_pay * proximity + fwd_pay * fwd_toward + sprint_pay * sprint_bonus + yaw_pay * yaw_toward - misalign_cost
+                task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + stay_bonus + prox_pay * proximity + fwd_pay * fwd_toward + sprint_pay * sprint_bonus + yaw_pay * yaw_toward - misalign_cost
                 if lesson == "perception":
                     task_reward = jp.zeros_like(closer)
                 upright_cost = getattr(args, "upright_cost", 0.0) * jp.clip(1.0 - env["d"].xmat[:, base, 2, 2], 0.0, 2.0)
                 roll_cost = getattr(args, "roll_cost", 3.0) * jp.clip(jp.abs(env["d"].xmat[:, base, 2, 1]), 0.0, 1.0)
                 side_cost = getattr(args, "side_cost", 1.0) * jp.clip(jp.abs(st["v_side"]), 0.0, 2.0)
                 task_fall_cost = getattr(args, "task_fall_cost", 3.0) * st["fell"]
-                r = r + is_task[ins] * (task_reward - still - upright_cost - roll_cost - side_cost) * bd.CTRL_DT - is_task[ins] * task_fall_cost
+                r = r + is_task[ins] * (task_reward - task_still - upright_cost - roll_cost - side_cost) * bd.CTRL_DT - is_task[ins] * task_fall_cost
             if free:                                     # free time is its own: nothing asks it to stand still
                 still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
                 curiosity = CURIOSITY * progress if lesson == "all" else jp.zeros_like(progress)
@@ -2366,6 +2371,7 @@ def main() -> None:
     ap.add_argument("--task_pay", type=float, default=TASK_PAY, help="practice: reward per m/s closing distance to task target")
     ap.add_argument("--reach_pay", type=float, default=REACH_PAY, help="practice: reward per second within arrival radius")
     ap.add_argument("--prox_pay", type=float, default=PROX_PAY, help="practice: reward per second within proximity funnel")
+    ap.add_argument("--stay_pay", type=float, default=STAY_PAY, help="practice: reward bonus for staying calmly inside arrival radius")
     ap.add_argument("--face_pay", type=float, default=FACE_PAY, help="practice: reward per rad/s turning towards task target")
     ap.add_argument("--fwd_pay", type=float, default=FWD_PAY, help="practice: reward for forward speed aligned with task target")
     ap.add_argument("--sprint_pay", type=float, default=SPRINT_PAY, help="practice: reward bonus for forward speed exceeding gallop threshold")
