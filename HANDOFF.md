@@ -9,17 +9,18 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 19 Oct 04:35 Dubai (00:35 UTC): Round 29 COMPLETED and VERIFIED; Quota 8.37h GPU / 20.00h TPU remaining.**
-- **Latest Completed Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round29`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round29) (version 1) on 2x Nvidia Tesla T4 GPU.
-  - Ran all 36 updates (589,824 steps, 90.1 min runtime) to `KernelWorkerStatus.COMPLETE`. All outputs fetched to `results/baby_dog_vision_approach_round29/`.
-  - Evaluated accelerated in-place pivot (`yaw_pay = 10.0`, `face_pay = 8.0`) and supercharged straight-line sprint reward (`fwd_pay = 35.0`).
-  - **Physical Kinematic Ceiling Discovered**: Despite doubling yaw/face pay, turning yaw rate remained invariant at $+1.34\text{ to }+1.35\text{ rad/s}$ (left) and $-1.13\text{ to }-1.17\text{ rad/s}$ (right), demonstrating that $\sim 1.35\text{ rad/s}$ is a hard physical limit of quadruped leg stepping mechanics without tumbling.
-  - **Turn Dithering Imbalance Identified**: Paying $+13.5/\text{s}$ for in-place turning versus $+8.0/\text{s}$ for forward progress created an incentive for the policy to dither in-place facing the target rather than committing to an open gallop sprint across the distance.
-  - **Record-Low Come Falls**: Come task falls dropped to an all-time low of **1.1875 / 13 s** (at 0.6M steps), confirming heading alignment gating completely prevents centrifugal roll tripping.
-  - 100% nominal motor skills preserved: walk (+0.400 m/s), pace (+0.571 m/s), run (+0.563 m/s), turn-left (+1.353 rad/s), turn-right (-1.138 rad/s), sit (0.500 / 0.622), lie-down (0.029 / 0.962), teacher help strictly 0.00.
-- **Active Promoted Candidates**:
-  - `baby_dog_step_0000245760.npz` (SHA256 `7ffe2eb88a23de0cfaf4981a71eed785dd4be3db1d08824e9b6e8571e30281ee`): Overall project baseline record holder (8.33% ball, 7.29% come, 7.81% combined, cohort peaks at 12.50%).
-  - `baby_dog_step_0000589824.npz` (SHA256 `fe99734ce17121400b6d0e5c796b9aba8d70117c8b9234ec42b0a096f62265b4`): Round 29 lowest fall candidate (1.1875 come falls, 0.6719 ball falls, walk 0.400 m/s, run 0.563 m/s).
+**Current state, 19 Oct 04:40 Dubai (00:40 UTC): Round 30 Preflight VERIFIED; Round 30 GPU Training ACTIVE on Kaggle 2x T4 GPU; Quota 8.37h GPU / 20.00h TPU remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round30`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round30) (version 1) on 2x Nvidia Tesla T4 GPU.
+  - Job parameters: 589,824 steps (36 updates $\times$ 16,384 steps), 512 envs (256/GPU), 6 evaluations (every 6 updates = ~98k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
+  - Architectural Innovations for Round 30:
+    1. **7× Forward Sprint Reward Dominance**: Balanced turning reward (`yaw_pay = 4.0`, `face_pay = 4.0` paying $\approx +5.4/\text{s}$) with boosted forward progress (`task_pay = 35.0` paying $\approx +19.2/\text{s}$ and `fwd_pay = 35.0` paying $\approx +19.2/\text{s}$, total forward reward **$+38.5/\text{s}$**). Eliminates the turn-dithering local optimum of Round 29 by making sprinting decisively dominate.
+    2. **Smoothed Alignment Floor (`align_floor = 0.25`)**: Forward propulsion activates as soon as heading is within $75^\circ$ ($\cos \ge 0.25$), allowing the dog to advance simultaneously while rounding into heading and eliminating the 1.5s stationary pause.
+    3. **High Arrival Payoff (`reach_pay = 50.0`, `prox_pay = 16.0`)**: Strongly rewards entering the goal arrival radius.
+    4. **Preserved Decoupled Stability**: `roll_cost = 3.0`, `side_cost = 1.0`, `upright_cost = 0.0`, and `task_fall_cost = 3.0`.
+  - Resumed from project baseline record holder `baby_dog_step_0000245760.npz` (SHA256 `7ffe2eb88a23de0cfaf4981a71eed785dd4be3db1d08824e9b6e8571e30281ee`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round25`.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+  - Mocap dataset: `go2_dog_motions.npz` attached via `--dataset bio-bot-dog-mocap`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round30-preflight`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round30-preflight) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round30_preflight/`. All assertions passed, candidate SHA256 verified (`7ffe2eb8…`), checkpoint confirmed (`after 0.2M steps`).
 - **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **8.37 hours remaining** (resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
