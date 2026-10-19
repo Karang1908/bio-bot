@@ -65,9 +65,9 @@ JUMP_REWARD = 1.0        # reward per second with all four feet off the ground w
 SELF_MODEL = 0.5         # in the park: how much predicting its own senses counts (its model of itself)
 # goals in the park (DogMind step 5), scored by outcome only: nobody shows it how
 TASKS = ["ball", "come"]  # "ball": go to the ball; "come": go to the owner
-TASK_PAY = 35.0          # reward per m/s of getting closer to what was asked (decisive forward drive)
-REACH_PAY = 50.0         # reward per second with its nose at the ball (or by the owner)
-PROX_PAY = 16.0          # reward per second within proximity funnel (smooth shaping toward arrival)
+TASK_PAY = 45.0          # reward per m/s of getting closer to what was asked (decisive forward drive)
+REACH_PAY = 80.0         # reward per second with its nose at the ball (or by the owner)
+PROX_PAY = 20.0          # reward per second within proximity funnel (smooth shaping toward arrival)
 NEAR = {"ball": 0.35, "come": 1.0}   # m: at the ball, by the owner
 HIT_COST = 2.0           # being hit by a thrown thing costs about as much as a fall
 # drives (DogMind step 6): free time when nobody speaks, hunger (the battery) and curiosity
@@ -80,7 +80,10 @@ SAY = ["ball-left", "ball-ahead", "ball-right", "owner-left", "owner-ahead", "ow
        "hungry", "hot", "hit", "fallen", "moving"]
 VOICE = 3.0              # how much learning to say what is true counts (at 0.5 it barely trained seeing)
 FACE_PAY = 4.0           # "ball" / "come": reward per rad/s of turning to face what was asked
-FWD_PAY = 35.0           # "ball" / "come": reward for forward speed aligned with task target (straight gallop)
+FWD_PAY = 45.0           # "ball" / "come": reward for forward speed aligned with task target (straight gallop)
+SPRINT_PAY = 40.0        # "ball" / "come": reward bonus for forward speed exceeding gallop threshold (>0.42 m/s)
+SPRINT_FLOOR = 0.42      # "ball" / "come": forward velocity threshold for sprint bonus
+ALIGN_FLOOR = 0.25       # "ball" / "come": alignment cosine floor below which forward sprint reward is zero
 YAW_PAY = 4.0            # "ball" / "come": reward for yaw rate directed towards task target
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
@@ -1583,9 +1586,12 @@ def practice(args, bd, out: Path) -> dict:
                 there = (gap1 < near_of[ins]) | (head_gap1 < near_of[ins])
                 proximity = jp.clip((2.0 * near_of[ins] - min_gap1) / (2.0 * near_of[ins] + 1e-6), 0.0, 1.0)
                 turned = jp.where(done, 0.0, jp.clip((cos_facing - facing_before) / bd.CTRL_DT, -2.0, 2.0))
-                align_floor = getattr(args, "align_floor", 0.5)
+                align_floor = getattr(args, "align_floor", ALIGN_FLOOR)
                 align_gate = jp.clip((cos_facing - align_floor) / (1.0 - align_floor + 1e-6), 0.0, 1.0)
                 fwd_toward = jp.maximum(0.0, st["v_fwd"]) * align_gate
+                sprint_floor = getattr(args, "sprint_floor", SPRINT_FLOOR)
+                sprint_pay = getattr(args, "sprint_pay", SPRINT_PAY)
+                sprint_bonus = jp.maximum(0.0, st["v_fwd"] - sprint_floor) * align_gate
                 yaw_dir = jp.clip(theta_bearing / 0.35, -1.0, 1.0)
                 yaw_toward = st["wz"] * yaw_dir
                 # the body scores "stand still" when no motion is asked; a task word asks it to go somewhere (turning or walking)
@@ -1596,7 +1602,7 @@ def practice(args, bd, out: Path) -> dict:
                 prox_pay = getattr(args, "prox_pay", PROX_PAY)
                 fwd_pay = getattr(args, "fwd_pay", FWD_PAY)
                 yaw_pay = getattr(args, "yaw_pay", YAW_PAY)
-                task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + prox_pay * proximity + fwd_pay * fwd_toward + yaw_pay * yaw_toward
+                task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + prox_pay * proximity + fwd_pay * fwd_toward + sprint_pay * sprint_bonus + yaw_pay * yaw_toward
                 if lesson == "perception":
                     task_reward = jp.zeros_like(closer)
                 upright_cost = getattr(args, "upright_cost", 0.0) * jp.clip(1.0 - env["d"].xmat[:, base, 2, 2], 0.0, 2.0)
@@ -2360,12 +2366,14 @@ def main() -> None:
     ap.add_argument("--prox_pay", type=float, default=PROX_PAY, help="practice: reward per second within proximity funnel")
     ap.add_argument("--face_pay", type=float, default=FACE_PAY, help="practice: reward per rad/s turning towards task target")
     ap.add_argument("--fwd_pay", type=float, default=FWD_PAY, help="practice: reward for forward speed aligned with task target")
+    ap.add_argument("--sprint_pay", type=float, default=SPRINT_PAY, help="practice: reward bonus for forward speed exceeding gallop threshold")
+    ap.add_argument("--sprint_floor", type=float, default=SPRINT_FLOOR, help="practice: forward velocity threshold for sprint bonus")
     ap.add_argument("--yaw_pay", type=float, default=YAW_PAY, help="practice: reward for yaw rate directed towards task target")
     ap.add_argument("--upright_cost", type=float, default=0.0, help="practice: penalty for trunk tilt during task approach")
     ap.add_argument("--roll_cost", type=float, default=3.0, help="practice: penalty for lateral roll tilt during task approach")
     ap.add_argument("--side_cost", type=float, default=1.0, help="practice: penalty for lateral drift velocity during task approach")
     ap.add_argument("--task_fall_cost", type=float, default=3.0, help="practice: event penalty for falling during task approach")
-    ap.add_argument("--align_floor", type=float, default=0.25, help="practice: alignment cosine floor below which forward sprint reward is zero")
+    ap.add_argument("--align_floor", type=float, default=ALIGN_FLOOR, help="practice: alignment cosine floor below which forward sprint reward is zero")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--bias0", type=float, default=0.3)
     ap.add_argument("--goal_scale", type=float, default=2.0)
