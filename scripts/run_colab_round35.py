@@ -10,6 +10,7 @@ import sys
 
 os.environ["PYTHONUNBUFFERED"] = "1"
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 
 res_dir = Path("/content/bio-bot/results/colab_round35")
 res_dir.mkdir(parents=True, exist_ok=True)
@@ -53,7 +54,7 @@ cmd = [
     "--upright_cost", "0.0",
     "--task_fall_cost", "3.0",
     "--steps", "131072",
-    "--envs", "256",
+    "--envs", "128",
     "--evals", "2",
     "--eval_repeats", "3",
     "--seed", "0",
