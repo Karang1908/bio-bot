@@ -9,20 +9,21 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 19 Oct 23:15 Dubai (19:15 UTC): Round 35 Kaggle Baseline VERIFIED; Quota Exhausted on Kaggle GPU (0.16h remaining); Transitioning to Google Colab Free Tier GPU for Round 35 Execution.**
-- **Round 35 Kaggle Trial (Completed)**: [`bio-bot-baby-dog-vision-approach-round35`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round35) (version 1) on 2x Nvidia Tesla T4 GPU.
-  - Setup: 13.9 min package install; 20.8 min 3-cohort 192-life baseline evaluation (walk +0.404 m/s, turn-left +1.387 rad/s, sit 0.493/0.622, lie-down 0.032/0.961, ball 4.69%, come 4.69%, 100% nominal retention); JIT compilation ~5.5 min.
-  - At 40.15 min, hit the 2,400s timeout cap (`KernelWorkerStatus.CANCEL_ACKNOWLEDGED`). All logs and evaluation JSONs ingested to `results/baby_dog_vision_approach_round35/`.
-- **Remote Compute Quota (Verified via `kaggle quota`)**:
-  - Kaggle GPU quota: **29.84h used / 30.00h (0.16h / 9.6 min remaining)**, resetting 24 Oct 00:00 UTC. Kaggle GPU capacity is exhausted for multi-update runs.
-  - TPU quota: 20.00h remaining (lacks container networking on Kaggle VM).
-  - Google Colab Free Tier GPU: **Active, authenticated, 0.00 compute units spent, zero active sessions**, serving as primary compute platform per `AGENTS.md`.
+**Current state, 19 Oct 23:30 Dubai (19:30 UTC): Round 35 GPU Training ACTIVE on Google Colab Tesla T4 GPU (Session 'round35'); 1.2m Deceleration Zone Deployed; Streaming Execution Active; Quota: Kaggle GPU 0.16h (Exhausted), Colab Free Tier Active.**
+- **Active Remote Training Job (Colab Free GPU)**: Session `round35` on Nvidia Tesla T4 GPU (15 GB VRAM).
+  - Executing `scripts/run_colab_round35.py` with 14,400s timeout cap via persistent Jupyter kernel in `BUSY` state to prevent idle pruning.
+  - Job parameters: 131,072 steps (16 updates × 8,192 steps, ~75 min runtime), 256 envs (matching Kaggle per-device $B=256$, utilizing ~8.2 GiB VRAM), 2 evaluations (every 8 updates = ~65k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest).
+  - Checkpoint resume: Directly from all-time peak candidate `baby_dog_step_0000393216.npz` (SHA256 `402c9308622f41a858e75c9f54d48ddb1b66c92f1fed8e2dfa22414ec2d9f174`, verified).
+  - Active monitoring & sync: `scripts/colab_round35_monitor.py` running REST polls (`colab ls` and `colab download`) to ingest checkpoints and logs into `results/baby_dog_vision_approach_round35/`.
 - **Architectural Innovations for Round 35 (Targeting Sustained Arrival via Extended Ball Deceleration)**:
-  1. **Direct Continuation from Round 34 Peak Record Candidate**: Resuming directly from `baby_dog_step_0000393216.npz` (SHA256 `402c9308622f41a858e75c9f54d48ddb1b66c92f1fed8e2dfa22414ec2d9f174`, all-time record -0.145m owner closing, 15.35% alignment, +0.0868 cos, 6.77% ball arrival).
+  1. **Direct Continuation from Round 34 Peak Record Candidate**: Resuming directly from `baby_dog_step_0000393216.npz` (SHA256 `402c9308…`, all-time record -0.145m owner closing, 15.35% alignment, +0.0868 cos, 6.77% ball arrival).
   2. **Extended Deceleration Boundary (`brake_radius = jp.maximum(1.2, 1.5 * near_of[ins])`)**: In `train/baby_dog.py` ([commit `f8c875a`](https://github.com/Karang1908/bio-bot/commit/f8c875a)), `brake_radius` is extended to at least 1.2m, providing a 0.85m deceleration span (1.55s / 77 control ticks) for the ball.
   3. **Continuous Proximity & Deceleration Scaling**: `near_brake` and `(1.0 - proximity)` smoothly scale down from 1.0 at 1.2m to 0.0 at `near_of`, eliminating overshoot while retaining full sprinting across the arena.
   4. **Settling Stillness Waiver**: Task stillness penalty is waived when `there | (proximity > 0.8)`, allowing the dog to stand still calmly without penalty within the target settling cylinder.
-- **Next Step**: Launch Round 35 on Google Colab Free Tier GPU (single Tesla T4, `--envs 256` matching Kaggle per-device $B=256$, 131,072 steps = 16 updates, 2 evals, 4h timeout cap) with streaming execution to maintain kernel liveness and REST snapshot monitoring.
+- **Previous Kaggle Trial (Round 35)**: Ran on Kaggle 2x T4 GPU ([`bio-bot-baby-dog-vision-approach-round35`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round35)). Remote setup (14 min) + 3-cohort 192-life baseline evaluation (21 min) + JIT compilation (5.5 min) reached 2,400s timeout as update 1 finished. Baseline evaluation verified 100% nominal motor skill retention (walk +0.404 m/s, turn-left +1.387 rad/s, sit 0.493/0.622, lie-down 0.032/0.961, ball 4.69%, come 4.69%). All logs archived in `results/baby_dog_vision_approach_round35/`.
+- **Remote Compute Quota (Verified)**:
+  - Kaggle GPU quota: **29.84h used / 30.00h (0.16h / 9.6 min remaining)**, resetting 24 Oct 00:00 UTC. Kaggle GPU capacity is exhausted.
+  - Google Colab Free Tier GPU: **Active, authenticated, 0.00 compute units spent, session 'round35' BUSY**, serving as primary compute platform per `AGENTS.md`.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
 
