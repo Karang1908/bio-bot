@@ -10,7 +10,7 @@ Read this file first, then:
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
 **Current state, 19 Oct 06:25 Dubai (02:25 UTC): Round 31 Preflight VERIFIED; Round 31 GPU Training ACTIVE on Kaggle 2x T4 GPU; Quota 6.87h GPU / 20.00h TPU remaining.**
-- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round31`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round31) (version 1) on 2x Nvidia Tesla T4 GPU.
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round31`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round31) (version 3) on 2x Nvidia Tesla T4 GPU.
   - Job parameters: 589,824 steps (36 updates $\times$ 16,384 steps), 512 envs (256/GPU), 6 evaluations (every 6 updates = ~98k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest), timeout 7,200s (120 min).
   - Architectural Innovations for Round 31:
     1. **Gallop Sprint Bonus (`sprint_pay = 40.0`, `sprint_floor = 0.42`)**: In addition to linear forward propulsion, rewards forward velocity exceeding the gallop threshold ($>0.42\text{ m/s}$) when aligned (`align_gate * sprint_bonus`). Creates an overwhelming $+18.7/\text{s}$ incentive to run at full speed ($0.55\text{ m/s}$), ensuring the quadruped covers $3.5\text{m}+$ distances before the 9-second window expires.
