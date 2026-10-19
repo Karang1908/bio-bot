@@ -9,21 +9,17 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 19 Oct 13:40 Dubai (09:40 UTC): Round 34 Evaluation VERIFIED; All-Time Record Distance Closing (-0.145m to Owner) and Final Alignment (15.35%, +0.0868 cos); Quota 0.83h GPU / 20.00h TPU remaining.**
-- **Latest Completed Remote Run (Round 34, Verified)**: [`bio-bot-baby-dog-vision-approach-round34`](https://www.kaggle.com/code/karangarg/bio-bot-baby-dog-vision-approach-round34) (version 2) completed all 24 updates (393,216 steps, 92.1 min runtime) on 2x Nvidia Tesla T4 GPU to `KernelWorkerStatus.COMPLETE`. Outputs fetched to `results/baby_dog_vision_approach_round34/`.
-  - **All-Time Project Record Owner Distance Closing & Final Alignment**:
-    - Checkpoint 6 (0.39M steps, `baby_dog_step_0000393216.npz`, SHA256 `402c9308622f41a858e75c9f54d48ddb1b66c92f1fed8e2dfa22414ec2d9f174`):
-      - **Owner Net Distance Closing**: 3.664 m -> **3.519 m** (**-0.145 m net closing** across all 192 lives, breaking Round 33's record of -0.070 m!).
-      - **Owner Final Facing Cosine**: **+0.0868** (Highest positive facing alignment recorded at final eval).
-      - **Owner Aligned in Last Second**: **15.35%** (All-time project record!).
-      - **Ball Arrival**: **6.77% (13/192)** with distance drift contained to 3.495 m (vs 3.62-3.73 m in Round 33).
-    - Checkpoint 3 (0.20M steps, `baby_dog_step_0000196608.npz`, SHA256 `265a61e6c29aa1cca624af6267369dcf673d53d25a9bc1e89c0a9d338447923b`):
-      - **Owner Arrival**: **6.77% (13/192)** with net distance closing to 3.563 m (-0.102 m).
-      - **Ball Arrival**: **4.69% (9/192)** with distance drift contained to 3.452 m.
-      - **Combined Arrival**: **5.73% (22/384)**.
-    - **100% Nominal Motor Skill Retention Preserved**:
-      - Turn-left yaw reached an all-time peak of **+1.3923 rad/s** at 0.26M steps (`19a98c5b…`), matching real dog mocap ground truth (+1.383 rad/s).
-      - Turn-right yaw -1.120 to -1.154 rad/s; walk speed +0.401 to +0.413 m/s; pace +0.566 to +0.576 m/s; canter +0.391 to +0.403 m/s; run +0.542 to +0.551 m/s; sit 0.50 / 0.62; lie-down 0.02 / 0.96; falls ~1.1 / 13s; teacher movement help strictly 0.00 from rest.
+**Current state, 19 Oct 13:50 Dubai (09:50 UTC): Round 35 Preflight VERIFIED; Round 35 GPU Training ACTIVE on Kaggle 2x T4 GPU; 1.2m Deceleration Boundary Deployed; Quota 0.83h GPU / 20.00h TPU remaining.**
+- **Active Kaggle GPU Job**: [`bio-bot-baby-dog-vision-approach-round35`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round35) (version 1) on 2x Nvidia Tesla T4 GPU.
+  - Job parameters: 131,072 steps (8 updates × 16,384 steps, ~30 min runtime, bounded trial fitting within remaining 0.83h GPU quota), 512 envs (256/GPU), 2 evaluations (every 4 updates = ~65k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest), timeout 2,400s (40 min).
+  - Architectural Innovations for Round 35 (Targeting Sustained Arrival via Extended Ball Deceleration):
+    1. **Direct Continuation from Round 34 Peak Record Candidate**: Resuming directly from `baby_dog_step_0000393216.npz` (SHA256 `402c9308622f41a858e75c9f54d48ddb1b66c92f1fed8e2dfa22414ec2d9f174`, all-time record -0.145m owner closing, 15.35% alignment, +0.0868 cos, 6.77% ball arrival) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round34`.
+    2. **Extended Deceleration Boundary (`brake_radius = jp.maximum(1.2, 1.5 * near_of[ins])`)**: Previously, for the ball (`near_of = 0.35m`), the deceleration zone was only 0.175m wide, traversed in 0.31s at sprinting speed. Round 35 extends `brake_radius` to at least 1.2m, providing a 0.85m deceleration span (1.55s / 77 control ticks) to shed momentum smoothly.
+    3. **Continuous Proximity & Deceleration Scaling**: `near_brake` and `(1.0 - proximity)` smoothly scale down from 1.0 at 1.2m to 0.0 at `near_of`, eliminating overshoot while retaining full sprinting across the arena.
+    4. **Settling Stillness Waiver**: Task stillness penalty is waived when `there | (proximity > 0.8)`, allowing the dog to stand still calmly without penalty within the target settling cylinder.
+  - Connectome core: `core_v2.npz` (`af939468…`) attached via `--dataset bio-bot-cores`.
+  - Mocap dataset: `go2_dog_motions.npz` attached via `--dataset bio-bot-dog-mocap`.
+- **Remote CPU Preflight (Verified)**: [`bio-bot-baby-dog-vision-round35-preflight-check`](https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-round35-preflight-check) completed cleanly (`KernelWorkerStatus.COMPLETE`), outputs fetched to `results/baby_dog_vision_round35_preflight_check/`. All 9 assertions passed, candidate SHA256 verified (`402c9308…`), checkpoint confirmed (`after 0.4M steps`).
 - **Remote Compute Quota (Verified via `kaggle quota`)**: Kaggle weekly GPU quota: **0.83 hours remaining** (resets 24 Oct 00:00 UTC). TPU quota: 20.00h remaining. Strictly $0 spent.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
