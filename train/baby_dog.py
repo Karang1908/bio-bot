@@ -65,9 +65,9 @@ JUMP_REWARD = 1.0        # reward per second with all four feet off the ground w
 SELF_MODEL = 0.5         # in the park: how much predicting its own senses counts (its model of itself)
 # goals in the park (DogMind step 5), scored by outcome only: nobody shows it how
 TASKS = ["ball", "come"]  # "ball": go to the ball; "come": go to the owner
-TASK_PAY = 45.0          # reward per m/s of getting closer to what was asked (decisive forward drive)
-REACH_PAY = 80.0         # reward per second with its nose at the ball (or by the owner)
-PROX_PAY = 20.0          # reward per second within proximity funnel (smooth shaping toward arrival)
+TASK_PAY = 50.0          # reward per m/s of getting closer to what was asked (decisive forward drive)
+REACH_PAY = 100.0        # reward per second with its nose at the ball (or by the owner)
+PROX_PAY = 25.0          # reward per second within proximity funnel (smooth shaping toward arrival)
 NEAR = {"ball": 0.35, "come": 1.0}   # m: at the ball, by the owner
 HIT_COST = 2.0           # being hit by a thrown thing costs about as much as a fall
 # drives (DogMind step 6): free time when nobody speaks, hunger (the battery) and curiosity
@@ -85,7 +85,7 @@ SPRINT_PAY = 40.0        # "ball" / "come": reward bonus for forward speed excee
 SPRINT_FLOOR = 0.42      # "ball" / "come": forward velocity threshold for sprint bonus
 ALIGN_FLOOR = 0.25       # "ball" / "come": alignment cosine floor below which forward sprint reward is zero
 YAW_PAY = 25.0           # "ball" / "come": reward for yaw rate directed towards task target
-MISALIGN_COST = 8.0      # "ball" / "come": penalty for forward velocity while heading is misaligned
+MISALIGN_COST = 4.0      # "ball" / "come": penalty for forward velocity while heading is misaligned
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
