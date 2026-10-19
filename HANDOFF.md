@@ -9,10 +9,11 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 19 Oct 23:30 Dubai (19:30 UTC): Round 35 GPU Training ACTIVE on Google Colab Tesla T4 GPU (Session 'round35'); 1.2m Deceleration Zone Deployed; Streaming Execution Active; Quota: Kaggle GPU 0.16h (Exhausted), Colab Free Tier Active.**
+**Current state, 20 Oct 00:15 Dubai (20:15 UTC): Round 35 GPU Training ACTIVE on Google Colab Tesla T4 GPU (Session 'round35'); --envs 128 & Async Allocator Deployed; Streaming Execution Active; Quota: Kaggle GPU 0.16h (Exhausted), Colab Free Tier Active.**
 - **Active Remote Training Job (Colab Free GPU)**: Session `round35` on Nvidia Tesla T4 GPU (15 GB VRAM).
   - Executing `scripts/run_colab_round35.py` with 14,400s timeout cap via persistent Jupyter kernel in `BUSY` state to prevent idle pruning.
-  - Job parameters: 131,072 steps (16 updates × 8,192 steps, ~75 min runtime), 256 envs (matching Kaggle per-device $B=256$, utilizing ~8.2 GiB VRAM), 2 evaluations (every 8 updates = ~65k steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest).
+  - OOM Resolution on Single GPU: Reverse-mode autodiff with `--envs 256` requested an 8.49 GiB contiguous block that exceeded available VRAM after baseline evaluation caches. Sizing `--envs 128` cuts the peak allocation by 50% to ~4.25 GiB, while `TF_GPU_ALLOCATOR=cuda_malloc_async` eliminates stream fragmentation.
+  - Job parameters: 131,072 steps (32 updates × 4,096 steps, ~75 min runtime), 128 envs, 2 evaluations (every 16 updates = 65,536 steps across 3 fresh independent cohorts = 192 lives per eval, teacher help strictly 0.00 from rest).
   - Checkpoint resume: Directly from all-time peak candidate `baby_dog_step_0000393216.npz` (SHA256 `402c9308622f41a858e75c9f54d48ddb1b66c92f1fed8e2dfa22414ec2d9f174`, verified).
   - Active monitoring & sync: `scripts/colab_round35_monitor.py` running REST polls (`colab ls` and `colab download`) to ingest checkpoints and logs into `results/baby_dog_vision_approach_round35/`.
 - **Architectural Innovations for Round 35 (Targeting Sustained Arrival via Extended Ball Deceleration)**:
