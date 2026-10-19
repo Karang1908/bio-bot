@@ -60,6 +60,7 @@ cmd = [
     "--brain", "checkpoints/baby_dog_step_0000393216.npz",
     "--expect_checkpoint", "after 0.4M steps",
     "--out", str(res_dir),
+    "--menagerie", "/content/bio-bot/mujoco_menagerie",
 ]
 
 print("Starting Round 35 training in /content/bio-bot on Colab Tesla T4 GPU...", flush=True)
