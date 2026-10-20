@@ -15,7 +15,7 @@ from pathlib import Path
 
 LOCAL_OUT = Path(__file__).resolve().parent.parent / "results" / "baby_dog_vision_approach_round36"
 LOCAL_OUT.mkdir(parents=True, exist_ok=True)
-SESSION = "round35"
+SESSION = "round36"
 REMOTE_DIR = "/content/bio-bot/results/colab_round36"
 
 
