@@ -1945,7 +1945,19 @@ def practice(args, bd, out: Path) -> dict:
         raise SystemExit("STOP: self-learning requested but teacher help is not zero")
     best, got_r, got_n = np.full(n_i, -np.inf), np.zeros(n_i), np.zeros(n_i)
     reconsider = max(1, iters // HELP_CHECKS)
-    first = real_test("before practice")
+    if not getattr(args, "skip_baseline", False):
+        first = real_test("before practice")
+    else:
+        print("skipping baseline evaluation (already measured and verified)", flush=True)
+        if (out / "practice.json").exists():
+            try:
+                curve.extend(json.loads((out / "practice.json").read_text()))
+            except Exception:
+                pass
+        if not curve and resume_meta.get("curve"):
+            curve.extend([c for c in resume_meta["curve"] if c.get("when") == "before practice"])
+        if curve:
+            (out / "practice.json").write_text(json.dumps(curve, indent=1))
     print(f"practice: {iters} updates x {args.envs * T:,} steps; the critic learns alone for the first {warm}", flush=True)
     if args.let_go:
         print(f"letting go: each word's help drops 20% whenever the dog does that word at least 90% as well as its best, "
@@ -2391,6 +2403,7 @@ def main() -> None:
     ap.add_argument("--readout", default="vector")
     ap.add_argument("--out", default="/kaggle/working" if Path("/kaggle/working").exists() else "results/baby_dog")
     ap.add_argument("--menagerie", default="")
+    ap.add_argument("--skip_baseline", action="store_true", help="practice: skip baseline evaluation before practice")
     args = ap.parse_args([]) if JOB_ARGS else ap.parse_args()
     for k, v in JOB_ARGS.items():
         setattr(args, k, v)
