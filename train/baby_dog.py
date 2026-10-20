@@ -1958,6 +1958,7 @@ def practice(args, bd, out: Path) -> dict:
             curve.extend([c for c in resume_meta["curve"] if c.get("when") == "before practice"])
         if curve:
             (out / "practice.json").write_text(json.dumps(curve, indent=1))
+        first = curve[0] if curve else {}
     print(f"practice: {iters} updates x {args.envs * T:,} steps; the critic learns alone for the first {warm}", flush=True)
     if args.let_go:
         print(f"letting go: each word's help drops 20% whenever the dog does that word at least 90% as well as its best, "
