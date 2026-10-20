@@ -48,8 +48,8 @@ def sync_files(remote_files: list[str]) -> list[str]:
         local_fp = LOCAL_OUT / fname
         remote_path = f"{REMOTE_DIR}/{fname}"
 
-        # Always sync log.txt and practice.json; for checkpoints sync if missing
-        need_download = (fname in ("log.txt", "practice.json")) or (not local_fp.exists())
+        # Always sync log.txt, practice.json, and baby_dog.npz; for snapshots sync if missing
+        need_download = (fname in ("log.txt", "practice.json", "baby_dog.npz")) or (not local_fp.exists())
 
         if need_download:
             ret, out = run_cmd(["colab", "download", "-s", SESSION, remote_path, str(local_fp)])
