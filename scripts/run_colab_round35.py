@@ -62,9 +62,25 @@ cmd = [
     "--expect_checkpoint", "after 0.4M steps",
     "--out", str(res_dir),
     "--menagerie", "/content/bio-bot/mujoco_menagerie",
+    "--skip_baseline",
 ]
 
 print("Starting Round 35 training in /content/bio-bot on Colab Tesla T4 GPU...", flush=True)
+
+import threading
+import time
+
+stop_hb = threading.Event()
+
+def heartbeat_worker():
+    while not stop_hb.wait(15.0):
+        t_str = time.strftime("%H:%M:%S")
+        sys.stdout.write(f"[{t_str}] [colab-heartbeat] active kernel liveness keepalive\n")
+        sys.stdout.flush()
+
+hb_thread = threading.Thread(target=heartbeat_worker, daemon=True)
+hb_thread.start()
+
 proc = subprocess.Popen(
     cmd,
     cwd="/content/bio-bot",
@@ -84,6 +100,8 @@ for line in proc.stdout:
     log_file.flush()
 
 proc.wait()
+stop_hb.set()
+hb_thread.join(timeout=1.0)
 log_file.close()
 print(f"Training finished with exit code {proc.returncode}", flush=True)
 sys.exit(proc.returncode)
