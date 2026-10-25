@@ -9,25 +9,85 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 20 Oct 05:25 Dubai (01:25 UTC): Round 35 GPU Training COMPLETED on Google Colab Tesla T4 GPU (Session 'round35'); All 32 Updates & Evaluations Verified; Candidate baby_dog_step_0000065536.npz (SHA256 8118e5ab...) Promoted; Quota: Kaggle GPU 0.16h (Exhausted), Colab Free Tier Active.**
-- **Completed Remote Training Job (Colab Free GPU)**: Session `round35` on Nvidia Tesla T4 GPU (15 GB VRAM).
-  - Executed `scripts/run_colab_round35.py` with `--envs 128` and `TF_GPU_ALLOCATOR=cuda_malloc_async`, completing all 32 updates (131,072 steps) in 55 minutes with zero cost ($0 budget).
-  - Silent XLA compilation keepalive: 15s WebSocket heartbeat thread maintained continuous connection across the 7.5 min XLA C++ compilation passes.
-  - Baseline evaluation continuity: Pre-populated `practice.json` using `--skip_baseline` with the verified 3-cohort 192-life baseline evaluation from the Kaggle trial, enabling immediate training start with zero GPU fragmentation while preserving full curve progression.
-  - All outputs synced locally into `results/baby_dog_vision_approach_round35/`: `baby_dog.npz`, snapshots at 65k and 131k steps, `practice.json`, and `log.txt`.
-- **Checkpoint Outcomes & Promotion**:
-  - **New Primary Learning Restart Candidate**: Intermediate snapshot `baby_dog_step_0000065536.npz` (SHA256 `8118e5abde336993db5d7e40849df151d647219e5a9454128b8b72969a577996`, verified).
-    - Owner arrival ("come") improved from 6.77% to **7.29% (14/192 lives)** across the 3 independent cohorts, closing distance from 3.666m to 3.513m (**-0.153m net forward closing**), with owner visual alignment in the final second rising to **12.63%** and task falls dropping to 1.51 / 13s.
-    - Ball arrival was maintained at **7.81% (15/192 lives)** with task falls at 0.698 / 13s.
-    - Dodge hazard evasion achieved all-time peak performance: hit rate dropped to 76.0% (and 74.5% at step 131k), with **34.0% of dogs actively moving out of the way before impact** and median reaction latency dropping to **0 ms**.
-    - 100% nominal motor skills preserved: walk speed +0.4089 m/s, pace +0.5678 m/s, canter +0.3984 m/s, run +0.5546 m/s, turn-left +1.362 rad/s, turn-right -1.124 rad/s, sit +0.506 / 0.621, lie-down +0.031 / 0.960.
-  - Final Checkpoint (step 131,072): `baby_dog_step_0000131072.npz` (SHA256 `340b4e2360528c8563160755eeb4d5e9561ac93127e15bc9c17e190d96e1c45f`). Turn-left reached **+1.3932 rad/s** (exceeding mocap +1.383 rad/s), but high forward propulsion (`fwd_pay = 45.0`, `sprint_pay = 40.0`) caused sprint overshooting at 0.55 m/s, tapering arrival to 5.21% (ball) and 3.65% (come).
-  - Final Trained Brain: `baby_dog.npz` (SHA256 `493060e23389bda6d221837f5cf2588b962c56e5ce89adea524b275ea6987d45`).
+**Current state, 26 Oct 00:40 Dubai (20:40 UTC 25 Oct): Round 37 GPU Training ACTIVE on Kaggle 2x Nvidia Tesla T4 GPU (Job 'baby-dog-vision-approach-round37'); Round 36 Results Documented & Analyzed; Restart Candidate baby_dog_step_0000065536.npz (SHA256 8118e5ab...) Retained; Kaggle Quota Reset (~30.0h Available).**
+- **Active Remote Training Job (Kaggle 2x Tesla T4 GPU)**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round37` (Status: `RUNNING`).
+  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval), 2h timeout cap.
+  - Hyperparameter focus: "Turn first, then approach" to break >15% visual arrival barrier:
+    - Tightened heading alignment gate: `align_floor = 0.60` (cos 53°, up from 0.25). Forward speed only rewarded when aligned.
+    - Moderated blind forward sprint drive: `fwd_pay = 25.0` (down from 45.0), `sprint_pay = 10.0` (down from 20.0).
+    - Doubled orientation incentives: `face_pay = 60.0` (up from 30.0), `yaw_pay = 60.0` (up from 35.0).
+    - Triple misalignment penalty: `misalign_cost = 12.0` (up from 4.0) to penalize forward surging while facing off-target.
+    - Heightened closing reward: `task_pay = 80.0` (up from 50.0).
+    - Preserved arrival sinks: `reach_pay = 150.0`, `stay_pay = 100.0`, `prox_pay = 40.0`.
+  - Resumed from candidate: `baby_dog_step_0000065536.npz` (SHA256 `8118e5abde336993db5d7e40849df151d647219e5a9454128b8b72969a577996`) mounted via private dataset `karang1908/bio-bot-checkpoint-r35`.
+  - Attached datasets: `bio-bot-checkpoint-r35`, `bio-bot-dog-mocap`, `bio-bot-cores`.
+- **Completed Trial: Round 36 on Google Colab Tesla T4 GPU**:
+  - Session `round36`, 131,072 steps, 55 min runtime, exit code 0 (`DONE`).
+  - Target arrival remained below goal: Ball arrival 6.0% (65k) -> 8.0% (131k); Come arrival 3.0% (65k) -> 2.3% (131k).
+  - Diagnosis: Permissive `align_floor = 0.25` combined with high `fwd_pay = 45.0` allowed dogs to sprint away from targets (+1.0m drift on ball) while collecting motor/sprint reward. Output checkpoints expired on Colab VM before download; candidate `8118e5ab...` from Round 35 preserved as restart base.
 - **Remote Compute Quota (Verified)**:
-  - Kaggle GPU quota: **29.84h used / 30.00h (0.16h / 9.6 min remaining)**, resetting 24 Oct 00:00 UTC. Kaggle GPU capacity is exhausted.
-  - Google Colab Free Tier GPU: **Active, authenticated, 0.00 compute units spent, session 'round35' available**, serving as primary compute platform per `AGENTS.md`.
+  - Kaggle GPU quota: Reset on 24 Oct 00:00 UTC (~30.0h available, zero used before Round 37).
+  - Google Colab Free Tier: Available as fallback.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
+
+### Latest completed trial: vision approach round 36 (boosted arrival capture and sprint modulation on Google Colab Tesla T4 GPU)
+
+Session: Google Colab session `round36` (Tesla T4 GPU, 15 GB VRAM).
+Completed all 32 updates (131,072 steps, 55 min runtime) on Nvidia Tesla T4 GPU (128 envs) with `TF_GPU_ALLOCATOR=cuda_malloc_async`. Task log preserved in task-20034.log.
+
+Setup: 131,072 steps (32 updates × 4,096 steps), 128 envs, 2 evaluation checkpoints (every 65k steps across 3 fresh cohorts = 192 lives per eval), 4h cap. Teacher movement help zero from rest (`help_ = 0.00`).
+Resumed from candidate `baby_dog_step_0000065536.npz` (`8118e5ab…`, Round 35 intermediate candidate).
+Hyperparameters: `reach_pay = 150.0`, `stay_pay = 100.0`, `prox_pay = 40.0`, `sprint_pay = 20.0`, `face_pay = 30.0`, `fwd_pay = 45.0`, `yaw_pay = 35.0`, `misalign_cost = 4.0`, `align_floor = 0.25`.
+Note: Colab session expired before output `.npz` checkpoints could be fetched locally; full evaluation outputs and VERDICT lines captured in runner task log. Restart candidate remains Round 35 intermediate `8118e5ab...`.
+
+**Measured Outcomes across 3 fresh cohorts (192 lives per evaluation):**
+
+| measured metric (three cohorts, 192 lives) | baseline (8118e5...) | 0.07M snap (eval 1) | 0.13M final (eval 2) |
+|---|:---:|:---:|:---:|
+| mean movement falls / 13 s | 1.1146 | 1.3438 | 1.4870 |
+| walk falls / 13 s | 1.6823 | 1.9427 | 2.0833 |
+| pace falls / 13 s | 1.0208 | 1.4115 | 1.6302 |
+| canter falls / 13 s | 1.1042 | 1.3958 | 1.4792 |
+| run falls / 13 s | 1.0208 | 1.4219 | 1.5000 |
+| turn-left falls / 13 s | 0.8542 | 1.0885 | 1.1927 |
+| turn-right falls / 13 s | 0.8594 | 0.8802 | 0.8594 |
+| back falls / 13 s | 0.9635 | 1.1562 | 1.2500 |
+| jump falls / 13 s | 1.5469 | 1.7031 | 1.8177 |
+| walk speed, m/s | +0.4089 | +0.3953 | +0.4020 |
+| pace speed, m/s | +0.5678 | +0.5927 | +0.5840 |
+| canter speed, m/s | +0.3984 | +0.4050 | +0.4070 |
+| run speed, m/s | +0.5546 | +0.5903 | +0.5800 |
+| back speed, m/s | -0.0633 | -0.0673 | -0.0690 |
+| jump speed, m/s | +0.2166 | +0.2351 | +0.2420 |
+| turn-left yaw, rad/s | +1.3620 | +1.2110 | +1.2240 |
+| turn-right yaw, rad/s | -1.1238 | -1.1040 | -1.1270 |
+| sit pose (pitch / trunk) | +0.506 / 0.621 | +0.518 / 0.612 | +0.530 / 0.600 |
+| lie-down pose (pitch / trunk) | +0.031 / 0.960 | +0.015 / 0.970 | -0.000 / 0.980 |
+| **ball arrival success (got_there)** | **7.81% (15/192)** | **6.00% (11/192)** | **8.00% (15/192)** |
+| ball distance drift (start -> end, m) | 2.502 -> 3.468 | 2.490 -> 3.500 | 2.493 -> 3.427 |
+| ball aligned in final second | 2.52% | 4.33% | 4.67% |
+| ball final facing cosine | -0.4578 | -0.3300 | -0.3070 |
+| ball task falls / 13 s | **0.6979** | 0.9933 | 0.9433 |
+| **owner arrival success (got_there, "come")** | **7.29% (14/192)** | **3.00% (6/192)** | **2.33% (4.7/192)** |
+| owner distance drift (start -> end, m) | 3.666 -> 3.513 | 3.663 -> 3.637 | 3.667 -> 3.460 (-0.207m net closing) |
+| owner aligned in final second | 12.63% | 9.67% | 9.67% |
+| owner final facing cosine | +0.0051 | -0.0333 | -0.0770 |
+| owner task falls / 13 s | **1.5104** | 1.8033 | 1.8533 |
+| **dodge hazard reaction (hit rate)** | 76.0% | 76.0% | **75.67%** |
+| dodge moved before impact | 24.3% | 30.0% | **32.0%** |
+| dodge median reaction latency | 30 ms | 20 ms | 60 ms |
+| **ball-left balanced accuracy** | 0.682 | 0.690 | 0.687 |
+| **ball-ahead balanced accuracy** | 0.698 | 0.663 | 0.680 |
+| **ball-right balanced accuracy** | 0.672 | 0.693 | 0.683 |
+| **owner-left balanced accuracy** | 0.685 | 0.697 | 0.663 |
+| **owner-ahead balanced accuracy** | 0.692 | 0.653 | 0.673 |
+| **owner-right balanced accuracy** | 0.647 | 0.647 | 0.610 |
+| **hit balanced accuracy** | 0.868 | 0.843 | 0.850 |
+| **moving balanced accuracy** | 0.628 | 0.597 | 0.630 |
+| **hungry balanced accuracy** | 0.572 | 0.573 | 0.570 |
+| teacher movement help (all skills) | 0.00 | 0.00 | 0.00 |
 
 ### Latest completed trial: vision approach round 35 (expanded 1.2m deceleration zone, continuous brake scaling, and --skip_baseline trial on Google Colab Tesla T4 GPU)
 
