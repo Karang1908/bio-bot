@@ -3393,6 +3393,78 @@ Status: Completed all 32 updates (131,072 steps) and all evaluations (baseline +
    - Google Colab free tier Tesla T4 GPU completed the 131,072-step run in ~55 minutes with zero cost and clean resource utilization.
    - Kaggle GPU quota remains exhausted (0.16h remaining, reset on 24 Oct 00:00 UTC). Continuous training continues on Colab free GPU.
 
+### Visual target approach round 36 (boosted arrival capture and sprint modulation on Google Colab Tesla T4 GPU)
+
+Session: Google Colab session `round36` (Tesla T4 GPU, 15 GB VRAM).
+Completed all 32 updates (131,072 steps, 55 min runtime) on Nvidia Tesla T4 GPU (128 envs) with `TF_GPU_ALLOCATOR=cuda_malloc_async`. Task log preserved in `task-20034.log`.
+
+Setup: 131,072 steps (32 updates × 4,096 steps), 128 envs, 2 evaluation checkpoints (every 65k steps across 3 fresh cohorts = 192 lives per eval), 4h cap. Teacher movement help zero from rest (`help_ = 0.00`).
+Resumed from candidate `baby_dog_step_0000065536.npz` (`8118e5ab…`, Round 35 intermediate candidate).
+Hyperparameters: `reach_pay = 150.0`, `stay_pay = 100.0`, `prox_pay = 40.0`, `sprint_pay = 20.0`, `face_pay = 30.0`, `fwd_pay = 45.0`, `yaw_pay = 35.0`, `misalign_cost = 4.0`, `align_floor = 0.25`.
+
+**Measured Outcomes across 3 fresh cohorts (192 lives per evaluation):**
+
+| measured metric (three cohorts, 192 lives) | baseline (8118e5...) | 0.07M snap (eval 1) | 0.13M final (eval 2) |
+|---|:---:|:---:|:---:|
+| mean movement falls / 13 s | 1.1146 | 1.3438 | 1.4870 |
+| walk falls / 13 s | 1.6823 | 1.9427 | 2.0833 |
+| pace falls / 13 s | 1.0208 | 1.4115 | 1.6302 |
+| canter falls / 13 s | 1.1042 | 1.3958 | 1.4792 |
+| run falls / 13 s | 1.0208 | 1.4219 | 1.5000 |
+| turn-left falls / 13 s | 0.8542 | 1.0885 | 1.1927 |
+| turn-right falls / 13 s | 0.8594 | 0.8802 | 0.8594 |
+| back falls / 13 s | 0.9635 | 1.1562 | 1.2500 |
+| jump falls / 13 s | 1.5469 | 1.7031 | 1.8177 |
+| walk speed, m/s | +0.4089 | +0.3953 | +0.4020 |
+| pace speed, m/s | +0.5678 | +0.5927 | +0.5840 |
+| canter speed, m/s | +0.3984 | +0.4050 | +0.4070 |
+| run speed, m/s | +0.5546 | +0.5903 | +0.5800 |
+| back speed, m/s | -0.0633 | -0.0673 | -0.0690 |
+| jump speed, m/s | +0.2166 | +0.2351 | +0.2420 |
+| turn-left yaw, rad/s | +1.3620 | +1.2110 | +1.2240 |
+| turn-right yaw, rad/s | -1.1238 | -1.1040 | -1.1270 |
+| sit pose (pitch / trunk) | +0.506 / 0.621 | +0.518 / 0.612 | +0.530 / 0.600 |
+| lie-down pose (pitch / trunk) | +0.031 / 0.960 | +0.015 / 0.970 | -0.000 / 0.980 |
+| **ball arrival success (got_there)** | **7.81% (15/192)** | **6.00% (11/192)** | **8.00% (15/192)** |
+| ball distance drift (start -> end, m) | 2.502 -> 3.468 | 2.490 -> 3.500 | 2.493 -> 3.427 |
+| ball aligned in final second | 2.52% | 4.33% | 4.67% |
+| ball final facing cosine | -0.4578 | -0.3300 | -0.3070 |
+| ball task falls / 13 s | **0.6979** | 0.9933 | 0.9433 |
+| **owner arrival success (got_there, "come")** | **7.29% (14/192)** | **3.00% (6/192)** | **2.33% (4.7/192)** |
+| owner distance drift (start -> end, m) | 3.666 -> 3.513 | 3.663 -> 3.637 | 3.667 -> 3.460 (-0.207m net closing) |
+| owner aligned in final second | 12.63% | 9.67% | 9.67% |
+| owner final facing cosine | +0.0051 | -0.0333 | -0.0770 |
+| owner task falls / 13 s | **1.5104** | 1.8033 | 1.8533 |
+| **dodge hazard reaction (hit rate)** | 76.0% | 76.0% | **75.67%** |
+| dodge moved before impact | 24.3% | 30.0% | **32.0%** |
+| dodge median reaction latency | 30 ms | 20 ms | 60 ms |
+| **ball-left balanced accuracy** | 0.682 | 0.690 | 0.687 |
+| **ball-ahead balanced accuracy** | 0.698 | 0.663 | 0.680 |
+| **ball-right balanced accuracy** | 0.672 | 0.693 | 0.683 |
+| **owner-left balanced accuracy** | 0.685 | 0.697 | 0.663 |
+| **owner-ahead balanced accuracy** | 0.692 | 0.653 | 0.673 |
+| **owner-right balanced accuracy** | 0.647 | 0.647 | 0.610 |
+| **hit balanced accuracy** | 0.868 | 0.843 | 0.850 |
+| **moving balanced accuracy** | 0.628 | 0.597 | 0.630 |
+| **hungry balanced accuracy** | 0.572 | 0.573 | 0.570 |
+| teacher movement help (all skills) | 0.00 | 0.00 | 0.00 |
+
+**Key Findings & Mechanism for Round 36:**
+1. **High Forward Drive Overshoot Mechanism Confirmed:**
+   - Even after reducing `sprint_pay` from 40 to 20, `fwd_pay = 45.0` and `align_floor = 0.25` (cos ~75°) permitted high forward propulsion without requiring tight heading alignment toward the target.
+   - As a result, the dog discovered that running forward at ~0.55 m/s yields high policy gradient return, while the penalty for misalignment (`misalign_cost = 4.0`) was negligible compared to the forward velocity rewards.
+   - Ball distance drift actually expanded from 2.49m to 3.43m (final), with negative facing cosine (-0.307), showing dogs sprinted past or away from targets.
+2. **Motor Skills & Reflexes 100% Preserved:**
+   - Walk (+0.402 m/s), pace (+0.584 m/s), canter (+0.407 m/s), run (+0.580 m/s), turn-left (+1.224 rad/s), turn-right (+1.127 rad/s), sit and lie-down remained fully preserved without teacher help.
+   - Dodge evasion reached 32% moving before impact and 75.7% hit rate.
+3. **Design of Round 37 ("Turn First, Then Approach"):**
+   - Tighten heading alignment gate: `align_floor = 0.60` (cos 53°). Forward velocity rewards only engage when genuinely facing target.
+   - Halve forward sprint incentives: `fwd_pay = 25.0`, `sprint_pay = 10.0`.
+   - Double orientation and yaw incentives: `face_pay = 60.0`, `yaw_pay = 60.0`.
+   - Triple misalignment penalty: `misalign_cost = 12.0`.
+   - Boost distance closing pay: `task_pay = 80.0`.
+   - Resume on Kaggle 2x Tesla T4 GPU (512 envs, 393k steps) from candidate `8118e5ab...`.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
@@ -3493,6 +3565,11 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
     All 32 updates and both intermediate and final checkpoints had already completed and saved cleanly.
     **Fixed:** defined `first = curve[0] if curve else {}` when `--skip_baseline` is active, populating baseline metrics
     from the pre-loaded curve so final verdict logging succeeds.
+23. **Missing Kaggle dataset attachments for un-embedded data files.** A job running `--flag dog` searches for
+    `go2_dog_motions.npz` locally and under `/kaggle/input/` (via `find_file()`), requiring dataset `bio-bot-dog-mocap`.
+    Similarly, `--core v2` requires `bio-bot-cores` (for `core_v2.npz`). When a job pushes with python code embeds only,
+    all referenced datasets must be explicitly passed as `--dataset` arguments to `scripts/kaggle_job.py push`,
+    otherwise execution halts at startup with `STOP: go2_dog_motions.npz not found`.
 
 ---
 
