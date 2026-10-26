@@ -9,7 +9,14 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 26 Oct 18:48 Dubai: Round 42 Completed on Kaggle 2x Nvidia Tesla T4 GPU (Kernel 'bio-bot-baby-dog-vision-approach-round42', 94.0 min runtime); Step 262k Ball Arrival 6.77% overall (8.0% in C1 & C3); Step 131k Balanced Dual Arrival 5.73% Ball & 5.73% Owner (C3 9.0% Ball & 8.0% Owner); Step 65k Owner 11.0% in C2; Baseline Hazard Latency 3.3 ms; 100% Motor Skills Preserved; Candidates baby_dog_step_0000262144.npz (SHA256 81019240...) and step_0000131072.npz (SHA256 fe18f279...) Promoted; Quota: Kaggle GPU 20.76h Remaining.**
+**Current state, 26 Oct 18:53 Dubai: Round 43 GPU Training QUEUED/ACTIVE on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round43'); Round 42 Completed (Step 262k Ball Arrival 6.77% overall, 8.0% in C1 & C3; Step 131k Balanced Dual Arrival 5.73% Ball & 5.73% Owner, C3 9.0% Ball & 8.0% Owner; Step 65k Owner 11.0% in C2; Baseline Hazard Latency 3.3 ms; 100% Motor Skills Preserved); Candidate baby_dog_step_0000262144.npz (SHA256 81019240...) Resumed; Quota: Kaggle GPU 20.76h Remaining.**
+- **Active Remote Training Job: Round 43 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-bio-bot-baby-dog-vision-approach-round43` (Status: `QUEUED` / `RUNNING`).
+  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h timeout cap.
+  - Objective: Solve the rear-hemisphere gradient cancellation bottleneck by rewarding active visual search rotation (`search_pay = 35.0`, `rot_search = clip(|wz|/1.0, 0, 1) * (1 - align_gate)`) when targets start behind or outside the 120° camera aperture (`align_floor = 0.45`), combined with `misalign_cost = 6.0` to eliminate blind forward wandering and `yaw_pay = 80.0`, `face_pay = 80.0`, `fwd_pay = 40.0`, `sprint_pay = 25.0` once target is acquired in visual FOV (`align_gate > 0`), driving toward >15% visual arrival across 192 lives / 3 cohorts.
+  - Resumed from candidate: `baby_dog_step_0000262144.npz` (SHA256 `81019240a8b7f6f1a8436ac02f90079f2940c77dbcd509a9cee4030297b56de8`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round42`.
+  - Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+  - Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
 - **Completed Remote Training Job: Round 42 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round42` (Status: `COMPLETE`, runtime 94.0 min).
   - Executed 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU) with zero cost ($0 budget).
