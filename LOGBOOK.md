@@ -4061,6 +4061,10 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
     dynamically in `build_model(..., world=True)`. When pushing a park practice job, both `--embed train/brain_dog.py`
     and `--embed train/dog_world.py` must be supplied, otherwise remote execution halts immediately with
     `ModuleNotFoundError: No module named 'dog_world'`.
+26. **UnboundLocalError: yaw_pay referenced before assignment in rollout step.** When introducing
+    `yaw_reward = yaw_pay * yaw_toward * align_gate + search_pay * rot_search`, `yaw_pay` was referenced at line 1604
+    before its `getattr(args, 'yaw_pay', YAW_PAY)` assignment at line 1615, causing an immediate `UnboundLocalError`
+    upon first PPO iteration. Fixed by defining `yaw_pay = getattr(args, 'yaw_pay', YAW_PAY)` before computing `yaw_reward`.
 
 ---
 
