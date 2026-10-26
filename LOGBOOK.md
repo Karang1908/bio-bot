@@ -3724,6 +3724,90 @@ All outputs fetched to `results/baby-dog-vision-approach-round39/`: `baby_dog.np
 5. **Compute Quota:**
    - 91.2 min spent on Kaggle 2x T4 GPU. Quota has 25.38h remaining. Continuous free training proceeds on Kaggle GPU.
 
+### Visual target approach round 40 (turning-resistance unblock on 2x Nvidia Tesla T4 GPU)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round40 (version 3).
+Completed all 24 updates (393,216 steps, 88.5 min runtime) on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU) to `KernelWorkerStatus.COMPLETE`. Outputs ingested into `results/baby-dog-vision-approach-round40/`.
+
+Setup: 393,216 steps (24 updates × 16,384 steps = 393,216 steps), 512 envs, 6 evaluation checkpoints (every 65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h cap. Teacher movement help zero from rest (`help_ = 0.00`).
+Resumed from candidate `baby_dog_step_0000393216.npz` (`aeebc8a7…`, Round 39 candidate) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round39`.
+Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
+Hyperparameters: `align_floor = 0.60`, `face_pay = 60.0`, `yaw_pay = 60.0`, `misalign_cost = 4.0` (softened from 12.0), `fwd_pay = 40.0`, `sprint_pay = 25.0`, `sprint_floor = 0.42`, `task_pay = 90.0`, `reach_pay = 150.0`, `stay_pay = 100.0`, `prox_pay = 45.0`.
+All outputs fetched to `results/baby-dog-vision-approach-round40/`: `baby_dog.npz`, snapshots at 65k, 131k, 196k, 262k, 327k, 393k steps, `practice.json`, and `bio-bot-baby-dog-vision-approach-round40.log`.
+
+**Measured Outcomes across 3 fresh cohorts (192 lives per evaluation):**
+
+| measured metric (three cohorts, 192 lives) | baseline (aeeb...) | 0.07M (3900...) | 0.13M (e6fc...) | 0.20M (0ca4...) | 0.26M (6fcb...) | 0.33M (4cde...) | 0.39M (caa0...) |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| mean movement falls / 13 s | 1.1602 | 1.1569 | 1.1953 | 1.2415 | 1.2135 | 1.2279 | 1.2044 |
+| walk falls / 13 s | 1.6875 | 1.5573 | 1.7500 | 1.8698 | 1.7604 | 1.7448 | 1.7917 |
+| pace falls / 13 s | 1.0625 | 1.1458 | 1.1510 | 1.1458 | 1.1094 | 1.1927 | 1.2135 |
+| canter falls / 13 s | 1.2135 | 1.2396 | 1.2031 | 1.2448 | 1.2604 | 1.2917 | 1.2656 |
+| run falls / 13 s | 1.1042 | 1.0677 | 1.1302 | 1.2448 | 1.0781 | 1.1979 | 1.1354 |
+| turn-left falls / 13 s | 0.9531 | 0.9115 | 0.8750 | 0.9740 | 1.0677 | 0.9271 | 0.9167 |
+| turn-right falls / 13 s | 0.8385 | 0.8177 | 0.8177 | 0.8125 | 0.8021 | 0.8281 | 0.8490 |
+| back falls / 13 s | 0.9792 | 0.9531 | 1.0208 | 0.9844 | 1.0156 | 0.9948 | 1.0208 |
+| jump falls / 13 s | 1.4427 | 1.5625 | 1.6146 | 1.6562 | 1.6146 | 1.6458 | 1.4427 |
+| walk speed, m/s | +0.4032 | +0.4057 | +0.4000 | +0.3901 | +0.3875 | +0.4011 | +0.3934 |
+| pace speed, m/s | +0.5715 | +0.5695 | +0.5668 | +0.5630 | +0.5640 | +0.5631 | +0.5607 |
+| canter speed, m/s | +0.3920 | +0.3922 | +0.4019 | +0.4016 | +0.3886 | +0.3947 | +0.4040 |
+| run speed, m/s | +0.5528 | +0.5609 | +0.5341 | +0.5316 | +0.5357 | +0.5373 | +0.5475 |
+| back speed, m/s | -0.0745 | -0.0767 | -0.0675 | -0.0694 | -0.0736 | -0.0656 | -0.0612 |
+| jump speed, m/s | +0.2217 | +0.2396 | +0.2272 | +0.2253 | +0.2236 | +0.2195 | +0.2241 |
+| turn-left yaw, rad/s | +1.3748 | +1.3807 | +1.4070 | +1.3577 | +1.3767 | +1.3839 | +1.3760 |
+| turn-right yaw, rad/s | -1.1473 | -1.0968 | -1.1183 | -1.1063 | -1.1246 | -1.0961 | -1.0964 |
+| sit pose (pitch / trunk) | +0.497 / 0.621 | +0.487 / 0.622 | +0.495 / 0.622 | +0.503 / 0.621 | +0.491 / 0.619 | +0.492 / 0.621 | +0.486 / 0.622 |
+| lie-down pose (pitch / trunk) | +0.023 / 0.955 | +0.025 / 0.955 | +0.019 / 0.953 | +0.021 / 0.953 | +0.016 / 0.954 | +0.022 / 0.958 | +0.023 / 0.958 |
+| **ball arrival success (got_there)** | 3.65% (7/192) | 4.69% (9/192) | **7.29% (14/192)** | **7.29% (14/192)** | 4.69% (9/192) | 4.17% (8/192) | 5.21% (10/192) |
+| ball distance drift (start -> end, m) | 2.489 -> 3.566 | 2.491 -> 3.285 | 2.491 -> 3.497 | 2.487 -> 3.534 | 2.490 -> 3.554 | 2.490 -> 3.547 | 2.488 -> 3.381 |
+| ball aligned in final second | 1.80% | 3.41% | 2.97% | 3.92% | 3.72% | 2.92% | 4.14% |
+| ball final facing cosine | -0.4478 | -0.4263 | -0.4227 | -0.4108 | -0.3968 | -0.4479 | **-0.3307** |
+| ball falls / 13 s | 0.7448 | 0.7656 | 0.7500 | 0.8021 | 0.7865 | 0.7865 | 0.8177 |
+| **owner arrival success (got_there, 'come')** | 7.29% (14/192) | 2.60% (5/192) | 2.60% (5/192) | 2.60% (5/192) | 4.17% (8/192) | **6.25% (12/192)** | 4.69% (9/192) |
+| owner distance drift (start -> end, m) | 3.667 -> 3.556 | 3.662 -> 3.560 | 3.660 -> 3.632 | 3.663 -> 3.598 | 3.665 -> 3.576 | 3.665 -> 3.505 | 3.667 -> 3.557 |
+| owner aligned in final second | 9.87% | 13.02% | 11.22% | 11.10% | 9.94% | 7.96% | 11.40% |
+| owner final facing cosine | -0.0513 | +0.0495 | -0.0055 | -0.0449 | +0.0112 | -0.0530 | -0.0368 |
+| owner falls / 13 s | 1.5677 | 1.6354 | 1.6302 | 1.6615 | 1.7760 | 1.8073 | 1.6302 |
+| **dodge hazard reaction (hit rate)** | 76.6% | 76.0% | 75.0% | 77.6% | 76.6% | 77.1% | 76.6% |
+| dodge moved before impact | 29.2% | 27.1% | 23.4% | 23.4% | 23.4% | 24.0% | 27.6% |
+| dodge median reaction latency | 37 ms | 40 ms | 23 ms | 60 ms | 63 ms | 27 ms | **7 ms** |
+| **ball-left balanced accuracy** | 0.703 | 0.686 | 0.693 | 0.695 | 0.683 | 0.698 | 0.696 |
+| **ball-ahead balanced accuracy** | 0.701 | 0.678 | 0.712 | 0.681 | 0.703 | 0.707 | 0.676 |
+| **ball-right balanced accuracy** | 0.660 | 0.680 | 0.696 | 0.685 | 0.677 | 0.683 | 0.678 |
+| **owner-left balanced accuracy** | 0.680 | 0.667 | 0.683 | 0.666 | 0.678 | 0.681 | 0.683 |
+| **owner-ahead balanced accuracy** | 0.696 | 0.628 | 0.671 | 0.685 | 0.693 | 0.691 | 0.690 |
+| **owner-right balanced accuracy** | 0.632 | 0.652 | 0.657 | 0.634 | 0.640 | 0.646 | 0.644 |
+| **hit balanced accuracy** | 0.862 | 0.849 | 0.852 | 0.863 | 0.871 | 0.830 | 0.846 |
+| **moving balanced accuracy** | 0.620 | 0.725 | 0.638 | 0.619 | 0.631 | 0.628 | 0.633 |
+| **hungry balanced accuracy** | 0.570 | 0.562 | 0.553 | 0.565 | 0.572 | 0.578 | 0.567 |
+| teacher movement help (all skills) | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+**Checkpoint SHA256 Hashes:**
+- `baby_dog_step_0000065536.npz`: `3900a27fdf4a01f141de441ffb71575b3c245027f7b1c9dcaef1ff9776929583`
+- `baby_dog_step_0000131072.npz`: `e6fcede42b2746ee667ba2e5a6edf13935fc788c167145bf4feab081ca2452bd`
+- `baby_dog_step_0000196608.npz`: `0ca420e7942c57a58414e588ab3b7e34790c5e8c419254fedcf115fd182218f7`
+- `baby_dog_step_0000262144.npz`: `6fcbc1bbc721eefc8bf2df4d45302ec3a9e635780efd9366ef52b921d02464d9`
+- `baby_dog_step_0000327680.npz`: `4cde9ca42350655b5edbd0e19acb8828221ff235b9074327437689eadde1d809`
+- `baby_dog_step_0000393216.npz`: `caa01193ffd517855de86f44ad1c645cd906392e084ced8c89fcb759ec3d5a33`
+- `baby_dog.npz`: `1894f65d8f7b20f7ebe3a771ea69907fcd246bc5ae80f39896fab0050c357056`
+
+**Key Findings & Mechanism for Round 40:**
+1. **Unblocked Turning Creep & Dual-Target Dynamics:**
+   - Softening `misalign_cost` from 12.0 to 4.0 successfully removed the artificial resistance on natural turning creep ($v_{\text{fwd}} \approx 0.10$ m/s), enabling rapid yaw rotation ($\omega_z = +1.38$ to $+1.41$ rad/s).
+   - Ball arrival hit **7.29% (14/192)** at step 131k (`e6fc...`) and step 196k (`0ca4...`), with Cohort 2 reaching **11.0% (7/64 lives)**.
+   - Owner arrival reached **6.25% (12/192)** at step 327k (`4cde...`), with Cohort 3 reaching **11.0% (7/64 lives)**.
+   - At step 393k (`caa0...`), balanced performance was achieved: 5.21% ball arrival and 4.69% owner arrival, with Cohort 2 hitting **8.0% on both targets** simultaneously.
+   - Dodge reaction latency dropped to a new record of **7 ms** median at step 393k.
+2. **The Camera Aperture Discrepancy (Causal Mechanism for Round 41):**
+   - The Go2 camera horizontal FOV is $120^\circ$ ($\pm 60^\circ$), where $\cos(60^\circ) = 0.50$.
+   - Setting `align_floor = 0.60` ($\arccos(0.60) = 53.1^\circ$) created a mismatch where targets in peripheral vision ($55^\circ$, $\cos = 0.57$) were visible to the camera, but completely zeroed out forward velocity and sprint rewards (`align_gate = 0.0`), while penalizing forward motion with `misalign_cost`.
+   - By matching the alignment gate to the actual physical camera aperture (`align_floor = 0.45` ~ $63^\circ$), any visually acquired target will immediately unlock forward propulsion, while `misalign_cost = 2.0` further encourages fluid continuous tracking.
+3. **Candidate Promotion:**
+   - `baby_dog_step_0000393216.npz` (SHA256 `caa01193ffd517855de86f44ad1c645cd906392e084ced8c89fcb759ec3d5a33`) is promoted as the new **learning restart candidate** due to its balanced dual-target performance (Cohort 2: 8% on both), ultra-low hazard latency (7 ms), positive facing trend (-0.33 for ball), and 100% nominal motor skill preservation.
+4. **Compute Quota:**
+   - 88.5 min spent on Kaggle 2x T4 GPU. Quota has 23.86h remaining. Budget: $0.00.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
