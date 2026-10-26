@@ -1599,6 +1599,7 @@ def practice(args, bd, out: Path) -> dict:
                 sprint_bonus = jp.maximum(0.0, st["v_fwd"] - sprint_floor) * align_gate * (1.0 - proximity)
                 yaw_dir = jp.clip(theta_bearing / 0.35, -1.0, 1.0)
                 yaw_toward = st["wz"] * yaw_dir
+                yaw_pay = getattr(args, "yaw_pay", YAW_PAY)
                 search_pay = getattr(args, "search_pay", SEARCH_PAY)
                 rot_search = jp.clip(jp.abs(st["wz"]) / 1.0, 0.0, 1.0) * (1.0 - align_gate)
                 yaw_reward = yaw_pay * yaw_toward * align_gate + search_pay * rot_search
@@ -1612,7 +1613,6 @@ def practice(args, bd, out: Path) -> dict:
                 reach_pay = getattr(args, "reach_pay", REACH_PAY)
                 prox_pay = getattr(args, "prox_pay", PROX_PAY)
                 fwd_pay = getattr(args, "fwd_pay", FWD_PAY)
-                yaw_pay = getattr(args, "yaw_pay", YAW_PAY)
                 misalign_cost = getattr(args, "misalign_cost", MISALIGN_COST) * jp.maximum(0.0, st["v_fwd"]) * (1.0 - align_gate)
                 task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + stay_bonus + prox_pay * proximity + fwd_pay * fwd_toward + sprint_pay * sprint_bonus + yaw_reward - misalign_cost
                 if lesson == "perception":
