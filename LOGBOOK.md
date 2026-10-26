@@ -3833,6 +3833,10 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
     index rounded (e.g. 262k steps records `'after 0.3M steps'`, whereas 393k steps records `'after 0.4M steps'`).
     Setting `--expect_checkpoint "after 0.3M steps"` when resuming from a 393k snapshot triggers the safety exit.
     Always match the target snapshot's exact recorded step string (`'after 0.4M steps'`).
+25. **Missing `--embed train/dog_world.py` when running with `--flag park`.** `train/brain_dog.py` imports `dog_world`
+    dynamically in `build_model(..., world=True)`. When pushing a park practice job, both `--embed train/brain_dog.py`
+    and `--embed train/dog_world.py` must be supplied, otherwise remote execution halts immediately with
+    `ModuleNotFoundError: No module named 'dog_world'`.
 
 ---
 
