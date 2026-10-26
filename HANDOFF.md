@@ -9,7 +9,14 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 27 Oct 00:10 Dubai: Round 44 COMPLETED on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round44', 91.2 min runtime); Step 65k & Step 196k Ball Arrival 6.77% overall (Cohort 3 9.0%, Cohort 2 8.0%); 100% Motor Skills Preserved; Step 65k Hazard Dodge Latency Record 3.3 ms; All-Time Primary Candidate baby_dog_step_0000196608.npz (SHA256 0436cf4c..., 9.90% Ball, 14.1% C2) Retained; Quota: Kaggle GPU 17.21h Remaining.**
+**Current state, 27 Oct 00:15 Dubai: Round 45 GPU Training ACTIVE on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round45'); Round 44 Completed (Step 65k & 196k Ball Arrival 6.77% overall, Step 65k Hazard Dodge Latency Record 3.3 ms; 100% Motor Skills Preserved); Primary Candidate baby_dog_step_0000196608.npz (SHA256 0436cf4c..., Round 43, 9.90% Ball, 14.1% C2) Resumed; Quota: Kaggle GPU 17.16h Remaining.**
+- **Active Remote Training Job: Round 45 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round45` (Status: `RUNNING`).
+  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h timeout cap.
+  - Objective: Pinned heading and straight-line visual sprint formulation. Resumed from candidate `0436cf4c...` (9.90% overall, 14.1% in C2) with elevated heading alignment rewards (`yaw_pay = 100.0`, `face_pay = 100.0`, up from 80.0) to pin heading directly on the target before sprinting, restored sprint floor (`sprint_floor = 0.42`, `sprint_pay = 30.0`) to avoid premature forward lunging, retained active rotational visual search (`search_pay = 35.0`), aperture gating (`align_floor = 0.45`), anti-wander penalty (`misalign_cost = 6.0`), and `fwd_pay = 45.0`.
+  - Resumed from candidate: `baby_dog_step_0000196608.npz` (SHA256 `0436cf4cb8ec2cd93ecaf2e4ceceaafb316f285eaed3694a18785ff58278751f`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round43`.
+  - Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+  - Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
 - **Completed Remote Training Job: Round 44 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round44` (Status: `COMPLETE`, runtime 91.2 min).
   - Executed 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU) with zero cost ($0 budget).
