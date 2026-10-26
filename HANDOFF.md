@@ -9,7 +9,19 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 26 Oct 11:35 Dubai: Round 38 GPU Training COMPLETED on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round38'); Candidate baby_dog_step_0000262144.npz (SHA256 207c1767...) Promoted (Owner Arrival 7.29% overall, 14.0% in Cohort 3, Net Distance Closing -0.20m, Facing Cosine +0.0307, Aligned 12.61%); Ball Arrival 6.77% overall (11.0% in Cohort 1); Quota: Kaggle GPU 26.85h Remaining; Next Trial: Round 39 Aligned Acceleration Sprint Launch.**
+**Current state, 26 Oct 11:38 Dubai: Round 39 GPU Training ACTIVE on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round39'); Round 38 Completed (Owner Arrival 7.29% overall, 14.0% in Cohort 3, Net Distance Closing -0.20m, Facing Cosine +0.0307, Aligned 12.61%); Candidate baby_dog_step_0000262144.npz (SHA256 207c1767...) Promoted; Quota: Kaggle GPU 26.85h Remaining.**
+- **Active Remote Training Job: Round 39 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round39` (Status: `RUNNING`).
+  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h timeout cap.
+  - Objective: Break through the >15% visual arrival barrier by combining tight heading alignment gating with accelerated forward propulsion once aligned.
+  - Hyperparameter formulation:
+    - Retain alignment gate: `align_floor = 0.60` (cos 53°) so that `align_gate = 0` whenever off-heading. Forward velocity and sprint rewards strictly zero when misaligned.
+    - Active misalignment penalty: `misalign_cost = 12.0` penalizing moving forward while misaligned.
+    - Accelerate aligned forward speed: `fwd_pay = 40.0` (up from 25.0) and `sprint_pay = 25.0` (up from 10.0), `sprint_floor = 0.42`. When aligned, dog dashes at ~0.55 - 0.58 m/s (covering 3.4m in 6s), converting near-misses into arrivals.
+    - Turning incentives: `face_pay = 60.0`, `yaw_pay = 60.0` to rapidly pivot into heading alignment.
+    - Distance closing & arrival funnel: `task_pay = 90.0`, `reach_pay = 150.0`, `stay_pay = 100.0`, `prox_pay = 45.0`.
+  - Resumed from candidate: `baby_dog_step_0000262144.npz` (SHA256 `207c1767937adc3d6788533881165bcd37afbdaefa05aedeb512712103d601de`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round38`.
+  - Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
 - **Completed Remote Training Job: Round 38 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round38` (Status: `COMPLETE`, runtime 113.9 min).
   - Executed 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU) with zero cost ($0 budget).
