@@ -9,7 +9,19 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 26 Oct 17:00 Dubai: Round 41 GPU Training COMPLETED on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round41'); Candidate baby_dog_step_0000393216.npz (SHA256 2f1d6ced...) Promoted (Owner Arrival 6.77% overall, 11.0% in Cohort 3, Distance Closed to 3.29m; Step 262k Ball Arrival 6.25% overall, 9.0% in C2; Hazard Reaction Latency 7 ms; 100% Motor Skills Preserved); Quota: Kaggle GPU 22.33h Remaining; Next Trial: Round 42 Behind-Target Blindspot Unblock Launch.**
+**Current state, 26 Oct 17:05 Dubai: Round 42 GPU Training ACTIVE on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round42'); Round 41 Completed (Owner Arrival 6.77% overall, 11.0% in Cohort 3, Distance Closed to 3.29m; Step 262k Ball Arrival 6.25% overall, 9.0% in C2; Hazard Reaction Latency 7 ms; 100% Motor Skills Preserved); Candidate baby_dog_step_0000393216.npz (SHA256 2f1d6ced...) Resumed; Quota: Kaggle GPU 22.33h Remaining.**
+- **Active Remote Training Job: Round 42 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round42` (Status: `RUNNING`).
+  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h timeout cap.
+  - Objective: Eliminate blind forward wandering and drive active 180° visual search pivots toward rear targets (`misalign_cost = 6.0`, `yaw_pay = 80.0`, `face_pay = 80.0`, `align_floor = 0.45`) to break through >15% visual arrival barrier across 192 lives / 3 cohorts.
+  - Hyperparameter formulation:
+    - Eliminate blind forward drift: `misalign_cost = 6.0` ensures forward velocity while misaligned costs $6.0 \times 0.40 = 2.40$ per step, decisively penalizing blind forward wander beyond the stillness cost ($2.40 > 1.0$).
+    - Boost directional yaw search: `yaw_pay = 80.0` (up from 60.0) and `face_pay = 80.0` (up from 60.0) to provide strong rotational drive toward rear targets.
+    - Optical aperture match: `align_floor = 0.45` ($\approx 63^\circ$), matching the Go2 front camera's physical horizontal FOV ($120^\circ$).
+    - High-speed aligned sprint: `fwd_pay = 40.0`, `sprint_pay = 25.0`, `sprint_floor = 0.42` for rapid forward dash toward target once acquired in FOV.
+    - Distance closing & arrival funnel: `task_pay = 90.0`, `reach_pay = 150.0`, `stay_pay = 100.0`, `prox_pay = 45.0`.
+  - Resumed from candidate: `baby_dog_step_0000393216.npz` (SHA256 `2f1d6ceda141ea40f22911aa3d1d19210e57452adcdf29c3048f2b8a5017ff8a`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round41`.
+  - Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
 - **Completed Remote Training Job: Round 41 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round41` (Status: `COMPLETE`, runtime 89.2 min).
   - Executed 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU) with zero cost ($0 budget).
