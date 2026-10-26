@@ -9,7 +9,19 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 26 Oct 15:15 Dubai: Round 40 GPU Training COMPLETED on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round40'); Candidate baby_dog_step_0000393216.npz (SHA256 caa01193...) Promoted (Balanced Dual-Target: 5.21% Ball, 4.69% Owner, Cohort 2: 8.0% on both; Hazard Reaction Latency 7 ms; Step 131k & 196k: 7.29% Ball, C2: 11%; Step 327k: 6.25% Owner, C3: 11%); Quota: Kaggle GPU 23.86h Remaining; Next Trial: Round 41 Camera Aperture Alignment Launch.**
+**Current state, 26 Oct 15:20 Dubai: Round 41 GPU Training ACTIVE on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round41'); Round 40 Completed (Balanced Dual-Target: 5.21% Ball, 4.69% Owner, Cohort 2: 8.0% on both; Hazard Reaction Latency 7 ms; Step 131k & 196k: 7.29% Ball, C2: 11%; Step 327k: 6.25% Owner, C3: 11%); Candidate baby_dog_step_0000393216.npz (SHA256 caa01193...) Resumed; Quota: Kaggle GPU 23.86h Remaining.**
+- **Active Remote Training Job: Round 41 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round41` (Status: `RUNNING`).
+  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h timeout cap.
+  - Objective: Align visual approach gating with physical 120° camera aperture (`align_floor = 0.45`, `misalign_cost = 2.0`) to break through >15% visual arrival barrier across 192 lives / 3 cohorts.
+  - Hyperparameter formulation:
+    - Optical aperture match: `align_floor = 0.45` ($\approx 63^\circ$), matching the Go2 front camera's physical horizontal FOV ($120^\circ$, half-angle $60^\circ$, $\cos(60^\circ) = 0.50$). Any visually acquired target in peripheral vision immediately qualifies for forward velocity and sprint rewards (`align_gate > 0`).
+    - Fluid tracking cost: `misalign_cost = 2.0` (down from 4.0) to eliminate drag during orientation adjustments while running.
+    - High-speed aligned sprint: `fwd_pay = 40.0`, `sprint_pay = 25.0`, `sprint_floor = 0.42` for rapid forward dash toward target.
+    - Active yaw orientation: `face_pay = 60.0`, `yaw_pay = 60.0`.
+    - Distance closing & arrival funnel: `task_pay = 90.0`, `reach_pay = 150.0`, `stay_pay = 100.0`, `prox_pay = 45.0`.
+  - Resumed from candidate: `baby_dog_step_0000393216.npz` (SHA256 `caa01193ffd517855de86f44ad1c645cd906392e084ced8c89fcb759ec3d5a33`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round40`.
+  - Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
 - **Completed Remote Training Job: Round 40 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round40` (Status: `COMPLETE`, runtime 88.5 min).
   - Executed 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU) with zero cost ($0 budget).
