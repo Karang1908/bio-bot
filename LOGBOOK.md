@@ -3829,6 +3829,10 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
     Similarly, `--core v2` requires `bio-bot-cores` (for `core_v2.npz`). When a job pushes with python code embeds only,
     all referenced datasets must be explicitly passed as `--dataset` arguments to `scripts/kaggle_job.py push`,
     otherwise execution halts at startup with `STOP: go2_dog_motions.npz not found`.
+24. **Checkpoint label rounding in `--expect_checkpoint`.** Snapshots saved during training record their evaluation
+    index rounded (e.g. 262k steps records `'after 0.3M steps'`, whereas 393k steps records `'after 0.4M steps'`).
+    Setting `--expect_checkpoint "after 0.3M steps"` when resuming from a 393k snapshot triggers the safety exit.
+    Always match the target snapshot's exact recorded step string (`'after 0.4M steps'`).
 
 ---
 
