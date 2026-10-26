@@ -86,6 +86,7 @@ SPRINT_PAY = 40.0        # "ball" / "come": reward bonus for forward speed excee
 SPRINT_FLOOR = 0.42      # "ball" / "come": forward velocity threshold for sprint bonus
 ALIGN_FLOOR = 0.25       # "ball" / "come": alignment cosine floor below which forward sprint reward is zero
 YAW_PAY = 25.0           # "ball" / "come": reward for yaw rate directed towards task target
+SEARCH_PAY = 0.0         # "ball" / "come": reward for rotational visual search when target is outside camera aperture
 MISALIGN_COST = 4.0      # "ball" / "come": penalty for forward velocity while heading is misaligned
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
@@ -1598,6 +1599,9 @@ def practice(args, bd, out: Path) -> dict:
                 sprint_bonus = jp.maximum(0.0, st["v_fwd"] - sprint_floor) * align_gate * (1.0 - proximity)
                 yaw_dir = jp.clip(theta_bearing / 0.35, -1.0, 1.0)
                 yaw_toward = st["wz"] * yaw_dir
+                search_pay = getattr(args, "search_pay", SEARCH_PAY)
+                rot_search = jp.clip(jp.abs(st["wz"]) / 1.0, 0.0, 1.0) * (1.0 - align_gate)
+                yaw_reward = yaw_pay * yaw_toward * align_gate + search_pay * rot_search
                 # the body scores "stand still" when no motion is asked; a task word asks it to go somewhere (turning or walking)
                 still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
                 stay_pay = getattr(args, "stay_pay", STAY_PAY)
@@ -1610,7 +1614,7 @@ def practice(args, bd, out: Path) -> dict:
                 fwd_pay = getattr(args, "fwd_pay", FWD_PAY)
                 yaw_pay = getattr(args, "yaw_pay", YAW_PAY)
                 misalign_cost = getattr(args, "misalign_cost", MISALIGN_COST) * jp.maximum(0.0, st["v_fwd"]) * (1.0 - align_gate)
-                task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + stay_bonus + prox_pay * proximity + fwd_pay * fwd_toward + sprint_pay * sprint_bonus + yaw_pay * yaw_toward - misalign_cost
+                task_reward = face_pay * turned if lesson == "orient" else task_pay * closer + face_pay * turned + reach_pay * there + stay_bonus + prox_pay * proximity + fwd_pay * fwd_toward + sprint_pay * sprint_bonus + yaw_reward - misalign_cost
                 if lesson == "perception":
                     task_reward = jp.zeros_like(closer)
                 upright_cost = getattr(args, "upright_cost", 0.0) * jp.clip(1.0 - env["d"].xmat[:, base, 2, 2], 0.0, 2.0)
@@ -2391,6 +2395,7 @@ def main() -> None:
     ap.add_argument("--sprint_pay", type=float, default=SPRINT_PAY, help="practice: reward bonus for forward speed exceeding gallop threshold")
     ap.add_argument("--sprint_floor", type=float, default=SPRINT_FLOOR, help="practice: forward velocity threshold for sprint bonus")
     ap.add_argument("--yaw_pay", type=float, default=YAW_PAY, help="practice: reward for yaw rate directed towards task target")
+    ap.add_argument("--search_pay", type=float, default=SEARCH_PAY, help="practice: reward for rotational visual search when target is outside camera aperture")
     ap.add_argument("--misalign_cost", type=float, default=MISALIGN_COST, help="practice: penalty for forward velocity while heading is misaligned")
     ap.add_argument("--upright_cost", type=float, default=0.0, help="practice: penalty for trunk tilt during task approach")
     ap.add_argument("--roll_cost", type=float, default=3.0, help="practice: penalty for lateral roll tilt during task approach")
