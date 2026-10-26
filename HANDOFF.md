@@ -9,7 +9,19 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 26 Oct 13:15 Dubai: Round 39 GPU Training COMPLETED on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round39'); Candidate baby_dog_step_0000393216.npz (SHA256 aeebc8a7...) Promoted (Balanced Dual-Target Arrival: 6.77% Owner, 6.25% Ball; Visual Alignment 13.96%; Facing Cosine +0.0391; Hit Balanced Accuracy 0.903); Step 131k (158cae65...) Achieved 7.29% Ball Arrival (12.0% in C3); Quota: Kaggle GPU 25.38h Remaining; Next Trial: Round 40 Turning-Resistance Unblock Launch.**
+**Current state, 26 Oct 13:20 Dubai: Round 40 GPU Training ACTIVE on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round40'); Round 39 Completed (Balanced Dual-Target Arrival: 6.77% Owner, 6.25% Ball; Visual Alignment 13.96%; Facing Cosine +0.0391; Hit Balanced Accuracy 0.903); Candidate baby_dog_step_0000393216.npz (SHA256 aeebc8a7...) Resumed; Quota: Kaggle GPU 25.38h Remaining.**
+- **Active Remote Training Job: Round 40 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round40` (Status: `RUNNING`).
+  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h timeout cap.
+  - Objective: Unblock turning-resistance bottleneck to break through >15% visual arrival barrier across 192 lives / 3 cohorts.
+  - Hyperparameter formulation:
+    - Softened turning penalty: `misalign_cost = 4.0` (down from 12.0) to remove the heavy penalty on natural forward creep during turning gaits ($v_{\text{fwd}} \approx 0.10\text{ m/s}$ during $\omega_z \approx 1.38\text{ rad/s}$ pivots), enabling rapid in-place pivots toward rear targets.
+    - Strict forward velocity and sprint gate: `align_floor = 0.60` (cos 53°) so that `align_gate = 0` whenever off-heading. Forward velocity and sprint rewards strictly zero when misaligned.
+    - Accelerated aligned sprint: `fwd_pay = 40.0`, `sprint_pay = 25.0`, `sprint_floor = 0.42` for high-speed approach toward target once aligned.
+    - Turning incentives: `face_pay = 60.0`, `yaw_pay = 60.0` for active orientation.
+    - Distance closing & arrival funnel: `task_pay = 90.0`, `reach_pay = 150.0`, `stay_pay = 100.0`, `prox_pay = 45.0`.
+  - Resumed from candidate: `baby_dog_step_0000393216.npz` (SHA256 `aeebc8a726da5eb83c5c9574055d7972a5b8d83e579ee4677e0fd43f44f1247b`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round39`.
+  - Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
 - **Completed Remote Training Job: Round 39 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round39` (Status: `COMPLETE`, runtime 91.2 min).
   - Executed 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU) with zero cost ($0 budget).
