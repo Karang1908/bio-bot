@@ -9,7 +9,15 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 27 Oct 07:45 Dubai: Round 45 COMPLETED on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round45', 88.5 min runtime); Step 327k Ball Arrival 6.77% overall (C2 8.0%, C3 8.0%), Step 393k C1 Ball Arrival 11.0% (7/64 lives) & 5.73% Owner Arrival; 100% Motor Skills Preserved; Step 196k Hazard Dodge Latency 10.0 ms; All-Time Primary Candidate baby_dog_step_0000196608.npz (SHA256 0436cf4c..., Round 43, 9.90% Ball, 14.1% C2) Retained; Quota: Kaggle GPU 15.67h Remaining.**
+**Current state, 27 Oct 10:15 Dubai: Round 46 GPU Training ACTIVE on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round46'); Round 45 Completed (Step 327k Ball Arrival 6.77% overall, Step 393k C1 Ball Arrival 11.0%, 100% Motor Skills Preserved); Primary Candidate baby_dog_step_0000196608.npz (SHA256 0436cf4c..., Round 43, 9.90% Ball, 14.1% C2) Resumed with Calibrated Braking Radius (brake_scale=1.4) and Decisive Final-Approach Drive; Quota: Kaggle GPU 15.67h Remaining.**
+- **Active Remote Training Job: Round 46 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round46` (Status: `RUNNING`).
+  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h timeout cap.
+  - Objective: Calibrated braking radius scale (`brake_scale = 1.4`) and elimination of premature idling near target. In earlier rounds, `brake_radius = jp.maximum(1.2, 1.5 * near_of[ins])` set an artificial 1.2m braking zone for the 0.35m ball, causing `proximity > 0.8` at 0.52m and paying ~40 reward/s for idling nearby while damping forward speed. Round 46 sets `brake_radius = 1.4 * 0.35m = 0.49m`, establishes a 0.25 floor on `near_brake`, and penalizes standing still (`task_still = jp.where(there, 0.0, still)`) until arrival at `there`, compelling decisive forward drive across the 0.35m arrival threshold.
+  - Resumed from candidate: `baby_dog_step_0000196608.npz` (SHA256 `0436cf4cb8ec2cd93ecaf2e4ceceaafb316f285eaed3694a18785ff58278751f`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round43`.
+  - Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+  - Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
+  - Hyperparameters: `brake_scale = 1.4`, `yaw_pay = 100.0`, `face_pay = 100.0`, `sprint_floor = 0.42`, `sprint_pay = 30.0`, `fwd_pay = 45.0`, `search_pay = 35.0`, `misalign_cost = 6.0`, `align_floor = 0.45`, `task_pay = 90.0`, `reach_pay = 150.0`, `stay_pay = 100.0`, `prox_pay = 45.0`.
 - **Completed Remote Training Job: Round 45 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round45` (Status: `COMPLETE`, runtime 88.5 min).
   - Executed 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU) with zero cost ($0 budget).
