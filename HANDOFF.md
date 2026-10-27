@@ -9,7 +9,15 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 27 Oct 11:55 Dubai: Round 46 COMPLETED on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round46', 90.1 min runtime); Step 131k Ball Arrival 6.77% overall (Cohort 2 9.4%), Step 393k Hazard Dodge Latency 6.7 ms; 100% Motor Skills Preserved; Primary Candidate baby_dog_step_0000196608.npz (SHA256 0436cf4c..., Round 43, 9.90% Ball, 14.1% C2) Retained; Quota: Kaggle GPU 14.14h Remaining.**
+**Current state, 27 Oct 12:00 Dubai: Round 47 GPU Training ACTIVE on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round47'); Round 46 Completed (Step 131k Ball Arrival 6.77% overall, Step 393k Hazard Dodge Latency 6.7 ms; 100% Motor Skills Preserved); Primary Candidate baby_dog_step_0000196608.npz (SHA256 0436cf4c..., Round 43, 9.90% Ball, 14.1% C2) Resumed with Forward-Dominant Gallop Sprint & Calibrated Braking; Quota: Kaggle GPU 14.14h Remaining.**
+- **Active Remote Training Job: Round 47 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round47` (Status: `RUNNING`).
+  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h timeout cap.
+  - Objective: Forward-dominant gallop sprint with calibrated braking. In Rounds 45 & 46, `yaw_pay` and `face_pay` were set to 100.0 (over 2.2× higher than `fwd_pay = 45.0`), which caused the gradient to favor rotational turning in place over forward locomotion, plateauing at 6.77% ball arrival and increasing distance drift. Round 47 restores forward propulsion dominance (`fwd_pay = 50.0`, `sprint_pay = 35.0`, `sprint_floor = 0.42`), provides balanced steering (`yaw_pay = 35.0`, `face_pay = 30.0`), maintains active search (`search_pay = 35.0`), relaxes misalign penalty (`misalign_cost = 3.0`, `align_floor = 0.35`), and retains calibrated braking (`brake_scale = 1.4`, `near_brake` floor `0.25`, no idling before `there`).
+  - Resumed from candidate: `baby_dog_step_0000196608.npz` (SHA256 `0436cf4cb8ec2cd93ecaf2e4ceceaafb316f285eaed3694a18785ff58278751f`) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round43`.
+  - Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+  - Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
+  - Hyperparameters: `fwd_pay = 50.0`, `sprint_pay = 35.0`, `sprint_floor = 0.42`, `yaw_pay = 35.0`, `face_pay = 30.0`, `search_pay = 35.0`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 1.4`, `task_pay = 75.0`, `reach_pay = 150.0`, `stay_pay = 100.0`, `prox_pay = 40.0`.
 - **Completed Remote Training Job: Round 46 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round46` (Status: `COMPLETE`, runtime 90.1 min).
   - Executed 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU) with zero cost ($0 budget).
