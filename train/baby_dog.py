@@ -1604,7 +1604,7 @@ def practice(args, bd, out: Path) -> dict:
                 yaw_toward = st["wz"] * yaw_dir
                 yaw_pay = getattr(args, "yaw_pay", YAW_PAY)
                 search_pay = getattr(args, "search_pay", SEARCH_PAY)
-                rot_search = jp.clip(jp.abs(st["wz"]) / 1.0, 0.0, 1.0) * (1.0 - align_gate)
+                rot_search = jp.clip(yaw_toward / 1.0, -1.0, 1.0) * (1.0 - align_gate)
                 yaw_reward = yaw_pay * yaw_toward * align_gate + search_pay * rot_search
                 # the body scores "stand still" when no motion is asked; a task word asks it to go somewhere (turning or walking)
                 still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
