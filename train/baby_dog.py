@@ -90,6 +90,7 @@ SEARCH_PAY = 0.0         # "ball" / "come": reward for rotational visual search 
 MISALIGN_COST = 4.0      # "ball" / "come": penalty for forward velocity while heading is misaligned
 TASK_FALL_COST = 3.0     # "ball" / "come": event penalty for falling during task approach
 BRAKE_SCALE = 1.4        # "ball" / "come": braking radius multiplier relative to target arrival radius
+BRAKE_FLOOR = 0.5        # "ball" / "come": minimum forward drive multiplier inside the braking transition zone
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
@@ -1595,7 +1596,8 @@ def practice(args, bd, out: Path) -> dict:
                 turned = jp.where(done, 0.0, jp.clip((cos_facing - facing_before) / bd.CTRL_DT, -2.0, 2.0))
                 align_floor = getattr(args, "align_floor", ALIGN_FLOOR)
                 align_gate = jp.clip((cos_facing - align_floor) / (1.0 - align_floor + 1e-6), 0.0, 1.0)
-                near_brake = jp.where(there, 0.0, jp.clip((min_gap1 - near_of[ins]) / (brake_radius - near_of[ins] + 1e-6), 0.25, 1.0))
+                brake_floor = getattr(args, "brake_floor", BRAKE_FLOOR)
+                near_brake = jp.where(there, 0.0, jp.clip((min_gap1 - near_of[ins]) / (brake_radius - near_of[ins] + 1e-6), brake_floor, 1.0))
                 fwd_toward = jp.maximum(0.0, st["v_fwd"]) * align_gate * near_brake
                 sprint_floor = getattr(args, "sprint_floor", SPRINT_FLOOR)
                 sprint_pay = getattr(args, "sprint_pay", SPRINT_PAY)
@@ -2407,6 +2409,7 @@ def main() -> None:
     ap.add_argument("--task_fall_cost", type=float, default=TASK_FALL_COST, help="practice: event penalty for falling during task approach")
     ap.add_argument("--align_floor", type=float, default=ALIGN_FLOOR, help="practice: alignment cosine floor below which forward sprint reward is zero")
     ap.add_argument("--brake_scale", type=float, default=BRAKE_SCALE, help="practice: braking radius multiplier relative to target arrival radius")
+    ap.add_argument("--brake_floor", type=float, default=BRAKE_FLOOR, help="practice: minimum forward drive multiplier inside the braking transition zone")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--bias0", type=float, default=0.3)
     ap.add_argument("--goal_scale", type=float, default=2.0)
