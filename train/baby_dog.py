@@ -88,6 +88,8 @@ ALIGN_FLOOR = 0.25       # "ball" / "come": alignment cosine floor below which f
 YAW_PAY = 25.0           # "ball" / "come": reward for yaw rate directed towards task target
 SEARCH_PAY = 0.0         # "ball" / "come": reward for rotational visual search when target is outside camera aperture
 MISALIGN_COST = 4.0      # "ball" / "come": penalty for forward velocity while heading is misaligned
+TASK_FALL_COST = 3.0     # "ball" / "come": event penalty for falling during task approach
+BRAKE_SCALE = 1.4        # "ball" / "come": braking radius multiplier relative to target arrival radius
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
@@ -1587,12 +1589,13 @@ def practice(args, bd, out: Path) -> dict:
                 raw_closer = jp.clip((gap0 - gap1) / bd.CTRL_DT, -1.0, 1.0)
                 closer = jp.where(done, 0.0, jp.where(cos_facing < 0.0, jp.maximum(0.0, raw_closer), raw_closer))
                 there = (gap1 < near_of[ins]) | (head_gap1 < near_of[ins])
-                brake_radius = jp.maximum(1.2, 1.5 * near_of[ins])
+                brake_scale = getattr(args, "brake_scale", BRAKE_SCALE)
+                brake_radius = brake_scale * near_of[ins]
                 proximity = jp.clip((brake_radius - min_gap1) / (brake_radius - near_of[ins] + 1e-6), 0.0, 1.0)
                 turned = jp.where(done, 0.0, jp.clip((cos_facing - facing_before) / bd.CTRL_DT, -2.0, 2.0))
                 align_floor = getattr(args, "align_floor", ALIGN_FLOOR)
                 align_gate = jp.clip((cos_facing - align_floor) / (1.0 - align_floor + 1e-6), 0.0, 1.0)
-                near_brake = jp.where(there, 0.0, jp.clip((min_gap1 - near_of[ins]) / (brake_radius - near_of[ins] + 1e-6), 0.0, 1.0))
+                near_brake = jp.where(there, 0.0, jp.clip((min_gap1 - near_of[ins]) / (brake_radius - near_of[ins] + 1e-6), 0.25, 1.0))
                 fwd_toward = jp.maximum(0.0, st["v_fwd"]) * align_gate * near_brake
                 sprint_floor = getattr(args, "sprint_floor", SPRINT_FLOOR)
                 sprint_pay = getattr(args, "sprint_pay", SPRINT_PAY)
@@ -1607,7 +1610,7 @@ def practice(args, bd, out: Path) -> dict:
                 still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
                 stay_pay = getattr(args, "stay_pay", STAY_PAY)
                 stay_bonus = stay_pay * there * jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.1)
-                task_still = jp.where(there | (proximity > 0.8), 0.0, still)
+                task_still = jp.where(there, 0.0, still)
                 face_pay = getattr(args, "face_pay", FACE_PAY)
                 task_pay = getattr(args, "task_pay", TASK_PAY)
                 reach_pay = getattr(args, "reach_pay", REACH_PAY)
@@ -2400,8 +2403,9 @@ def main() -> None:
     ap.add_argument("--upright_cost", type=float, default=0.0, help="practice: penalty for trunk tilt during task approach")
     ap.add_argument("--roll_cost", type=float, default=3.0, help="practice: penalty for lateral roll tilt during task approach")
     ap.add_argument("--side_cost", type=float, default=1.0, help="practice: penalty for lateral drift velocity during task approach")
-    ap.add_argument("--task_fall_cost", type=float, default=3.0, help="practice: event penalty for falling during task approach")
+    ap.add_argument("--task_fall_cost", type=float, default=TASK_FALL_COST, help="practice: event penalty for falling during task approach")
     ap.add_argument("--align_floor", type=float, default=ALIGN_FLOOR, help="practice: alignment cosine floor below which forward sprint reward is zero")
+    ap.add_argument("--brake_scale", type=float, default=BRAKE_SCALE, help="practice: braking radius multiplier relative to target arrival radius")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--bias0", type=float, default=0.3)
     ap.add_argument("--goal_scale", type=float, default=2.0)
