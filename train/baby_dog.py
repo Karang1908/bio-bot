@@ -1610,7 +1610,8 @@ def practice(args, bd, out: Path) -> dict:
                 still = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05)
                 stay_pay = getattr(args, "stay_pay", STAY_PAY)
                 stay_bonus = stay_pay * there * jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.1)
-                task_still = jp.where(there, 0.0, still)
+                task_motion = st["v_fwd"] ** 2 + st["v_side"] ** 2 + 0.25 * st["wz"] ** 2
+                task_still = jp.where(there, 0.0, jp.exp(-task_motion / 0.05))
                 face_pay = getattr(args, "face_pay", FACE_PAY)
                 task_pay = getattr(args, "task_pay", TASK_PAY)
                 reach_pay = getattr(args, "reach_pay", REACH_PAY)
