@@ -9,7 +9,15 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 27 Oct 16:50 Dubai: Round 48 COMPLETED on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round48', 87.6 min runtime); Step 65k achieved ALL-TIME DUAL-ARRIVAL PARITY of 7.81% Ball (15/192) AND 7.81% Owner (15/192) = 15.6% Combined Arrival across 192 lives (Cohort 1 Ball 9.0%, Cohort 3 Ball 8.0%), Step 262k Ball Arrival 7.81%, Step 393k Ball Arrival 7.29%; 100% Motor Skills Preserved; Step 65k Snapshot (SHA256 4d54e3e4...) Promoted Alongside Cohort Record Candidate (Round 47 step 327k, 16.0% in C2) and Multi-Cohort Candidate (Round 43 step 196k, 9.90% overall); Quota: Kaggle GPU 11.20h Remaining.**
+**Current state, 27 Oct 16:55 Dubai: Round 49 GPU Training ACTIVE on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round49'); Round 48 Completed (Step 65k achieved ALL-TIME DUAL-ARRIVAL PARITY of 7.81% Ball & 7.81% Owner = 15.6% Combined, Step 262k 7.81% Ball, Step 393k 7.29% Ball; 100% Motor Skills Preserved); Resumed from Dual-Parity Candidate baby_dog_step_0000065536.npz (SHA256 4d54e3e4...) with Clean Pivot Turns in task_still (no penalty for turning in place); Quota: Kaggle GPU 11.20h Remaining.**
+- **Active Remote Training Job: Round 49 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round49` (Status: `RUNNING`).
+  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h timeout cap.
+  - Objective: Clean zero-radius pivot orientation and forward gallop sprint. In previous rounds, `task_still` computed motionless state using only `v_fwd**2 + v_side**2`, which inadvertently treated turning in place as "standing still" and penalized it by `-1.0` reward/s. This compelled dogs to move forward at 0.35–0.40 m/s while trying to turn, carving large 5-meter turning arcs instead of pivoting on the spot. Round 49 introduces turning into task motion (`task_motion = v_fwd**2 + v_side**2 + 0.25 * wz**2`), removing the penalty for pivot turns and allowing instant alignment before forward-dominant sprinting.
+  - Resumed from candidate: `baby_dog_step_0000065536.npz` (SHA256 `4d54e3e430719f6449b9d4105bc80e0642a3aab21f9f5c6f6d868ffa69629f6e`, Round 48 dual-arrival parity candidate) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round48`.
+  - Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+  - Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
+  - Hyperparameters: `fwd_pay = 50.0`, `sprint_pay = 35.0`, `sprint_floor = 0.42`, `yaw_pay = 35.0`, `face_pay = 30.0`, `search_pay = 35.0` with directional `rot_search`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 1.4`, `task_pay = 75.0`, `reach_pay = 150.0`, `stay_pay = 100.0`, `prox_pay = 40.0`.
 - **Completed Remote Training Job: Round 48 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round48` (Status: `COMPLETE`, runtime 87.6 min).
   - Executed 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU) with zero cost ($0 budget).
