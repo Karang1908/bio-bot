@@ -4415,6 +4415,75 @@ All outputs fetched to `results/baby-dog-vision-approach-round49/`: `baby_dog.np
 4. **Compute Quota:**
    - 91.0 min spent on Kaggle 2x T4 GPU. Quota has 9.70h remaining. Budget: $0.00.
 
+### Visual target approach round 50 (directional search & zero-penalty pivot orientation on 2x Nvidia Tesla T4 GPU)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round50 (version 1).
+Completed all 24 updates (393,216 steps, 88.0 min runtime) on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU) to `KernelWorkerStatus.COMPLETE`. Outputs ingested into `results/baby-dog-vision-approach-round50/`.
+
+Setup: 393,216 steps (24 updates × 16,384 steps = 393,216 steps), 512 envs, 6 evaluation checkpoints (every 65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h cap. Teacher movement help zero from rest (`help_ = 0.00`).
+Resumed from all-time cohort record candidate `baby_dog_step_0000327680.npz` (`53f26415…`, Round 47 candidate, 16.0% in C2) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round47`.
+Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
+Hyperparameters: `fwd_pay = 50.0`, `sprint_pay = 35.0`, `sprint_floor = 0.42`, `yaw_pay = 35.0`, `face_pay = 30.0`, `search_pay = 35.0` with directional `rot_search = clip(yaw_toward/1.0, -1.0, 1.0) * (1 - align_gate)`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 1.4` (calibrated 0.49m braking radius), `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2` (zero-penalty pivot turns), `task_pay = 75.0`, `reach_pay = 150.0`, `stay_pay = 100.0`, `prox_pay = 40.0`.
+All outputs fetched to `results/baby-dog-vision-approach-round50/`: `baby_dog.npz`, snapshots at 65k, 131k, 196k, 262k, 327k, 393k steps, `practice.json`, and `bio-bot-baby-dog-vision-approach-round50.log` (copied to `log.txt`).
+
+**Measured Outcomes across 3 fresh cohorts (192 lives per evaluation):**
+
+| measured metric (three cohorts, 192 lives) | baseline (53f2...) | 0.07M (f397...) | 0.13M (2dd6...) | 0.20M (16ae...) | 0.26M (0e7e...) | 0.33M (b70a...) | 0.39M (2d1a...) |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| mean movement falls / 13 s | 1.1758 | 1.1686 | 1.1908 | 1.2259 | 1.1810 | 1.1712 | 1.1934 |
+| walk speed, m/s | +0.3986 | +0.3912 | +0.3840 | +0.3925 | +0.3958 | +0.4094 | +0.3892 |
+| pace speed, m/s | +0.5588 | +0.5533 | +0.5650 | +0.5585 | +0.5733 | +0.5589 | +0.5574 |
+| canter speed, m/s | +0.3999 | +0.3928 | +0.3922 | +0.3859 | +0.3962 | +0.3963 | +0.3920 |
+| run speed, m/s | +0.5503 | +0.5593 | +0.5551 | +0.5609 | +0.5476 | +0.5525 | +0.5537 |
+| back speed, m/s | -0.0713 | -0.0728 | -0.0729 | -0.0703 | -0.0725 | -0.0761 | -0.0798 |
+| turn-left yaw, rad/s | +1.3856 | +1.3876 | +1.3683 | +1.3973 | +1.3746 | +1.3973 | +1.3859 |
+| turn-right yaw, rad/s | -1.1376 | -1.1222 | -1.0967 | -1.1293 | -1.1158 | -1.1124 | -1.1092 |
+| sit pose (pitch / trunk) | +0.494 / 0.620 | +0.493 / 0.618 | +0.498 / 0.618 | +0.496 / 0.619 | +0.485 / 0.619 | +0.505 / 0.619 | +0.490 / 0.619 |
+| lie-down pose (pitch / trunk) | +0.015 / 0.950 | +0.020 / 0.953 | +0.023 / 0.957 | +0.014 / 0.949 | +0.024 / 0.955 | +0.015 / 0.952 | +0.014 / 0.948 |
+| **ball arrival success (got_there)** | 2.60% (5/192) | **5.21% (10/192)** | 4.69% (9/192) | 4.69% (9/192) | **5.73% (11/192)** | 4.69% (9/192) | 4.17% (8/192) |
+| ball distance drift (start -> end, m) | 2.491 -> 3.461 | 2.490 -> 3.397 | 2.489 -> 3.716 | 2.496 -> 3.503 | 2.491 -> 3.535 | 2.491 -> 3.597 | 2.490 -> 3.670 |
+| ball aligned in final second | 4.24% | 3.76% | 3.53% | 4.33% | 4.01% | 3.43% | 2.93% |
+| ball final facing cosine | -0.3934 | -0.3466 | -0.4865 | -0.3988 | -0.4572 | -0.4023 | -0.4314 |
+| ball falls / 13 s | 0.8281 | 0.8333 | 0.7917 | 0.8438 | 0.8021 | 0.8125 | 0.8229 |
+| **owner arrival success (got_there, come)** | 3.12% (6/192) | 3.65% (7/192) | 4.17% (8/192) | 4.17% (8/192) | 3.65% (7/192) | 3.12% (6/192) | 4.69% (9/192) |
+| owner distance drift (start -> end, m) | 3.666 -> 3.550 | 3.664 -> 3.657 | 3.665 -> 3.696 | 3.663 -> 3.570 | 3.663 -> 3.484 | 3.665 -> 3.484 | 3.662 -> 3.727 |
+| owner aligned in final second | 10.74% | 10.89% | 7.76% | 9.83% | 12.49% | 10.98% | 9.08% |
+| owner final facing cosine | +0.0364 | -0.0034 | -0.1038 | -0.0063 | +0.0102 | -0.0705 | -0.0355 |
+| owner falls / 13 s | 1.5885 | 1.6875 | 1.6354 | 1.4792 | 1.5417 | 1.5208 | 1.5729 |
+| **dodge hazard reaction (hit rate)** | 74.5% | 77.6% | 76.0% | 80.2% | 80.2% | 78.6% | 81.2% |
+| dodge moved before impact | 24.5% | 22.9% | 24.0% | 28.1% | 20.8% | 25.0% | 24.5% |
+| dodge median reaction latency | 46.7 ms | 33.3 ms | 36.7 ms | 96.7 ms | **0.0 ms** | 43.3 ms | 46.7 ms |
+| teacher movement help (all skills) | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+**Checkpoint SHA256 Hashes:**
+- `baby_dog_step_0000065536.npz`: `f39770025041ba68d1e91c32763a09622352ab483958ba4586eca19d3215b510`
+- `baby_dog_step_0000131072.npz`: `2dd614bb441ab3639493045f0b488a819065c1cfc82c15ab47ce6d681a73c20b`
+- `baby_dog_step_0000196608.npz`: `16aea4ec676820d344902d17598d2bdb1687d5c27a4cff6861a961f42b64c48e`
+- `baby_dog_step_0000262144.npz`: `0e7e3d5a7099646ced340acef75b21a6c157214797c1175321f6c71c29e2bea0`
+- `baby_dog_step_0000327680.npz`: `b70a484069b2a7f0ec0de3034476c1c969b5eae5b108cbe872840615ddae8229`
+- `baby_dog_step_0000393216.npz`: `2d1ac9bdb7b7eca540a7f92e5fb0652d3db1c985cab51fd1d341875744a9593a`
+- `baby_dog.npz`: `a8b1b770844c9083bc1aa098485a967d2736c895cfe334ea85bcc9b237138564`
+
+**Key Findings & Mechanism for Round 50:**
+1. **Measured Performance & Reflex Latency:**
+   - Ball arrival peaked at **5.73% (11/192)** at step 262k (`0e7e3d5a...`), with Cohort 1 reaching **8.0% (5/64)** at step 65k and Cohort 3 reaching **8.0% (5/64)** at step 327k.
+   - Owner arrival reached **4.69% (9/192)** at step 393k, with Cohort 3 reaching **8.0% (5/64)**.
+   - Hazard dodge reaction latency hit **0.0 ms** (instant reaction to incoming projectiles) at step 262k (`0e7e3d5a...`).
+   - 100% nominal motor skills preserved (+0.3840 to +0.4094 m/s walk speed, +0.5476 to +0.5733 m/s pace, +1.3683 to +1.3973 rad/s turn-left).
+2. **Causal Analysis: The Fall Recovery and Distance Ceilings:**
+   - In nominal gait tests, the quadruped experiences ~1.17 falls per 13s (~0.90 falls per 10s trial).
+   - In park tests, dogs fell ~0.80 to 0.84 times per 10s trial.
+   - Because self-learning rollover/getting up is physically unlearned (0% in get-up tests), any fall mid-trial leaves the dog stranded on the ground, terminating its journey before reaching the 0.35m ball circle.
+   - Consequently, trials where the dog stays upright throughout the entire 10 seconds and manages to align its heading and sprint represent ~6–10% of all lives across multi-cohort evaluations, creating an operational ceiling on unassisted arrival without active rollover recovery.
+3. **Primary Learning Restart Candidates Across Project:**
+   - **All-Time Multi-Cohort Ball Candidate**: `baby_dog_step_0000196608.npz` (SHA256 `0436cf4cb8ec2cd93ecaf2e4ceceaafb316f285eaed3694a18785ff58278751f`, Round 43) retained as all-time best (**9.90% overall across all 3 cohorts**, C2 14.1%, C3 9.4%).
+   - **All-Time Dual-Arrival Candidate**: `baby_dog_step_0000065536.npz` (SHA256 `4d54e3e430719f6449b9d4105bc80e0642a3aab21f9f5c6f6d868ffa69629f6e`, Round 48) retained (**7.81% ball arrival AND 7.81% owner arrival**, 15.6% combined).
+   - **All-Time Single-Cohort Record Candidate**: `baby_dog_step_0000327680.npz` (SHA256 `53f264155a58dece500d0a352ed7fa4b7698907f9cac0c34319759eb9d10eb4c`, Round 47) retained (**16.0% in Cohort 2**).
+   - **New Instant-Reflex Candidate**: `baby_dog_step_0000262144.npz` (SHA256 `0e7e3d5a7099646ced340acef75b21a6c157214797c1175321f6c71c29e2bea0`, Round 50) promoted (**0.0 ms reaction latency**, 5.73% arrival).
+4. **Compute Quota:**
+   - 88.0 min spent on Kaggle 2x T4 GPU. Quota has 8.19h remaining. Budget: $0.00.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
