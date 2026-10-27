@@ -9,7 +9,15 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 27 Oct 15:10 Dubai: Round 47 COMPLETED on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round47', 87.1 min runtime); Step 327k Ball Arrival reached an ALL-TIME RECORD of 16.0% (10/64 lives) in Cohort 2 (7.81% overall, 6.77% Owner Arrival), Step 393k Hazard Dodge Latency reached 0.0 ms; 100% Motor Skills Preserved; Step 327k Snapshot (SHA256 53f26415...) Promoted Alongside All-Time Candidate baby_dog_step_0000196608.npz (SHA256 0436cf4c..., Round 43); Quota: Kaggle GPU 12.68h Remaining.**
+**Current state, 27 Oct 15:15 Dubai: Round 48 GPU Training ACTIVE on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round48'); Round 47 Completed (Step 327k Ball Arrival reached an ALL-TIME RECORD of 16.0% in Cohort 2, Step 393k Hazard Dodge Latency 0.0 ms; 100% Motor Skills Preserved); Resumed from Record 16% Candidate baby_dog_step_0000327680.npz (SHA256 53f26415...) with Directional Search Reward (rot_search = clip(yaw_toward, -1, 1)); Quota: Kaggle GPU 12.68h Remaining.**
+- **Active Remote Training Job: Round 48 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round48` (Status: `QUEUED`/`RUNNING`).
+  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h timeout cap.
+  - Objective: Directional visual search and forward-dominant sprint across all 3 cohorts. In Round 47, Cohort 2 achieved an all-time record 16.0% ball arrival, but Cohort 1 lagged at 2% because when targets start behind the dog (`align_gate == 0`), `rot_search = clip(|wz|/1.0, 0, 1)` rewarded spinning in either direction indiscriminately (`abs(wz)`). Round 48 introduces directional search guidance (`rot_search = jp.clip(yaw_toward / 1.0, -1.0, 1.0) * (1.0 - align_gate)`), penalizing turning away and rewarding turning toward target bearing even when outside the visual aperture, enabling all 3 cohorts to acquire target heading before forward-dominant sprinting.
+  - Resumed from candidate: `baby_dog_step_0000327680.npz` (SHA256 `53f264155a58dece500d0a352ed7fa4b7698907f9cac0c34319759eb9d10eb4c`, Round 47 record 16% candidate) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round47`.
+  - Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+  - Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
+  - Hyperparameters: `fwd_pay = 50.0`, `sprint_pay = 35.0`, `sprint_floor = 0.42`, `yaw_pay = 35.0`, `face_pay = 30.0`, `search_pay = 35.0`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 1.4`, `task_pay = 75.0`, `reach_pay = 150.0`, `stay_pay = 100.0`, `prox_pay = 40.0`.
 - **Completed Remote Training Job: Round 47 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round47` (Status: `COMPLETE`, runtime 87.1 min).
   - Executed 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU) with zero cost ($0 budget).
