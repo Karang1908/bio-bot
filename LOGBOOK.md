@@ -4620,6 +4620,18 @@ All outputs fetched to `results/baby-dog-vision-approach-round52/`: `baby_dog.np
 3. **Compute Quota:**
    - 88.0 min spent on Kaggle 2x T4 GPU. Quota has 5.19h remaining. Budget: $0.00.
 
+### Visual target approach round 53 (accelerated rotational horizon search & sprint gallop drive on 2x Nvidia Tesla T4 GPU)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round53 (version 1).
+Status: `RUNNING` on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU).
+
+Setup: 393,216 steps (24 updates × 16,384 steps = 393,216 steps), 512 envs, 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h cap. Teacher movement help zero from rest (`help_ = 0.00`).
+Resumed from candidate `baby_dog_step_0000327680.npz` (`4e0c0db17e7539d13037d9fa24f0ef19de1c6222bceb9dfe4cdf618d96645fee`, Round 52 step 327k, 12.50% in C2, 3.00m distance, 0.0 ms dodge latency) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round52`. Expected checkpoint string: `'after 0.3M steps'`.
+Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
+Hyperparameters: `fwd_pay = 50.0`, `sprint_pay = 45.0` (boosted from 35.0), `sprint_floor = 0.38` (lowered from 0.42 to trigger gallop from nominal trot), `yaw_pay = 35.0`, `face_pay = 40.0` (boosted from 30.0 for sharper target alignment), `search_pay = 45.0` (boosted from 35.0 for faster 360° horizon sweeping), `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 1.4`, `brake_floor = 0.60` (reinforced minimum propulsion preventing stall before arrival), `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 1.5`, `task_fall_cost = 5.0`, `task_pay = 75.0`, `reach_pay = 200.0`, `stay_pay = 125.0`, `prox_pay = 40.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `task_scale = 60.0`.
+Objective: Remove rotation latency on rear spawns to achieve sustained visual arrival >15% across all 192 lives / 3 cohorts without teacher help.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
