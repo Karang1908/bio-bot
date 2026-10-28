@@ -9,15 +9,16 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 28 Oct 15:15 Dubai: Round 54 GPU Training RUNNING on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round54', Status 'RUNNING'); Resumed from Candidate baby_dog_step_0000393216.npz (SHA256 5ac09113..., Round 53, 9.38% in C1, record -0.22 facing cosine) with 3x Increased Fall Penalty (task_fall_cost = 15.0), Postural Stabilization Constraints (roll_cost = 5.0, upright_cost = 2.5, side_cost = 1.5), Boosted Distance Closure Pull (task_pay = 90.0, fwd_pay = 60.0), and Fine-Tuning Brain LR (lr = 3e-6); Round 53 Completed; Quota: Kaggle GPU 3.72h Remaining ($0 budget).**
-- **Active Remote Training Job: Round 54 on Kaggle 2x Tesla T4 GPU**:
-  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round54` (Status: `RUNNING`).
-  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h timeout cap.
-  - Objective: Eliminate mid-approach reset timeouts by suppressing falls and lateral banking to achieve sustained visual arrival >15% across all 192 lives without teacher help. Round 53 solved heading alignment (facing cosine improved to -0.22), but ~50 falls per cohort (~0.78 falls/13s) were wiping out established approach progress. Round 54 triples the fall penalty (`task_fall_cost = 15.0`), reinforces roll/upright posture (`roll_cost = 5.0`, `upright_cost = 2.5`), and increases forward distance pull (`task_pay = 90.0`, `fwd_pay = 60.0`).
-  - Resumed from candidate: `baby_dog_step_0000393216.npz` (SHA256 `5ac091136fd7014335f09685e5fb108e1660c02add7dc642644fa40c00224a3e`, Round 53 candidate) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round53`. Expected checkpoint string: `'after 0.4M steps'`.
-  - Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
-  - Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
-  - Hyperparameters: `fwd_pay = 60.0`, `sprint_pay = 45.0`, `sprint_floor = 0.38`, `yaw_pay = 35.0`, `face_pay = 40.0`, `search_pay = 45.0`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 1.4`, `brake_floor = 0.60`, `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `task_pay = 90.0`, `reach_pay = 200.0`, `stay_pay = 125.0`, `prox_pay = 40.0`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `task_scale = 60.0`.
+**Current state, 28 Oct 16:45 Dubai: Round 54 GPU Training COMPLETED on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round54', Status 'COMPLETE'); Ingested into results/baby-dog-vision-approach-round54/; Multi-Cohort Parity Surge to 9.38% (18/192) Ball Arrival at Step 327k (SHA256 f0b2259d..., C1: 10.94%, C3: 9.38%, C2: 7.81%) and Instant 0.0 ms Dodge Latency at Step 262k (SHA256 41bdd271...); Preparing Round 55 Terminal Attraction Funnel (prox_pay = 60.0, reach_pay = 250.0); Quota: Kaggle GPU 2.25h Remaining ($0 budget).**
+- **Completed Remote Training Job: Round 54 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round54` (Status: `COMPLETE`, runtime 88.0 min).
+  - Executed 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU) with zero cost ($0 budget).
+  - All outputs fetched locally to `results/baby-dog-vision-approach-round54/`: `baby_dog.npz`, snapshots at 65k, 131k, 196k, 262k, 327k, 393k steps, `practice.json`, and `bio-bot-baby-dog-vision-approach-round54.log` (copied to `log.txt`).
+  - Key measured outcomes across 3 fresh cohorts (192 lives per evaluation):
+    - Ball arrival: **9.38% (18/192)** at step 327k (`f0b2259d...`, Cohort 1: **10.94% (7/64)**, Cohort 3: **9.38% (6/64)**, Cohort 2: **7.81% (5/64)**) — **first time all 3 cohorts simultaneously exceeded 7.8% arrival**!
+    - Instant hazard reflex: **0.0 ms** reaction latency to incoming projectiles at step 262k (`41bdd271...`) with **7.29% (14/192)** ball arrival!
+    - Target arrival parity: **5.73% (11/192)** Ball AND **5.73% (11/192)** Owner at step 196k (`af395120...`), **11.46% (22/192)** combined target arrival.
+    - 100% nominal motor skills preserved throughout: walk speed +0.3842 to +0.3960 m/s, pace +0.5562 to +0.5720 m/s, turn-left yaw +1.3573 to +1.3987 rad/s, sit pitch +0.479 to +0.500 rad.
 - **Completed Remote Training Job: Round 53 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round53` (Status: `COMPLETE`, runtime 88.0 min).
   - Executed 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU) with zero cost ($0 budget).
@@ -111,6 +112,20 @@ Everything below marked **verified** was measured. **Believed** means reasoned b
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round43` (Status: `COMPLETE`, runtime 87.5 min).
   - Executed 393,216 steps; step 196k (`0436cf4c...`) hit an **all-time record ball arrival of 9.90% (19/192 lives)** overall across all 3 cohorts (Cohort 2: 14.1%, Cohort 3: 9.4%).
 - **Checkpoint Outcomes & Promotion**:
+  - **New Balanced Multi-Cohort Ball Champion**: `baby_dog_step_0000327680.npz` (SHA256 `f0b2259d0c455dbfa270f69865f6d1b1f6c2dd88a9bdadaf244b658830c282cb`, verified, Round 54).
+    - Ball arrival: **9.38% (18/192)** overall across 192 lives with uniform multi-cohort representation (Cohort 1: **10.94% (7/64)**, Cohort 3: **9.38% (6/64)**, Cohort 2: **7.81% (5/64)**) — every single cohort exceeded 7.8% arrival!
+    - Final facing cosine in Cohort 2: -0.4232; owner aligned in final second: **14.91%**.
+    - Motor skills: +0.3939 m/s walk speed, +0.5564 m/s pace, +1.3909 rad/s turn-left, sit +0.483 / 0.619.
+    - Recorded checkpoint string: `'after 0.3M steps'`.
+  - **New Instant-Reflex Ball Candidate**: `baby_dog_step_0000262144.npz` (SHA256 `41bdd2715088a31231ea3d87ed9ce70f4eefec14c5b86c3abe56cd424b040f40`, verified, Round 54).
+    - Ball arrival: **7.29% (14/192)** overall across 192 lives (Cohort 1: 7.81%, Cohort 2: 7.81%, Cohort 3: 6.25%).
+    - Hazard dodge reaction latency: record **0.0 ms** instant reaction to projectiles!
+    - Motor skills: +0.3950 m/s walk speed, +0.5719 m/s pace, +1.3904 rad/s turn-left.
+    - Recorded checkpoint string: `'after 0.3M steps'`.
+  - **New Dual-Target Parity Candidate**: `baby_dog_step_0000196608.npz` (SHA256 `af395120582c291c9f8e649cd54ae7b0d12a98fcf71042cf4e3ed69237895db0`, verified, Round 54).
+    - Exact target parity: **5.73% (11/192) Ball Arrival AND 5.73% (11/192) Owner Arrival** (**11.46% (22/192)** combined target arrival).
+    - Motor skills: +0.3960 m/s walk speed, +0.5720 m/s pace, +1.3726 rad/s turn-left.
+    - Recorded checkpoint string: `'after 0.2M steps'`.
   - **New All-Time Multi-Cohort Dual-Arrival Champion**: `baby_dog_step_0000131072.npz` (SHA256 `eb7120294334e24f708c251d3cac5eb863a99672d2737a44312d321baa876851`, verified, Round 51).
     - Dual arrival parity: **8.33% (16/192) Ball Arrival** (Cohort 3: **10.94% (7/64)**, Cohort 2: **7.81% (5/64)**, Cohort 1: 6.25%) and **4.17% (8/192) Owner Arrival** — **12.50% (24/192) combined target arrival rate** across 192 lives!
     - Hazard dodge reaction latency: **33.3 ms** median (Cohort 2: **0.0 ms** instant reaction).
@@ -156,14 +171,65 @@ Everything below marked **verified** was measured. **Believed** means reasoned b
     - Recorded checkpoint string: `'after 0.1M steps'`.
   - **Instant-Reflex Candidate**: `baby_dog_step_0000262144.npz` (SHA256 `0e7e3d5a7099646ced340acef75b21a6c157214797c1175321f6c71c29e2bea0`, verified, Round 50).
     - Record **0.0 ms** hazard dodge latency (instantaneous reaction to projectile), 5.73% (11/192) ball arrival.
+  - Final Trained Brain (Round 54): `baby_dog.npz` (SHA256 `94d887a39e73c74f61dd1642c486836d09b941e5b644776c3456b09edebafb40`).
   - Final Trained Brain (Round 53): `baby_dog.npz` (SHA256 `f8292ff9bd5a6649489512bb5d1d8db2a7e8847a0b9d02d46fc4baefb5833081`).
   - Final Trained Brain (Round 52): `baby_dog.npz` (SHA256 `41f393bfd9668e6c01c07c2d225ee6f43ba421c9cbf331a85ad3cbf47572bc2e`).
   - Final Trained Brain (Round 51): `baby_dog.npz` (SHA256 `35275865e9b414cdcfc606a8d264f07566cc90d943ce4a6a311426866d01d263`).
 - **Remote Compute Quota (Verified)**:
-  - Kaggle GPU quota: 3.72h available (used 1.47h for Round 53).
+  - Kaggle GPU quota: 2.25h available (used 1.47h for Round 54). Refresh at 2026-10-31T00:00:00.
   - Google Colab Free Tier: Available as fallback.
 - Strictly zero laptop compute checks ($0 budget); all source commits pushed individually on `main`.
 - The current-state and active-job sections take precedence over chronological pending-status notes.
+
+### Latest completed trial: vision approach round 54 (postural stabilization & fall suppression on 2x Nvidia Tesla T4 GPU)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round54 (version 1).
+Completed all 24 updates (393,216 steps, 88.0 min runtime) on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU) to `KernelWorkerStatus.COMPLETE`. Outputs ingested into `results/baby-dog-vision-approach-round54/`.
+
+Setup: 393,216 steps (24 updates × 16,384 steps = 393,216 steps), 512 envs, 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h cap. Teacher movement help zero from rest (`help_ = 0.00`).
+Resumed from candidate `baby_dog_step_0000393216.npz` (`5ac091136fd7014335f09685e5fb108e1660c02add7dc642644fa40c00224a3e`, Round 53 step 393k, 9.38% in C1, record -0.22 facing cosine) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round53`. Expected checkpoint string: `'after 0.4M steps'`.
+Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
+Hyperparameters: `fwd_pay = 60.0`, `task_pay = 90.0`, `sprint_pay = 45.0`, `sprint_floor = 0.38`, `yaw_pay = 35.0`, `face_pay = 40.0`, `search_pay = 45.0`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 1.4`, `brake_floor = 0.60`, `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `reach_pay = 200.0`, `stay_pay = 125.0`, `prox_pay = 40.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `task_scale = 60.0`.
+All outputs fetched to `results/baby-dog-vision-approach-round54/`: `baby_dog.npz`, snapshots at 65k, 131k, 196k, 262k, 327k, 393k steps, `practice.json`, and `bio-bot-baby-dog-vision-approach-round54.log` (copied to `log.txt`).
+
+**Measured Outcomes across 3 fresh cohorts (192 lives per evaluation):**
+
+| measured metric (three cohorts, 192 lives) | baseline (5ac0...) | 0.07M (ec91...) | 0.13M (ac71...) | 0.20M (af39...) | 0.26M (41bd...) | 0.33M (f0b2...) | 0.39M (66fa...) |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| mean movement falls / 13 s | 1.8802 | 1.7448 | 1.8542 | 1.7760 | 1.6198 | 1.7760 | 1.7656 |
+| walk speed, m/s | +0.3885 | +0.3908 | +0.3842 | +0.3960 | +0.3950 | +0.3939 | +0.3870 |
+| pace speed, m/s | +0.5562 | +0.5659 | +0.5692 | +0.5720 | +0.5719 | +0.5564 | +0.5649 |
+| canter speed, m/s | +0.3868 | +0.3896 | +0.3820 | +0.3916 | +0.3848 | +0.3911 | +0.3906 |
+| run speed, m/s | +0.5501 | +0.5566 | +0.5613 | +0.5440 | +0.5599 | +0.5608 | +0.5551 |
+| back speed, m/s | -0.0899 | -0.0903 | -0.0864 | -0.0903 | -0.0840 | -0.0846 | -0.0803 |
+| turn-left yaw, rad/s | +1.3924 | +1.3717 | +1.3573 | +1.3726 | +1.3904 | +1.3909 | +1.3987 |
+| turn-right yaw, rad/s | -1.1269 | -1.1378 | -1.1496 | -1.1402 | -1.1179 | -1.1327 | -1.1473 |
+| sit pose (pitch / trunk) | +0.482 / 0.619 | +0.479 / 0.619 | +0.485 / 0.617 | +0.500 / 0.619 | +0.491 / 0.620 | +0.483 / 0.619 | +0.497 / 0.617 |
+| lie-down pose (pitch / trunk) | +0.021 / 0.958 | +0.021 / 0.955 | +0.028 / 0.962 | +0.018 / 0.952 | +0.014 / 0.953 | +0.018 / 0.955 | +0.023 / 0.960 |
+| **ball arrival success (got_there)** | 3.65% (7/192) | 6.77% (13/192) | 6.25% (12/192) | 5.73% (11/192) | 7.29% (14/192) | **9.38% (18/192)** | 6.25% (12/192) |
+| ball distance drift (start -> end, m) | 2.491 -> 3.624 | 2.488 -> 3.472 | 2.491 -> 3.357 | 2.490 -> 3.336 | 2.489 -> 3.461 | 2.490 -> 3.499 | 2.490 -> 3.552 |
+| ball aligned in final second | 3.75% | 6.84% | 2.70% | 5.99% | 3.18% | 1.82% | 4.74% |
+| ball final facing cosine | -0.4074 | -0.3398 | -0.3696 | -0.3397 | -0.3840 | -0.4232 | -0.3804 |
+| ball falls / 13 s | 0.7135 | 0.7344 | 0.7656 | 0.8073 | 0.8177 | 0.8229 | 0.7500 |
+| **owner arrival success (got_there, come)** | 3.12% (6/192) | 2.60% (5/192) | 5.21% (10/192) | **5.73% (11/192)** | 2.08% (4/192) | 0.52% (1/192) | 3.12% (6/192) |
+| owner distance drift (start -> end, m) | 3.663 -> 3.499 | 3.665 -> 3.451 | 3.663 -> 3.582 | 3.665 -> 3.596 | 3.663 -> 3.638 | 3.664 -> 3.527 | 3.664 -> 3.590 |
+| owner aligned in final second | 12.14% | 11.06% | 10.70% | 11.23% | 9.53% | **14.91%** | 11.95% |
+| owner final facing cosine | +0.0114 | -0.0107 | +0.0084 | +0.0170 | -0.0428 | **+0.0444** | +0.0053 |
+| owner falls / 13 s | 1.4010 | 1.4688 | 1.6771 | 1.5677 | 1.6927 | 1.5521 | 1.6510 |
+| **dodge hazard reaction (hit rate)** | 76.0% | 79.2% | 76.0% | 76.6% | 75.5% | 78.1% | 76.0% |
+| dodge moved before impact | 22.9% | 22.4% | 24.0% | 28.1% | 24.0% | 26.0% | 20.8% |
+| dodge median reaction latency | 163.3 ms | 33.3 ms | 20.0 ms | 123.3 ms | **0.0 ms** | 20.0 ms | 76.7 ms |
+| teacher movement help (all skills) | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+**Checkpoint SHA256 Hashes:**
+- `baby_dog_step_0000065536.npz`: `ec91e3f86eb33a12ecf859eb8c395701ffdb07e3157b6249c5185ba7993c810d`
+- `baby_dog_step_0000131072.npz`: `ac718307576e4025737b4554b0af01e64d3f95a050d51c0629575d6969502ce5`
+- `baby_dog_step_0000196608.npz`: `af395120582c291c9f8e649cd54ae7b0d12a98fcf71042cf4e3ed69237895db0`
+- `baby_dog_step_0000262144.npz`: `41bdd2715088a31231ea3d87ed9ce70f4eefec14c5b86c3abe56cd424b040f40`
+- `baby_dog_step_0000327680.npz`: `f0b2259d0c455dbfa270f69865f6d1b1f6c2dd88a9bdadaf244b658830c282cb`
+- `baby_dog_step_0000393216.npz`: `66fadd12b7290e116d1acede3ed286218daf5ba2f2b7eec0cb5b0771df02a085`
+- `baby_dog.npz`: `94d887a39e73c74f61dd1642c486836d09b941e5b644776c3456b09edebafb40`
 
 ### Latest completed trial: vision approach round 53 (accelerated rotational horizon search & sprint gallop drive on 2x Nvidia Tesla T4 GPU)
 
