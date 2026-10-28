@@ -4693,6 +4693,18 @@ All outputs fetched to `results/baby-dog-vision-approach-round53/`: `baby_dog.np
 4. **Compute Quota:**
    - 88.0 min spent on Kaggle 2x T4 GPU. Quota has 3.72h remaining. Budget: $0.00.
 
+### Visual target approach round 54 (postural stabilization & fall suppression on 2x Nvidia Tesla T4 GPU)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round54 (version 1).
+Status: `RUNNING` on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU).
+
+Setup: 393,216 steps (24 updates × 16,384 steps = 393,216 steps), 512 envs, 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2h cap. Teacher movement help zero from rest (`help_ = 0.00`).
+Resumed from candidate `baby_dog_step_0000393216.npz` (`5ac091136fd7014335f09685e5fb108e1660c02add7dc642644fa40c00224a3e`, Round 53 step 393k, 9.38% in C1, record -0.22 facing cosine) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round53`. Expected checkpoint string: `'after 0.4M steps'`.
+Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
+Hyperparameters: `fwd_pay = 60.0` (boosted from 50.0), `task_pay = 90.0` (boosted from 75.0), `sprint_pay = 45.0`, `sprint_floor = 0.38`, `yaw_pay = 35.0`, `face_pay = 40.0`, `search_pay = 45.0`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 1.4`, `brake_floor = 0.60`, `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5` (up from 1.5), `roll_cost = 5.0` (up from 3.0), `side_cost = 1.5` (up from 1.0), `task_fall_cost = 15.0` (3x increase from 5.0 to suppress mid-approach resets), `reach_pay = 200.0`, `stay_pay = 125.0`, `prox_pay = 40.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `task_scale = 60.0`.
+Objective: Eliminate mid-approach reset timeouts by suppressing falls and banking to achieve sustained visual arrival >15% across all 192 lives / 3 cohorts without teacher help.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
