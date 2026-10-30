@@ -36,7 +36,11 @@ def list_remote_files() -> list[str]:
     ret, out = run_cmd(["/Users/karangarg/.local/bin/colab", "ls", "-s", SESSION, REMOTE_DIR])
     if ret != 0:
         return []
-    lines = [l.strip() for l in out.splitlines() if l.strip() and not l.strip().endswith("/")]
+    lines = [
+        l.strip()
+        for l in out.splitlines()
+        if l.strip() and not l.strip().endswith("/") and not l.strip().startswith("[colab]")
+    ]
     return lines
 
 
