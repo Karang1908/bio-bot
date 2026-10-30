@@ -9,15 +9,19 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 30 Oct 00:15 Dubai: Round 56 GPU Training RUNNING on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round56', Status 'RUNNING'); Resumed from Multi-Cohort Balanced Champion baby_dog_step_0000327680.npz (SHA256 f0b2259d..., Round 54 step 327k, 9.38% Ball Arrival across C1: 10.94%, C3: 9.38%, C2: 7.81%) with Widened Proximity Capture Funnel (brake_scale = 2.5, 0.88m radius, prox_pay = 60.0, reach_pay = 250.0); Round 55 Completed; Quota: Kaggle GPU 0.73h Remaining ($0 budget), TPU 20.0h Remaining.**
-- **Active Remote Training Job: Round 56 on Kaggle 2x Tesla T4 GPU**:
-  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round56` (Status: `RUNNING`).
-  - Configuration: 131,072 steps (8 updates × 16,384 steps = 512 envs, 256/GPU), 2 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 3 total evaluations including baseline and final), 40 min timeout cap (`--timeout 2400`).
-  - Objective: Cross sustained visual target arrival >15% across all 192 lives / 3 cohorts without teacher help by widening the terminal attraction funnel. Expands the braking/proximity radius from 0.49m to 0.875m (`brake_scale = 2.5`), providing continuous gradient suction earlier in the approach trajectory while maintaining proven postural stability (`task_fall_cost = 15.0`, `roll_cost = 5.0`, `upright_cost = 2.5`).
-  - Resumed from candidate: `baby_dog_step_0000327680.npz` (SHA256 `f0b2259d0c455dbfa270f69865f6d1b1f6c2dd88a9bdadaf244b658830c282cb`, Round 54 candidate) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round54`. Expected checkpoint string: `'after 0.3M steps'`.
-  - Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
-  - Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
-  - Hyperparameters: `fwd_pay = 60.0`, `sprint_pay = 45.0`, `sprint_floor = 0.38`, `yaw_pay = 35.0`, `face_pay = 40.0`, `search_pay = 45.0`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 2.5`, `brake_floor = 0.60`, `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `task_pay = 90.0`, `reach_pay = 250.0`, `stay_pay = 150.0`, `prox_pay = 60.0`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `task_scale = 60.0`.
+**Current state, 30 Oct 07:10 Dubai: Round 56 Remote Execution FINISHED (Status 'CANCEL_ACKNOWLEDGED' at 40-min timeout during update 1 compilation); Baseline Evaluation Verified Across 192 Lives (Ball: 7.29%, Come: 4.17%, Dodge: 23.3 ms, Nominal Motor: 100%); All-Time Multi-Cohort Balanced Champion Remains baby_dog_step_0000327680.npz (SHA256 f0b2259d..., Round 54 step 327k, 9.38% Ball Arrival across C1: 10.94%, C3: 9.38%, C2: 7.81%); Quota: Kaggle GPU 0.06h Remaining ($0 budget, refresh at 2026-10-31T00:00:00 UTC), TPU 20.0h Remaining, Colab Free Tier GPU Available.**
+- **Completed Remote Execution: Round 56 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round56` (Status: `CANCEL_ACKNOWLEDGED` at 40 min / 2400s timeout).
+  - Outputs fetched to `results/baby-dog-vision-approach-round56/`: `practice.json`, `poses.json`, `resume.json`, `teacher.json`, `bio-bot-baby-dog-vision-approach-round56.log`, `log.txt`.
+  - Configuration: 131,072 steps (8 updates × 16,384 steps = 512 envs, 256/GPU), 40 min timeout cap (`--timeout 2400`), widened proximity capture funnel (`brake_scale = 2.5`, 0.875m radius, `reach_pay = 250.0`, `stay_pay = 150.0`, `prox_pay = 60.0`).
+  - Execution breakdown: Initial environment setup, CUDA JIT and graph preparation took 15.2 min. Full 3-cohort 192-life baseline evaluation ("before practice") ran from 15.2 min to 37.6 min (22.4 min duration). Practice started at 37.6 min. At 40.0 min, Kaggle runner reached the `--timeout 2400` ceiling during XLA constant folding JIT compilation for update 1, triggering SIGINT cancellation.
+  - Baseline measurements across 192 lives (3 cohorts of 64):
+    - Ball arrival: **7.29% (14/192)** overall (Cohort 1: 9%, Cohort 2: 3%, Cohort 3: 9%; start distance 2.49m -> 3.43m, falls 0.75, facing cos -0.03 -> -0.33).
+    - Owner arrival ("come"): **4.17% (8/192)** overall (Cohort 1: 2%, Cohort 2: 5%, Cohort 3: 6%; start distance 3.66m -> 3.51m, falls 1.58).
+    - Hazard projectile dodging: **23.3 ms** median reaction latency, **24.5%** reacted before projectile arrival, hit rate 76.0% (vs ~96% stationary baseline), falls 0.41.
+    - Nominal motor skills preserved 100%: walk speed +0.3919 m/s, pace +0.5628 m/s, canter +0.3952 m/s, run +0.5459 m/s, turn-left +1.3839 rad/s, turn-right -1.1348 rad/s, sit pitch +0.497 rad, lie-down pitch +0.012 rad.
+  - Checkpoint status: No training updates completed before timeout; no intermediate `.npz` snapshots were written. Parent champion `baby_dog_step_0000327680.npz` (`f0b2259d0c455dbfa270f69865f6d1b1f6c2dd88a9bdadaf244b658830c282cb`, Round 54 step 327k) remains all-time champion and restart candidate.
+  - Quota: Kaggle GPU quota used 29.94h / 30.00h (0.06h remaining, refresh scheduled at 2026-10-31T00:00:00 UTC). TPU quota: 20.00h remaining. Budget: $0.00.
 - **Completed Remote Training Job: Round 55 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round55` (Status: `COMPLETE`, runtime 88.0 min).
   - Executed 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU) with zero cost ($0 budget).
