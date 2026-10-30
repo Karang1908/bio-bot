@@ -4959,8 +4959,8 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
 22. **UnboundLocalError: first when --skip_baseline is enabled.** In `train/baby_dog.py`, the post-training VERDICT printout
     referenced `first[g]` without defining `first` when `--skip_baseline` bypassed `real_test("before practice")`.
     All 32 updates and both intermediate and final checkpoints had already completed and saved cleanly.
-    **Fixed:** defined `first = curve[0] if curve else {}` when `--skip_baseline` is active, populating baseline metrics
-    from the pre-loaded curve so final verdict logging succeeds.
+    **Fixed:** defined `first = curve[0] if curve else {}` when `--skip_baseline` is active and guarded the final VERDICT
+    printout with `if first:` so empty curve dictionaries do not throw `KeyError: 'walk'` upon job completion.
 23. **Missing Kaggle dataset attachments for un-embedded data files.** A job running `--flag dog` searches for
     `go2_dog_motions.npz` locally and under `/kaggle/input/` (via `find_file()`), requiring dataset `bio-bot-dog-mocap`.
     Similarly, `--core v2` requires `bio-bot-cores` (for `core_v2.npz`). When a job pushes with python code embeds only,
