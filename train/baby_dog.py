@@ -2037,22 +2037,23 @@ def practice(args, bd, out: Path) -> dict:
                                                 "core": args.core, "lesson": lesson, "self_learning": args.self_learning,
                                                 "absolute_drives": args.absolute_drives, "protect_skills": args.protect_skills,
                                                 "learning_rates": learning_rates, "resume": resume})
-    for g in gaits:
-        print(f"VERDICT practice \"{g}\" (no harness, from rest): {score(first[g], g):+.3f} -> {score(last[g], g):+.3f} "
-              f"({'real dog' if args.dog else 'teacher'} {score(teacher_ref[g], g):+.3f}); distance to the real dog's poses "
-              f"{first[g]['dog_likeness']:.3f} -> {last[g]['dog_likeness']:.3f}; "
-              f"falls per 13 s {first[g]['falls']:.2f} -> {last[g]['falls']:.2f}; "
-              f"feet off the ground {first[g]['feet_air']} -> {last[g]['feet_air']}; feet lifted together "
-              f"(diagonal/same-side/pair) {'/'.join(f'{v:.2f}' for v in last[g]['feet_together'].values())}", flush=True)
-    if args.let_go:
-        print("VERDICT letting go: the teacher's help at the end: " + ", ".join(f"{w} {h:.2f}" for w, h in zip(said, help_))
-              + f" (zero for every word since update {int(HELP_GONE * iters)} of {iters})", flush=True)
-    print(f"VERDICT practice getting up (fallen, told \"stand\"): " + ", ".join(
-        f"{k.split('_')[2]}: {int(first['get_up'][k] * 100)}% -> {int(last['get_up'][k] * 100)}%" for k in first["get_up"]), flush=True)
-    for pz in rests:
-        print(f"VERDICT practice \"{pz}\" (no harness): nose-up {first[pz]['pitch_in_pose']:+.2f} -> {last[pz]['pitch_in_pose']:+.2f}, "
-              f"trunk {first[pz]['height_in_pose']:.2f} -> {last[pz]['height_in_pose']:.2f} (teacher {pose_goal[pz]['pitch']:+.2f}, "
-              f"{pose_goal[pz]['height']:.2f}); back up {last[pz]['height_back_up']:.2f}; falls {last[pz]['falls']:.2f}", flush=True)
+    if first:
+        for g in gaits:
+            print(f"VERDICT practice \"{g}\" (no harness, from rest): {score(first[g], g):+.3f} -> {score(last[g], g):+.3f} "
+                  f"({'real dog' if args.dog else 'teacher'} {score(teacher_ref[g], g):+.3f}); distance to the real dog's poses "
+                  f"{first[g]['dog_likeness']:.3f} -> {last[g]['dog_likeness']:.3f}; "
+                  f"falls per 13 s {first[g]['falls']:.2f} -> {last[g]['falls']:.2f}; "
+                  f"feet off the ground {first[g]['feet_air']} -> {last[g]['feet_air']}; feet lifted together "
+                  f"(diagonal/same-side/pair) {'/'.join(f'{v:.2f}' for v in last[g]['feet_together'].values())}", flush=True)
+        if args.let_go:
+            print("VERDICT letting go: the teacher's help at the end: " + ", ".join(f"{w} {h:.2f}" for w, h in zip(said, help_))
+                  + f" (zero for every word since update {int(HELP_GONE * iters)} of {iters})", flush=True)
+        print(f"VERDICT practice getting up (fallen, told \"stand\"): " + ", ".join(
+            f"{k.split('_')[2]}: {int(first['get_up'][k] * 100)}% -> {int(last['get_up'][k] * 100)}%" for k in first["get_up"]), flush=True)
+        for pz in rests:
+            print(f"VERDICT practice \"{pz}\" (no harness): nose-up {first[pz]['pitch_in_pose']:+.2f} -> {last[pz]['pitch_in_pose']:+.2f}, "
+                  f"trunk {first[pz]['height_in_pose']:.2f} -> {last[pz]['height_in_pose']:.2f} (teacher {pose_goal[pz]['pitch']:+.2f}, "
+                  f"{pose_goal[pz]['height']:.2f}); back up {last[pz]['height_back_up']:.2f}; falls {last[pz]['falls']:.2f}", flush=True)
     return {"curve": curve}
 
 
