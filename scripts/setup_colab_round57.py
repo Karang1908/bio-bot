@@ -14,7 +14,7 @@ print(f"[{sys.executable}] Setting up bio-bot on Colab VM...", flush=True)
 print("1. Installing pinned ML stack...", flush=True)
 subprocess.run([
     sys.executable, "-m", "pip", "install", "-q",
-    "jax==0.7.2", "jaxlib==0.7.2", "mujoco==3.14.0", "mujoco-mjx==3.14.0", "optax==0.2.8"
+    "jax[cuda12]==0.7.2", "jaxlib==0.7.2", "mujoco==3.14.0", "mujoco-mjx==3.14.0", "optax==0.2.8"
 ], check=True)
 
 # Remove incompatible pre-installed cuda13 plugin if present
