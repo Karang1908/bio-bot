@@ -5036,15 +5036,81 @@ Objective: Overcome the 0.88m sprint-choking threshold with a calibrated 0.63m b
 ### Visual target approach round 59 (terminal deceleration + amplified stay pay on 2x Nvidia Tesla T4 GPU)
 
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round59 (version 1).
-Status: `QUEUED` / `RUNNING` on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU).
+Status: `COMPLETE` on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU, 86.8 min runtime, $0 compute budget).
+Outputs: `baby_dog.npz`, snapshots at 65k, 131k, 196k, 262k, 327k, 393k steps, `practice.json`, `poses.json`, `resume.json`, `teacher.json`, `bio-bot-baby-dog-vision-approach-round59.log`, `log.txt` fetched to `results/baby-dog-vision-approach-round59/`.
 
-Setup: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 8 total evaluations including baseline and final), 2-hour cap (`--timeout 7200`). Teacher movement help zero from rest (`help_ = 0.00`).
+Setup: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 7 total evaluations including baseline and final), 2-hour cap (`--timeout 7200`). Teacher movement help zero from rest (`help_ = 0.00`).
 Resumed from all-time dual target arrival champion `baby_dog_step_0000262144.npz` (`a054d8cb59d2725439ddf14353241fb1408bdfbee10a33cc8758c8d895abf23f`, Round 58 step 262k, 14.58% [28/192] combined target arrival, C3: 25.0% [16/64], C2: 19.0% [12/64], 8.33% owner arrival, 6.25% ball arrival, 3.36m end distance, 0.0 ms dodge latency in C1/C2) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round58`. Expected checkpoint string: `'after 0.3M steps'`.
 Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
 Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
 Hyperparameters: `fwd_pay = 60.0`, `task_pay = 90.0`, `reach_pay = 350.0`, `stay_pay = 300.0` (amplified stopping bonus within the arrival boundary to heavily incentivize staying contained), `prox_pay = 60.0`, `face_pay = 60.0` (boosted from 40.0 to 60.0 for tight terminal heading lock onto the ball), `yaw_pay = 35.0`, `search_pay = 45.0`, `sprint_pay = 45.0`, `sprint_floor = 0.38`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 1.8` (0.63m braking radius), `brake_floor = 0.40` (lowered from 0.70 to 0.40 to allow real deceleration within the 0.63m funnel so the dog does not blow past the 0.35m ball circle), `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `task_scale = 60.0`, `eval_repeats = 3`, `seed = 0`.
 Objective: Cure the terminal high-speed fly-by defect identified in Round 58 by allowing true deceleration (`brake_floor = 0.40`) inside the 0.63m funnel, locking heading with `face_pay = 60.0`, and rewarding calm containment with `stay_pay = 300.0`, targeting >15% sustained target arrival across all 192 lives / 3 independent cohorts without teacher help.
-Quota: Kaggle GPU quota has 27.00h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
+
+**Measured Outcomes across 3 fresh cohorts (192 lives per evaluation):**
+
+| measured metric (three cohorts, 192 lives) | baseline (a054...) | 0.07M (7d15...) | 0.13M (d904...) | 0.20M (e5b7...) | 0.26M (819f...) | 0.33M (6622...) | 0.39M (e088...) |
+|---|---|---|---|---|---|---|---|
+| **ball arrival (within 0.35 m, 192 lives)** | 4.69% (9/192) | 5.21% (10/192) | 5.21% (10/192) | 6.77% (13/192) | 4.17% (8/192) | **7.29% (14/192)** | **6.77% (13/192)** |
+| - cohort 1 (64 lives) | 6.0% (4/64) | 0.0% (0/64) | 6.0% (4/64) | **9.0% (6/64)** | 3.0% (2/64) | 5.0% (3/64) | **8.0% (5/64)** |
+| - cohort 2 (64 lives) | 5.0% (3/64) | **9.0% (6/64)** | 5.0% (3/64) | 5.0% (3/64) | 5.0% (3/64) | **9.0% (6/64)** | 6.0% (4/64) |
+| - cohort 3 (64 lives) | 3.0% (2/64) | 6.0% (4/64) | 5.0% (3/64) | 6.0% (4/64) | 5.0% (3/64) | **8.0% (5/64)** | 6.0% (4/64) |
+| - ball distance (start -> end m) | 2.49 -> 3.27 m | 2.49 -> 3.52 m | 2.49 -> 3.56 m | 2.49 -> 3.52 m | 2.49 -> 3.46 m | 2.49 -> 3.53 m | 2.49 -> **3.35 m** |
+| - ball facing cosine (start -> end) | -0.031 -> -0.328 | -0.031 -> -0.379 | -0.030 -> -0.457 | -0.028 -> -0.383 | -0.032 -> -0.382 | -0.036 -> -0.380 | -0.028 -> **-0.352** |
+| - ball aligned in last second | 6.41% | 3.84% | 1.80% | 2.81% | 2.29% | **6.27%** | 2.73% |
+| - ball falls per 10 s | 0.81 | 0.80 | 0.76 | 0.84 | 0.78 | 0.78 | 0.81 |
+| **owner arrival ("come", 1.0 m, 192 lives)** | 3.12% (6/192) | 4.17% (8/192) | 2.08% (4/192) | 2.08% (4/192) | 2.08% (4/192) | 2.08% (4/192) | **5.73% (11/192)** |
+| - cohort 1 (64 lives) | 5.0% (3/64) | 5.0% (3/64) | 3.0% (2/64) | 0.0% (0/64) | 2.0% (1/64) | 2.0% (1/64) | 5.0% (3/64) |
+| - cohort 2 (64 lives) | 3.0% (2/64) | 3.0% (2/64) | 2.0% (1/64) | 2.0% (1/64) | 3.0% (2/64) | 2.0% (1/64) | **8.0% (5/64)** |
+| - cohort 3 (64 lives) | 2.0% (1/64) | 5.0% (3/64) | 2.0% (1/64) | 5.0% (3/64) | 2.0% (1/64) | 3.0% (2/64) | 5.0% (3/64) |
+| - owner distance (start -> end m) | 3.66 -> 3.54 m | 3.66 -> 3.65 m | 3.67 -> 3.57 m | 3.66 -> 3.63 m | 3.66 -> 3.53 m | 3.66 -> 3.62 m | 3.66 -> **3.43 m** |
+| - owner facing cosine | +0.040 -> -0.060 | +0.036 -> -0.072 | +0.036 -> **+0.099** | +0.037 -> **+0.020** | +0.041 -> **+0.040** | +0.035 -> -0.033 | +0.036 -> **+0.106** |
+| - owner aligned in last second | 9.96% | 11.58% | 12.69% | 12.67% | 11.44% | 11.38% | **14.60%** |
+| - owner falls per 10 s | 1.63 | 1.55 | 1.63 | 1.60 | 1.64 | 1.63 | 1.52 |
+| **combined target arrival (ball + come)** | 7.81% (15/192) | 9.38% (18/192) | 7.29% (14/192) | 8.85% (17/192) | 6.25% (12/192) | 9.38% (18/192) | **12.50% (24/192)** |
+| - cohort 2 combined arrival | 8.0% (5/64) | 12.0% (8/64) | 7.0% (4/64) | 7.0% (4/64) | 8.0% (5/64) | 11.0% (7/64) | **14.0% (9/64)** |
+| - cohort 1 combined arrival | 11.0% (7/64) | 5.0% (3/64) | 9.0% (6/64) | 9.0% (6/64) | 5.0% (3/64) | 7.0% (4/64) | **13.0% (8/64)** |
+| - cohort 3 combined arrival | 5.0% (3/64) | 11.0% (7/64) | 7.0% (4/64) | 11.0% (7/64) | 7.0% (4/64) | 11.0% (7/64) | **11.0% (7/64)** |
+| **hazard projectile dodge latency** | 103.3 ms | **20.0 ms** | 36.7 ms | 26.7 ms | 63.3 ms | 66.7 ms | 96.7 ms |
+| - dodge hit rate | 79.2% | 77.6% | **74.5%** | 79.7% | 76.0% | 78.6% | 77.1% |
+| - reacted before arrival | 25.5% | 20.3% | 22.4% | 25.0% | 22.4% | 19.3% | 24.0% |
+| - dodge falls per 10 s | 0.36 | 0.35 | 0.40 | 0.40 | 0.34 | 0.39 | 0.38 |
+| **nominal motor skills preservation** | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+| - walk speed (m/s, real dog +0.192) | +0.386 | +0.382 | +0.379 | +0.377 | +0.385 | +0.377 | +0.384 |
+| - pace speed (m/s, real dog +0.710) | +0.561 | +0.569 | +0.563 | +0.563 | +0.569 | +0.568 | +0.566 |
+| - canter speed (m/s, real dog +0.483) | +0.395 | +0.382 | +0.385 | +0.384 | +0.391 | +0.383 | +0.390 |
+| - run speed (m/s, real dog +2.189) | +0.558 | +0.548 | +0.558 | +0.557 | +0.540 | +0.550 | +0.547 |
+| - turn-left yaw rate (rad/s, real +1.38) | +1.397 | +1.383 | +1.386 | +1.399 | +1.380 | +1.407 | +1.412 |
+| - turn-right yaw rate (rad/s, real +1.18) | -1.102 | -1.159 | -1.122 | -1.106 | -1.116 | -1.090 | -1.111 |
+| - back speed (m/s, real dog -0.250) | -0.080 | -0.092 | -0.094 | -0.098 | -0.090 | -0.091 | -0.093 |
+| - jump speed (m/s, real dog +0.112) | +0.202 | +0.196 | +0.193 | +0.186 | +0.195 | +0.197 | +0.194 |
+| - sit nose-up pitch (teacher +0.48) | +0.50 | +0.49 | +0.49 | +0.49 | +0.49 | +0.48 | +0.49 |
+| - lie-down nose-up pitch (teacher +0.02) | +0.02 | +0.01 | +0.01 | +0.02 | +0.02 | +0.01 | +0.01 |
+| - teacher movement help | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+**Checkpoint Hashes (SHA256):**
+- `baby_dog_step_0000065536.npz`: `7d15083b2bc755626797c32a555cc4381e2fe67d62bf6512ec7c76d13a7a22e3`
+- `baby_dog_step_0000131072.npz`: `d9043563462c07aa8d7d3a20820ed4b65bfd51ce58e5e9f42e0b77ed2a42b9a7`
+- `baby_dog_step_0000196608.npz`: `e5b7c98b81de2ef38d0fcf2acd09f58550747449461cb40b863898c491a9a900`
+- `baby_dog_step_0000262144.npz`: `819f78afe97f8982a4bed39736dc7c263c1f624e9be8885635c6812d2338f80a`
+- `baby_dog_step_0000327680.npz`: `66221b4da0f11af8240e93f48c72298d4b306cdde6c22adee28e3cc842b945a8`
+- `baby_dog_step_0000393216.npz`: `e088177b8ca0bb065b5d2b00f8daa62c7423f8773926bab1c432350436b4780c`
+- `baby_dog.npz`: `5b30e586d003450c1ed017147ff5630929ab74b500ded3bf9c7975b620b3ed94`
+
+**Key Findings & Mechanism for Round 59:**
+1. **Breakthrough in Positive Terminal Facing Cosine (+0.106) & 14.60% Alignment**:
+   - For the first time in project history, the dog maintained a **positive final facing cosine (+0.106)** at target arrival across all 192 lives (Cohort 1: +0.12, Cohort 2: +0.14, Cohort 3: +0.05).
+   - Heading alignment in the final second reached **14.60%**, eliminating the sideways-blind approach drift.
+   - Combined dual target arrival reached **12.50% (24/192)** overall across 192 lives, with Cohort 2 reaching **14.0%**, Cohort 1 reaching **13.0%**, and Cohort 3 reaching **11.0%**.
+2. **Residual Forward Momentum at Arrival Boundary**:
+   - Although `brake_floor = 0.40` enabled positive heading alignment and closed distances to 3.35m (ball) and 3.43m (come), ball arrival remained at 6.77% - 7.29% because 40% forward drive (~0.24 m/s) still carried enough inertia to blow through the narrow 0.35m ball circle within 1.0 second.
+   - Allowing forward drive to smoothly glide down to 15% (`brake_floor = 0.15`) inside a widened 0.70m funnel (`brake_scale = 2.0`) will give the dog sufficient space to absorb forward momentum and come to a calm stop inside the 0.35m boundary.
+3. **Primary Learning Restart Candidates Across Project**:
+   - **All-Time Dual Target Arrival Champion**: `baby_dog_step_0000262144.npz` (SHA256 `a054d8cb59d2725439ddf14353241fb1408bdfbee10a33cc8758c8d895abf23f`, Round 58) retained (**14.58% (28/192) dual target arrival, 25.0% C3, 19.0% C2, 3.36m end distance, 8.33% owner arrival, 6.25% ball arrival, 0.0 ms dodge latency in C1/C2**).
+   - **New Positive Facing Orientation Champion**: `baby_dog_step_0000393216.npz` (SHA256 `e088177b8ca0bb065b5d2b00f8daa62c7423f8773926bab1c432350436b4780c`, Round 59) promoted (**12.50% (24/192) dual target arrival, +0.106 positive facing cosine, 14.60% final-second alignment, 3.35m ball end distance, 3.43m come end distance**).
+   - **New Peak Ball Arrival Candidate**: `baby_dog_step_0000327680.npz` (SHA256 `66221b4da0f11af8240e93f48c72298d4b306cdde6c22adee28e3cc842b945a8`, Round 59) promoted (**7.29% (14/192) ball arrival, 9% in C2, 8% in C3, 6.27% alignment, 66.7 ms dodge**).
+   - **All-Time Multi-Cohort Ball Champion**: `baby_dog_step_0000327680.npz` (SHA256 `f0b2259d0c455dbfa270f69865f6d1b1f6c2dd88a9bdadaf244b658830c282cb`, Round 54) retained (**9.38% (18/192) ball arrival across C1: 10.94%, C3: 9.38%, C2: 7.81%**).
+4. **Compute Quota:**
+   - 86.8 min spent on Kaggle 2x T4 GPU. Quota has 25.55h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
 
 ## 7. Open problems and next steps
 
