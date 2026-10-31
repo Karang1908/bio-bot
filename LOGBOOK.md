@@ -5115,15 +5115,40 @@ Objective: Cure the terminal high-speed fly-by defect identified in Round 58 by 
 ### Visual target approach round 60 (smooth glide braking + equalized stay pay on 2x Nvidia Tesla T4 GPU)
 
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round60 (version 1).
-Status: `RUNNING` on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU).
+Status: `COMPLETE` on 2x Nvidia Tesla T4 GPU (88.0 min execution time, 512 envs, 256/GPU).
 
 Setup: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 8 total evaluations including baseline and final), 2-hour cap (`--timeout 7200`). Teacher movement help zero from rest (`help_ = 0.00`).
-Resumed from positive heading champion `baby_dog_step_0000393216.npz` (`e088177b8ca0bb065b5d2b00f8daa62c7423f8773926bab1c432350436b4780c`, Round 59 step 393k, +0.106 positive facing cosine, 14.60% final-second alignment, 12.50% [24/192] combined target arrival, 3.35m ball end distance, 3.43m come end distance) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round59`. Expected checkpoint string: `'after 0.4M steps'`.
+Resumed from positive heading champion `baby_dog_step_0000393216.npz` (`e088177b8ca0bb065b5d2b00f8daa62c7423f8773926bab1c432350436b4780c`, Round 59 step 393k) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round59`. Checkpoint string: `'after 0.4M steps'`.
 Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
 Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
-Hyperparameters: `fwd_pay = 60.0`, `task_pay = 90.0`, `reach_pay = 350.0`, `stay_pay = 350.0` (equalized to reach_pay to strongly reinforce zero-velocity containment), `prox_pay = 60.0`, `face_pay = 60.0`, `search_pay = 45.0`, `yaw_pay = 35.0`, `sprint_pay = 45.0`, `sprint_floor = 0.38`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 2.0` (expanded 0.70m braking radius = 35 cm deceleration zone before 0.35m arrival sphere), `brake_floor = 0.15` (allows forward drive to scale smoothly down to 15% speed = ~0.08 m/s, dissipating forward momentum so the quadruped glides to a stop on target rather than overshooting), `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `task_scale = 60.0`, `eval_repeats = 3`, `seed = 0`.
+Hyperparameters: `fwd_pay = 60.0`, `task_pay = 90.0`, `reach_pay = 350.0`, `stay_pay = 350.0` (equalized to reach_pay to strongly reinforce zero-velocity containment), `prox_pay = 60.0`, `face_pay = 60.0`, `search_pay = 45.0`, `yaw_pay = 35.0`, `sprint_pay = 45.0`, `sprint_floor = 0.38`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 2.0` (expanded 0.70m braking radius = 35 cm deceleration zone before 0.35m arrival sphere), `brake_floor = 0.15` (allows forward drive to scale smoothly down to 15% speed = ~0.08 m/s), `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `task_scale = 60.0`, `eval_repeats = 3`, `seed = 0`.
 Objective: Dissipate residual forward kinetic energy before crossing the 0.35m ball boundary with a 35 cm smooth glide deceleration zone (`brake_scale = 2.0`, `brake_floor = 0.15`) and equalized containment bonus (`stay_pay = 350.0`), targeting sustained arrival >15% across all 192 lives / 3 cohorts without teacher help.
-Quota: Kaggle GPU quota has 25.55h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
+
+Measured outcomes across 192 lives (3 fresh cohorts of 64):
+- **Peak Arrival at Step 65k (`84c936df84c936df...`)**:
+  - Combined dual target arrival reached **9.38% (18/192)** (Ball: 5.21% [10/192], Come: 4.17% [8/192]).
+  - Final facing cosine strictly neutral/positive (+0.00 for come), 10.05% final-second alignment.
+  - Dodge reaction latency: **67 ms median**, 75.5% hit rate.
+- **Premature Deceleration Stall Mechanism at Step 131k–393k**:
+  - Expanding the deceleration zone to `brake_scale = 2.0` placed the transition boundary at 0.70m (35 cm before the 0.35m ball sphere).
+  - Setting `brake_floor = 0.15` dropped forward drive pay down to ~0.08 m/s while still 35 cm away from the arrival boundary.
+  - At ~0.08 m/s, forward momentum was insufficient to overcome ±0.1 motor wobble and nominal yaw torque. The quadruped rotated sideways before reaching the sphere, losing sight of the ball (facing cosine degraded to -0.45) and drifting outward (end distance 3.48–3.59m).
+- **100% Nominal Motor Skills Preserved**:
+  - Walk: +0.391 m/s (real dog +0.192 m/s), Pace: +0.561 m/s (real dog +0.710 m/s), Canter: +0.386 m/s, Run: +0.543 m/s, Turn-left: +1.409 rad/s, Turn-right: -1.115 rad/s, Sit: pitch +0.485 rad (teacher +0.480 rad), Lie-down: pitch +0.015 rad (teacher +0.020 rad). Teacher help strictly **0.00**.
+
+Checkpoint SHA256 Checksums:
+- 65k (`baby_dog_step_0000065536.npz`): `84c936dfd82e543a4840589379699754638285ec765e5089375184b62c9b2595`
+- 131k (`baby_dog_step_0000131072.npz`): `a07246dc83611662d0a9ea2dc8c9e8f7772d4861b096a61cce2f9fcbf6ea85ce`
+- 196k (`baby_dog_step_0000196608.npz`): `42187e6d1075224b5cdadc82eac66ae046389d3dc1337c223c8f553a6cd00205`
+- 262k (`baby_dog_step_0000262144.npz`): `fe2ae09bca1e5c159aae24b0e11737fc3e7a587abad30f3652918fd5a12e27d8`
+- 327k (`baby_dog_step_0000327680.npz`): `8d91cca0fb46d312bd10c38978230b177aa080ab562716d8de40b58b6d99ee8d`
+- 393k (`baby_dog_step_0000393216.npz`): `91a7fa233df9e96153a6f10faf1fcebe9c3e18080061cdf34af6e7d915af6e58`
+- final (`baby_dog.npz`): `d2826818d7c36696fdc02d1cedd1519f42329135d59497b1eb1a39c2804ae2ec`
+
+Promotions & Standing Ranks:
+- **All-Time Project Record Dual Target Champion**: `baby_dog_step_0000262144.npz` (SHA256 `a054d8cb59d2725439ddf14353241fb1408bdfbee10a33cc8758c8d895abf23f`, Round 58) retained (**14.58% [28/192] combined target arrival, 25.0% in C3, 19.0% in C2, 8.33% owner arrival, 3.36m end distance, 0.0 ms dodge latency**).
+- **Positive Heading Lock Champion**: `baby_dog_step_0000393216.npz` (SHA256 `e088177b8ca0bb065b5d2b00f8daa62c7423f8773926bab1c432350436b4780c`, Round 59) retained (**+0.106 positive facing cosine, 14.60% final-second alignment, 12.50% [24/192] arrival**).
+- Compute Quota: 88.0 min spent on Kaggle 2x T4 GPU. Quota has 24.01h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
 
 ## 7. Open problems and next steps
 
