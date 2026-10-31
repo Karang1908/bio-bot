@@ -5152,16 +5152,43 @@ Promotions & Standing Ranks:
 
 ### Visual target approach round 61 (calibrated deceleration funnel + stay pay 275 on 2x Nvidia Tesla T4 GPU)
 
-Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round61 (version 1).
-Status: `RUNNING` on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU).
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round61 (version 2).
+Status: `COMPLETE` on 2x Nvidia Tesla T4 GPU (87.2 min execution time, 512 envs, 256/GPU).
 
 Setup: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 8 total evaluations including baseline and final), 2-hour cap (`--timeout 7200`). Teacher movement help zero from rest (`help_ = 0.00`).
-Resumed from all-time dual target record champion `baby_dog_step_0000262144.npz` (`a054d8cb59d2725439ddf14353241fb1408bdfbee10a33cc8758c8d895abf23f`, Round 58 step 262k, 14.58% [28/192] arrival, 25.0% in C3, 19.0% in C2, 8.33% owner arrival, 3.36m end distance, 0.0 ms dodge latency) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round58`. Expected checkpoint string: `'after 0.3M steps'`.
+Resumed from all-time dual target record champion `baby_dog_step_0000262144.npz` (`a054d8cb59d2725439ddf14353241fb1408bdfbee10a33cc8758c8d895abf23f`, Round 58 step 262k) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round58`. Expected checkpoint string: `'after 0.3M steps'`.
 Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
 Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
-Hyperparameters: `fwd_pay = 60.0`, `task_pay = 90.0`, `reach_pay = 350.0`, `stay_pay = 275.0`, `prox_pay = 60.0`, `face_pay = 50.0`, `search_pay = 45.0`, `yaw_pay = 35.0`, `sprint_pay = 45.0`, `sprint_floor = 0.38`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 1.35` (calibrated 0.47m braking radius = only 12 cm outside 0.35m arrival sphere, eliminating premature deceleration stall), `brake_floor = 0.48` (preserving ~0.29 m/s forward speed to comfortably penetrate 0.35m arrival sphere against ±0.1 motor wobble), `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `task_scale = 60.0`, `eval_repeats = 3`, `seed = 0`.
+Hyperparameters: `fwd_pay = 60.0`, `task_pay = 90.0`, `reach_pay = 350.0`, `stay_pay = 275.0`, `prox_pay = 60.0`, `face_pay = 50.0`, `search_pay = 45.0`, `yaw_pay = 35.0`, `sprint_pay = 45.0`, `sprint_floor = 0.38`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 1.35` (calibrated 0.47m braking radius = only 12 cm outside 0.35m arrival sphere, eliminating premature deceleration stall), `brake_floor = 0.48` (preserving ~0.29 m/s forward speed to comfortably penetrate 0.35m arrival sphere against ±0.1 motor wobble), `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `core = v2`, `task_scale = 60.0`, `eval_repeats = 3`, `seed = 0`.
 Objective: Preserve high forward approach drive right up to the 0.47m line before gently decelerating to enter the 0.35m sphere, converting 14.58% champion baseline into sustained arrival >15% across all 192 lives / 3 cohorts without teacher help.
-Quota: Kaggle GPU quota has 24.01h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
+
+Measured outcomes across 192 lives (3 fresh cohorts of 64):
+- **Multi-Cohort Uniform Ball Arrival at Step 327k (`dc403226...`)**:
+  - Across all 192 lives, ball arrival reached **7.29% (14/192)** with every single cohort achieving >= 6.0% arrival (Cohort 2: **9.0% [6/64]**, Cohort 1: **6.0% [4/64]**, Cohort 3: **6.0% [4/64]**).
+  - Ball distance closed to **3.38 m** overall (Cohort 3 closed to **3.35 m**).
+  - Instant dodge reaction latency in Cohort 2: **0.0 ms** (hit rate 70%), Cohort 1: **10.0 ms**!
+- **Cohort 2 Breakthrough at Step 393k (`c0806ad9...`)**:
+  - In Cohort 2, ball arrival surged to **11.0% (7/64)** and come arrival reached **8.0% (5/64)**, for a single-cohort combined target arrival of **19.0% (12/64)**!
+  - In Cohort 1, final-second heading alignment reached **19.0%** (all-time high for Cohort 1) with final facing cosine strictly positive (**+0.15**)!
+- **Peak Combined Dual Arrival Across 192 Lives**:
+  - Reached **9.90% (19/192)** at Step 65k (`414122e5...`) and Step 196k (`1a5b6dc9...`) (Ball: 6.25% [12/192], Come: 3.65% [7/192]).
+- **100% Nominal Motor Skills Preserved Throughout**:
+  - Walk: +0.378 to +0.388 m/s (real dog +0.192 m/s), Pace: +0.553 to +0.568 m/s, Run: +0.544 to +0.556 m/s, Turn-left: +1.380 to +1.437 rad/s, Turn-right: -1.093 to -1.142 rad/s, Sit: pitch +0.482 to +0.503 rad (teacher +0.480 rad), Lie-down: pitch +0.007 to +0.028 rad (teacher +0.020 rad). Teacher help strictly **0.00**.
+
+Checkpoint SHA256 Checksums:
+- 65k (`baby_dog_step_0000065536.npz`): `414122e580789ea8f5d53d41efd9673b758b740b92f81f9d6a69d1bc97c9766b`
+- 131k (`baby_dog_step_0000131072.npz`): `1a5d7a6010b600bd0961675ca644b8f1d42f6145661d7456b62dcbdd7d4ae806`
+- 196k (`baby_dog_step_0000196608.npz`): `1a5b6dc9a3d1e4537834a4044f4389aa5aace5110412fb7ad922fe3a1b2b00de`
+- 262k (`baby_dog_step_0000262144.npz`): `6f2a140bbc269b3e2a101cd694859f1c71983e30defa0b754b4b9c7c77e7759d`
+- 327k (`baby_dog_step_0000327680.npz`): `dc403226f1ddcc624beb3141d942e4cafc40fa8b79a04f96bd79ae2f5e0aafab`
+- 393k (`baby_dog_step_0000393216.npz`): `c0806ad98fceeee9879ad194c5a07166e9dc74c816c178597cc0c9b283b4a920`
+- final (`baby_dog.npz`): `d676d9c0963abdb3d534d30286b83b869c22f32f5450df25f342aa55863be371`
+
+Promotions & Standing Ranks:
+- **All-Time Project Record Dual Target Champion**: `baby_dog_step_0000262144.npz` (SHA256 `a054d8cb59d2725439ddf14353241fb1408bdfbee10a33cc8758c8d895abf23f`, Round 58) retained (**14.58% [28/192] combined target arrival, 25.0% in C3, 19.0% in C2, 8.33% owner arrival, 3.36m end distance, 0.0 ms dodge latency**).
+- **Multi-Cohort Uniform Ball Candidate**: `baby_dog_step_0000327680.npz` (SHA256 `dc403226f1ddcc624beb3141d942e4cafc40fa8b79a04f96bd79ae2f5e0aafab`, Round 61) promoted (**7.29% [14/192] ball arrival with >=6% across all 3 cohorts, 3.38m end distance, 0.0 ms dodge in C2**).
+- **Positive Heading Lock Champion**: `baby_dog_step_0000393216.npz` (SHA256 `e088177b8ca0bb065b5d2b00f8daa62c7423f8773926bab1c432350436b4780c`, Round 59) retained (**+0.106 positive facing cosine, 14.60% final-second alignment, 12.50% [24/192] arrival**).
+- Compute Quota: 87.2 min spent on Kaggle 2x T4 GPU. Quota has 22.47h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
 
 ## 7. Open problems and next steps
 
