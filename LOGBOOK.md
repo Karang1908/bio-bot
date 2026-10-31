@@ -4941,6 +4941,19 @@ Objective: Expand proximity gradient attraction earlier in the trajectory (0.88m
 4. **Compute Quota:**
    - 87.8 min spent on Kaggle 2x T4 GPU. Quota has 28.52h remaining ($0 budget, next reset 2026-11-07T00:00:00). TPU quota: 20.00h remaining.
 
+### Visual target approach round 58 (calibrated capture funnel + amplified terminal arrival on 2x Nvidia Tesla T4 GPU)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round58 (version 1).
+Status: `RUNNING` on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU).
+
+Setup: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 8 total evaluations including baseline and final), 2-hour cap (`--timeout 7200`). Teacher movement help zero from rest (`help_ = 0.00`).
+Resumed from new multi-cohort balanced champion `baby_dog_step_0000262144.npz` (`660c88ca5e178f0fe57f552e936a28bb91a812377786b9e90281a627ad399414`, Round 57 step 262k, 8.33% ball arrival [C3: 12.0%, C1: 6.0%, C2: 6.0%], 11.98% combined target arrival, 6.67 ms dodge latency) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round57`. Expected checkpoint string: `'after 0.3M steps'`.
+Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
+Hyperparameters: `fwd_pay = 60.0`, `task_pay = 90.0`, `reach_pay = 350.0` (amplified terminal capture reward), `stay_pay = 200.0` (amplified calm containment reward), `prox_pay = 60.0`, `face_pay = 40.0`, `search_pay = 45.0`, `yaw_pay = 35.0`, `sprint_pay = 45.0`, `sprint_floor = 0.38`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 1.8` (calibrated 0.63m braking radius avoiding the 0.88m premature deceleration trap), `brake_floor = 0.70` (preserving 70% forward drive momentum inside braking transition), `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `task_scale = 60.0`, `eval_repeats = 3`, `seed = 0`.
+Objective: Overcome the 0.88m sprint-choking threshold with a calibrated 0.63m braking zone and powerful terminal capture reward (`reach_pay = 350.0`, `stay_pay = 200.0`) to convert close-range approaches (<2.95m) into sustained target captures (>15% across all 192 lives / 3 cohorts without teacher help).
+Quota: Kaggle GPU quota has 28.52h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
