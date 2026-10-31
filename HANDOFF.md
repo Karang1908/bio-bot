@@ -9,17 +9,14 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 30 Oct 07:55 Dubai: Round 56 Baseline Verified Across 192 Lives (Ball: 7.29%, Come: 4.17%, Dodge: 23.3 ms, Nominal Motor: 100%); Colab Headless Trial Pruned During JIT Compilation (Gotcha 20); All-Time Multi-Cohort Balanced Champion Remains baby_dog_step_0000327680.npz (SHA256 f0b2259d..., Round 54 step 327k, 9.38% Ball Arrival across C1: 10.94%, C3: 9.38%, C2: 7.81%); Ready for Round 57 Launch on Kaggle 2x Nvidia Tesla T4 GPU (30h Quota Refresh on 2026-10-31T00:00:00 UTC, $0 budget).**
-- **Plan for Round 57 upon Kaggle Quota Reset (Saturday, 31 Oct 00:00 UTC)**:
-  - Infrastructure: Kaggle 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU), native container execution (no headless reaping or idle watchdog timeouts).
-  - Runtime calibration: Full 90-minute runtime cap (`--timeout 5400`), or `--skip_baseline` with pre-loaded Round 56 baseline metrics, giving maximum GPU runway for training updates and periodic evaluation checkpoints.
-  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (~65k steps across 3 fresh cohorts = 192 lives per eval).
+**Current state, 31 Oct 15:20 Dubai: Round 57 GPU Training RUNNING on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round57', Status 'RUNNING'); Resumed from Multi-Cohort Balanced Champion baby_dog_step_0000327680.npz (SHA256 f0b2259d..., Round 54 step 327k, 9.38% Ball Arrival across C1: 10.94%, C3: 9.38%, C2: 7.81%) with Widened Proximity Capture Funnel (brake_scale = 2.5, 0.88m radius, prox_pay = 60.0, reach_pay = 250.0); Quota: Kaggle GPU 30.00h Fresh Reset ($0 budget, next refresh 2026-11-07T00:00:00 UTC), TPU 20.0h Remaining.**
+- **Active Remote Training Job: Round 57 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round57` (Status: `RUNNING`).
+  - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 8 total evaluations including baseline and final), 2-hour cap (`--timeout 7200`).
+  - Innovation: Widened proximity capture funnel (`brake_scale = 2.5`, expanding terminal gradient attraction from 0.49m out to 0.875m, `reach_pay = 250.0`, `stay_pay = 150.0`, `prox_pay = 60.0`, `brake_floor = 0.60`) with proven postural stability (`task_fall_cost = 15.0`, `roll_cost = 5.0`, `upright_cost = 2.5`, `side_cost = 1.5`, `task_pay = 90.0`, `fwd_pay = 60.0`, `sprint_pay = 45.0`, `sprint_floor = 0.38`, `yaw_pay = 35.0`, `face_pay = 40.0`, `search_pay = 45.0`, `align_floor = 0.35`, `misalign_cost = 3.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `task_scale = 60.0`).
   - Resumed from candidate: `baby_dog_step_0000327680.npz` (SHA256 `f0b2259d0c455dbfa270f69865f6d1b1f6c2dd88a9bdadaf244b658830c282cb`, Round 54 step 327k multi-cohort champion) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round54`. Expected checkpoint string: `'after 0.3M steps'`.
-  - Hyperparameters: Widened proximity capture funnel (`brake_scale = 2.5`, 0.875m radius, `reach_pay = 250.0`, `stay_pay = 150.0`, `prox_pay = 60.0`, `brake_floor = 0.60`) with proven postural stability (`task_fall_cost = 15.0`, `roll_cost = 5.0`, `upright_cost = 2.5`, `side_cost = 1.5`, `task_pay = 90.0`, `fwd_pay = 60.0`, `sprint_pay = 45.0`, `sprint_floor = 0.38`, `yaw_pay = 35.0`, `face_pay = 40.0`, `search_pay = 45.0`, `align_floor = 0.35`, `misalign_cost = 3.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `task_scale = 60.0`).
-- **Trial Outcome: Colab Round 57 Headless Execution**:
-  - Allocated Colab Tesla T4 GPU VM, pinned `jax[cuda12]==0.7.2`, verified `[CudaDevice(id=0)]`, uploaded `core_v2.npz`, `go2_dog_motions.npz`, candidate `baby_dog_step_0000327680.npz` and baseline `practice.json`.
-  - Started training, but during single-GPU MJX JIT compilation where no I/O is produced on stdout for >10 minutes, Colab's headless watchdog pruned the VM (`reason: 'pruned'`, confirming Gotcha 20).
-  - VM terminated cleanly; no quota spent ($0 balance).
+  - Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+  - Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
 - **Completed Remote Execution: Round 56 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round56` (Status: `CANCEL_ACKNOWLEDGED` at 40 min / 2400s timeout).
   - Outputs fetched to `results/baby-dog-vision-approach-round56/`: `practice.json`, `poses.json`, `resume.json`, `teacher.json`, `bio-bot-baby-dog-vision-approach-round56.log`, `log.txt`.
