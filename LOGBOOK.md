@@ -5112,6 +5112,19 @@ Objective: Cure the terminal high-speed fly-by defect identified in Round 58 by 
 4. **Compute Quota:**
    - 86.8 min spent on Kaggle 2x T4 GPU. Quota has 25.55h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
 
+### Visual target approach round 60 (smooth glide braking + equalized stay pay on 2x Nvidia Tesla T4 GPU)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round60 (version 1).
+Status: `RUNNING` on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU).
+
+Setup: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 8 total evaluations including baseline and final), 2-hour cap (`--timeout 7200`). Teacher movement help zero from rest (`help_ = 0.00`).
+Resumed from positive heading champion `baby_dog_step_0000393216.npz` (`e088177b8ca0bb065b5d2b00f8daa62c7423f8773926bab1c432350436b4780c`, Round 59 step 393k, +0.106 positive facing cosine, 14.60% final-second alignment, 12.50% [24/192] combined target arrival, 3.35m ball end distance, 3.43m come end distance) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round59`. Expected checkpoint string: `'after 0.4M steps'`.
+Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
+Hyperparameters: `fwd_pay = 60.0`, `task_pay = 90.0`, `reach_pay = 350.0`, `stay_pay = 350.0` (equalized to reach_pay to strongly reinforce zero-velocity containment), `prox_pay = 60.0`, `face_pay = 60.0`, `search_pay = 45.0`, `yaw_pay = 35.0`, `sprint_pay = 45.0`, `sprint_floor = 0.38`, `align_floor = 0.35`, `misalign_cost = 3.0`, `brake_scale = 2.0` (expanded 0.70m braking radius = 35 cm deceleration zone before 0.35m arrival sphere), `brake_floor = 0.15` (allows forward drive to scale smoothly down to 15% speed = ~0.08 m/s, dissipating forward momentum so the quadruped glides to a stop on target rather than overshooting), `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `task_scale = 60.0`, `eval_repeats = 3`, `seed = 0`.
+Objective: Dissipate residual forward kinetic energy before crossing the 0.35m ball boundary with a 35 cm smooth glide deceleration zone (`brake_scale = 2.0`, `brake_floor = 0.15`) and equalized containment bonus (`stay_pay = 350.0`), targeting sustained arrival >15% across all 192 lives / 3 cohorts without teacher help.
+Quota: Kaggle GPU quota has 25.55h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
