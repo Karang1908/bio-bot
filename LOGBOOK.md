@@ -5354,6 +5354,19 @@ Promotions & Standing Ranks:
 - **Cohort 1 Unlocked Ball Candidate**: `baby_dog_step_0000131072.npz` (SHA256 `0a7550f5cd6692a178be2d48b38c738c924c8885af7f5e1955bfe77f46a9aec8`, Round 64) retained (**12.0% [8/64] Ball in C1, 14.0% in C3, 11.46% [22/192] combined across 192 lives, 7.81% Ball across 192 lives**).
 - Compute Quota: ~86 min spent on Kaggle 2x T4 GPU. Quota has 16.66h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
 
+### Visual target approach round 66 (the grand-unification approach formula on 2x Nvidia Tesla T4 GPU)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round66 (version 1).
+Status: `RUNNING` on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU).
+
+Setup: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 8 total evaluations including baseline and final), 2-hour cap (`--timeout 7200`). Teacher movement help zero from rest (`help_ = 0.00`).
+Resumed from all-time project champion `baby_dog_step_0000262144.npz` (`a054d8cb59d2725439ddf14353241fb1408bdfbee10a33cc8758c8d895abf23f`, Round 58 step 262k, 14.58% [28/192] combined arrival across 192 lives, 25.0% in C3, 19.0% in C2, 8.33% Come arrival, 3.36m distance, 0.0 ms dodge latency) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round58`. Expected checkpoint string: `'after 0.3M steps'`.
+Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
+Hyperparameters: `fwd_pay = 70.0`, `task_pay = 90.0`, `reach_pay = 350.0`, `stay_pay = 200.0` (Round 58 optimal stay balance), `prox_pay = 60.0`, `face_pay = 45.0`, `search_pay = 45.0`, `yaw_pay = 35.0` (3.4:1 forward-to-yaw dominance ratio), `sprint_pay = 50.0` (total forward incentive 120.0), `sprint_floor = 0.38`, `align_floor = 0.28` (~73.7 deg aperture, unblocks lateral spawns), `misalign_cost = 1.5` (halved penalty preventing corner-braking), `brake_scale = 1.70`, `brake_floor = 0.70` (preserves ~0.40 m/s forward entry speed into 1.0m owner arrival zone), `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `core = v2`, `task_scale = 60.0`, `eval_repeats = 3`, `seed = 0`.
+Objective: Grand unification of Round 58's high owner entry velocity (`brake_floor = 0.70`, `brake_scale = 1.70`, `stay_pay = 200.0`, `yaw_pay = 35.0`) with Round 64's lateral unblocker (`align_floor = 0.28`, `misalign_cost = 1.5`, `sprint_pay = 50.0`, `fwd_pay = 70.0`) to push sustained multi-cohort arrival beyond the >15% threshold across all 192 lives / 3 cohorts without teacher help.
+Quota: Kaggle GPU quota has 16.66h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
