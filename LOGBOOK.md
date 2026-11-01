@@ -5400,6 +5400,19 @@ Promotions & Standing Ranks:
 - **Cohort 1 Unlocked Ball Candidate**: `baby_dog_step_0000131072.npz` (SHA256 `0a7550f5cd6692a178be2d48b38c738c924c8885af7f5e1955bfe77f46a9aec8`, Round 64) retained (**12.0% [8/64] Ball in C1, 14.0% in C3, 11.46% [22/192] combined across 192 lives, 7.81% Ball across 192 lives**).
 - Compute Quota: 88.5 min spent on Kaggle 2x T4 GPU. Quota has 15.17h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
 
+### Visual target approach round 67 (in-sphere capture & velocity damping on 2x Nvidia Tesla T4 GPU)
+
+Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round67 (version 1).
+Status: `RUNNING` on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU).
+
+Setup: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 8 total evaluations including baseline and final), 2-hour cap (`--timeout 7200`). Teacher movement help zero from rest (`help_ = 0.00`).
+Resumed from Universal Multi-Cohort Parity Champion `baby_dog_step_0000196608.npz` (`644f414f5df49ef61c91203f702ce101d26a5a1d8cddb6f39ce52dc5529948bb`, Round 66 step 196k, 11.98% [23/192] combined arrival across all 192 lives, every cohort >=11% [C1: 11%, C2: 11%, C3: 14%], 3.24m ball distance, 0.0 ms dodge latency in C2) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round66`. Expected checkpoint string: `'after 0.2M steps'`.
+Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
+Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
+Hyperparameters: `fwd_pay = 70.0`, `task_pay = 90.0`, `reach_pay = 350.0`, `stay_pay = 275.0` (boosted from 200.0 to 275.0 to lock quadruped inside arrival circle and prevent overshoot bounce-out), `prox_pay = 60.0`, `face_pay = 45.0`, `search_pay = 45.0`, `yaw_pay = 35.0` (3.4:1 forward-to-yaw dominance ratio), `sprint_pay = 50.0` (total forward incentive 120.0), `sprint_floor = 0.38`, `align_floor = 0.28` (~73.7 deg aperture, unblocks lateral spawns), `misalign_cost = 1.5` (halved penalty preventing corner-braking), `brake_scale = 1.45`, `brake_floor = 0.55` (preserves ~0.33 m/s forward speed to penetrate 0.35m circle, allows velocity damping inside arrival zone), `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `core = v2`, `task_scale = 60.0`, `eval_repeats = 3`, `seed = 0`.
+Objective: Cross the >15% sustained visual arrival threshold across all 192 lives / 3 cohorts without teacher help by combining high-speed approach gallop from distance with controlled deceleration and high dwell incentive inside the arrival sphere.
+Quota: Kaggle GPU quota has 15.17h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
+
 ## 7. Open problems and next steps
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
