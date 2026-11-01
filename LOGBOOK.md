@@ -5236,7 +5236,7 @@ Promotions & Standing Ranks:
 ### Visual target approach round 63 (wide-aperture active yaw steering on 2x Nvidia Tesla T4 GPU)
 
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round63 (version 1).
-Status: `RUNNING` on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU).
+Status: `COMPLETE` on 2x Nvidia Tesla T4 GPU (runtime ~86 min, 512 envs, 256/GPU).
 
 Setup: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 8 total evaluations including baseline and final), 2-hour cap (`--timeout 7200`). Teacher movement help zero from rest (`help_ = 0.00`).
 Resumed from active-yaw champion `baby_dog_step_0000196608.npz` (`7db9475d03fd6075cceabb26b9de06e7bfa05ce42ea010e83d006780c81eff95`, Round 62 step 196k, 11.98% [23/192] combined arrival across 192 lives, 22.0% in C2, 3.17m-3.34m end distance, 0.0 ms dodge latency in C2) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round62`. Expected checkpoint string: `'after 0.2M steps'`.
@@ -5244,7 +5244,33 @@ Attached datasets: `bio-bot-dog-mocap`, `bio-bot-cores`.
 Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
 Hyperparameters: `fwd_pay = 60.0`, `task_pay = 90.0`, `reach_pay = 350.0`, `stay_pay = 275.0`, `prox_pay = 60.0`, `face_pay = 50.0`, `search_pay = 45.0`, `yaw_pay = 60.0` (boosted from 50.0 to 60.0 for stronger directional target locking), `sprint_pay = 45.0`, `sprint_floor = 0.38`, `align_floor = 0.10` (softened from 0.20 to 0.10 to expand directional steering guidance across ~84 deg coverage, capturing wide peripheral target spawns in C1 and C3), `misalign_cost = 2.0`, `brake_scale = 1.35` (calibrated 0.47m braking radius), `brake_floor = 0.48` (preserving ~0.29 m/s forward speed to comfortably penetrate 0.35m arrival sphere against ±0.1 motor wobble), `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `core = v2`, `task_scale = 60.0`, `eval_repeats = 3`, `seed = 0`.
 Objective: Expand directional yaw steering across nearly the entire visual quadrant (±84°), eliminating peripheral spawn search latency and converting 22% single-cohort arrival into sustained visual arrival >15% across all 192 lives / 3 cohorts without teacher help.
-Quota: Kaggle GPU quota has 21.02h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
+
+All outputs fetched cleanly to `results/baby-dog-vision-approach-round63/`: `baby_dog.npz`, snapshots at 65k, 131k, 196k, 262k, 327k, 393k steps, `practice.json`, `poses.json`, `resume.json`, `teacher.json`, `bio-bot-baby-dog-vision-approach-round63.log`, `log.txt`.
+
+Key measured outcomes across 3 fresh cohorts (192 lives per evaluation):
+- **Rotational Over-Reward Dynamic (`yaw_pay = 60.0`)**:
+  - Boosting `yaw_pay` to 60.0 with `align_floor = 0.10` generated up to 84 reward units/s for turning in place (`yaw_toward * yaw_pay`), which exceeded the forward locomotion incentive (`fwd_pay * 0.55 = 33` reward units/s).
+  - The policy learned to prioritize turning on the spot towards the target bearing over galloping forward into the arrival circle.
+  - Dual arrival peaked at baseline (step 0) at **10.94% (21/192)** (Cohort 2: **15.0%**) and then gradually decayed: step 65k **8.85% (17/192)** (C3: **11.0%**), step 131k **7.29% (14/192)** (C2: **10.0%**, Ball dist **3.33m**), step 262k **8.33% (16/192)** (C3: **13.0%**), tapering to **4.69% (9/192)** at step 393k.
+- **100% Nominal Motor Skills Preserved Throughout**:
+  - Walk: +0.380 to +0.392 m/s (real dog +0.192 m/s), Pace: +0.552 to +0.564 m/s, Run: +0.531 to +0.548 m/s, Turn-left: +1.332 to +1.402 rad/s, Sit: pitch +0.48 to +0.50 rad, Lie-down: pitch 0.00 to +0.01 rad. Teacher help strictly **0.00**.
+- **Hazard Reflexes**: Instant **0.0 ms** reaction latency maintained in C2 (baseline, 196k, 327k) and C3 (131k).
+
+Checkpoint SHA256 Checksums:
+- 65k (`baby_dog_step_0000065536.npz`): `f072329445112e40696d06cfa4428ccad93da4697a0893ec824bef1046a6a0e9`
+- 131k (`baby_dog_step_0000131072.npz`): `0517d50a4daec2d4a7530b85958471f9db6c03914dde7a869f5258526a150aef`
+- 196k (`baby_dog_step_0000196608.npz`): `5abcdb69e0ff5badca0f882f18e9be557112b4c2891762a06b183616828005a5`
+- 262k (`baby_dog_step_0000262144.npz`): `d3bd78a3fa36b9ac83bace5442d9c9c37251d611f619d0455b1fed5404e8062d`
+- 327k (`baby_dog_step_0000327680.npz`): `dd904212ee43bcade5498caf14cf8f8f3b63f680ff91a477a6d62b4f7bbe02db`
+- 393k (`baby_dog_step_0000393216.npz`): `c9497861422cd44fe9ab121f6cb0b53d6d9cf811d8fe41c1d7d60961613af9fd`
+- final (`baby_dog.npz`): `9bfc2256cbcf210228c71205d2e7d714410b33faee44bdb7dafe0593a6a926f5`
+
+Promotions & Standing Ranks:
+- **All-Time Project Record Dual Target Champion**: `baby_dog_step_0000262144.npz` (SHA256 `a054d8cb59d2725439ddf14353241fb1408bdfbee10a33cc8758c8d895abf23f`, Round 58) retained (**14.58% [28/192] combined target arrival, 25.0% in C3, 19.0% in C2, 8.33% owner arrival, 3.36m end distance, 0.0 ms dodge latency**).
+- **Active-Yaw High Arrival Candidate**: `baby_dog_step_0000196608.npz` (SHA256 `7db9475d03fd6075cceabb26b9de06e7bfa05ce42ea010e83d006780c81eff95`, Round 62) retained (**11.98% [23/192] combined arrival across 192 lives, 22.0% [14/64] in C2, 3.34m ball distance, 0.0 ms dodge latency in C2**).
+- **Record Proximity Approach Candidate**: `baby_dog_step_0000131072.npz` (SHA256 `6c63a656ff4140c09b5c64f664ae291c9cf3101f9723ebf889f42d8b4b8c852b`, Round 62) retained (**all-time record 3.33m ball end distance across 192 lives, 7.29% [14/192] ball arrival, 12.0% in C2**).
+- **Positive Heading Lock Champion**: `baby_dog_step_0000393216.npz` (SHA256 `e088177b8ca0bb065b5d2b00f8daa62c7423f8773926bab1c432350436b4780c`, Round 59) retained (**+0.106 positive facing cosine, 14.60% final-second alignment, 12.50% [24/192] arrival**).
+- Compute Quota: ~86 min spent on Kaggle 2x T4 GPU. Quota has 19.56h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU quota: 20.00h remaining.
 
 ## 7. Open problems and next steps
 
