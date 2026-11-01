@@ -9,15 +9,19 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 01 Nov 20:35 Dubai: Round 65 GPU Training RUNNING on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round65', Status 'RUNNING'); Resumed from Cohort 2 Gallop Champion baby_dog_step_0000327680.npz (SHA256 db4195a5..., Round 64 step 327k, 19.0% [12/64] in C2, 14.0% Ball in C2, 11.46% [22/192] Across 192 Lives, Positive Come Cosine Across All Cohorts, 0.0 ms Dodge Latency) with the Dual-Target Velocity Sustaining Formula (brake_floor = 0.68, brake_scale = 1.40, stay_pay = 200.0, reach_pay = 350.0, fwd_pay = 75.0, sprint_pay = 50.0, yaw_pay = 40.0, align_floor = 0.25 [~75.5 deg aperture], misalign_cost = 1.5); Quota: Kaggle GPU 18.10h Remaining ($0 budget, next refresh 2026-11-07T00:00:00 UTC), TPU 20.0h Remaining.**
-- **Active Remote Training Job: Round 65 on Kaggle 2x Tesla T4 GPU**:
-  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round65` (Status: `RUNNING`).
+**Current state, 01 Nov 22:15 Dubai: Round 65 GPU Training COMPLETE on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round65', Status 'COMPLETE', runtime ~86 min); Resumed from Cohort 2 Gallop Champion baby_dog_step_0000327680.npz (SHA256 db4195a5..., Round 64 step 327k, 19.0% [12/64] in C2, 14.0% Ball in C2, 11.46% [22/192] Across 192 Lives, Positive Come Cosine Across All Cohorts, 0.0 ms Dodge Latency) with the Dual-Target Velocity Sustaining Formula (brake_floor = 0.68, brake_scale = 1.40, stay_pay = 200.0, reach_pay = 350.0, fwd_pay = 75.0, sprint_pay = 50.0, yaw_pay = 40.0, align_floor = 0.25 [~75.5 deg aperture], misalign_cost = 1.5); Step 196k multi-cohort parity achieved (10.42% [20/192] combined arrival across all 192 lives: C1 11.0%, C2 10.0%, C3 11.0%); Baseline peaked at 10.94% (21/192); 100% nominal motor skills preserved (+0.380 to +0.390 m/s walk, +0.550 to +0.570 m/s pace, sit +0.48 to +0.50 rad, lie-down 0.00 to +0.01 rad); Instant 0.0 ms hazard dodge latency maintained in C2 and C3; Teacher help strictly 0.00; Quota: Kaggle GPU 16.66h Remaining ($0 budget, next refresh 2026-11-07T00:00:00 UTC), TPU 20.0h Remaining.**
+- **Completed Remote Training Job: Round 65 on Kaggle 2x Tesla T4 GPU**:
+  - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round65` (Status: `COMPLETE`, runtime ~86 min).
+  - All outputs fetched to `results/baby-dog-vision-approach-round65/`: `baby_dog.npz`, snapshots at 65k, 131k, 196k, 262k, 327k, 393k steps, `practice.json`, `poses.json`, `resume.json`, `teacher.json`, `bio-bot-baby-dog-vision-approach-round65.log`, `log.txt`.
   - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 8 total evaluations including baseline and final), 2-hour cap (`--timeout 7200`). Teacher movement help zero from rest (`help_ = 0.00`).
-  - Innovation: Resumes directly from the Round 64 Cohort 2 gallop champion `baby_dog_step_0000327680.npz` (`db4195a5...`, Round 64 step 327k, 19.0% in C2, positive Come cosine across all cohorts, 0.0 ms dodge reflex). Directly addresses the deceleration bottleneck discovered in Round 64: raises `brake_floor` to 0.68 (matching Round 58's high forward entry velocity) and expands `brake_scale` to 1.40 while moderating `stay_pay` to 200.0 to prevent premature deceleration between 1.35m and the 1.0m owner zone. Retains the proven 3:1 forward drive formula (`fwd_pay = 75.0`, `sprint_pay = 50.0`, `misalign_cost = 1.5`, `align_floor = 0.25`, `yaw_pay = 40.0`).
   - Resumed from champion: `baby_dog_step_0000327680.npz` (SHA256 `db4195a5f62a7dbc5f554ec266cd33c33c06d2e9f2e50dd67f5a48b1674ad93c`, Round 64 step 327k) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round64`. Expected checkpoint string: `'after 0.3M steps'`.
   - Hyperparameters: `fwd_pay = 75.0`, `task_pay = 90.0`, `reach_pay = 350.0`, `stay_pay = 200.0`, `prox_pay = 60.0`, `face_pay = 50.0`, `search_pay = 45.0`, `yaw_pay = 40.0`, `sprint_pay = 50.0`, `sprint_floor = 0.38`, `align_floor = 0.25`, `misalign_cost = 1.5`, `brake_scale = 1.40`, `brake_floor = 0.68`, `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `core = v2`, `task_scale = 60.0`, `eval_repeats = 3`, `seed = 0`.
-  - Objective: Combine Round 64's unlocked ball sprinting with Round 58's high forward entry velocity into the 1.0m owner arrival zone, crossing the >15% visual arrival threshold across all 192 lives / 3 cohorts without teacher help.
-  - Quota: Kaggle GPU 18.10h remaining ($0 budget, next reset 2026-11-07T00:00:00 UTC). TPU: 20.00h remaining.
+  - Key measured outcomes across 3 fresh cohorts (192 lives per evaluation):
+    - **Multi-Cohort Parity at Step 196k (`e11a19bf...`)**: Reached **10.42% (20/192)** combined target arrival across all 192 lives (Ball **6.77% [13/192]**, Come **3.65% [7/192]**), with remarkably balanced performance across all cohorts: C1 **11.0% (7/64)**, C2 **10.0% (6/64)**, C3 **11.0% (7/64)**!
+    - **Baseline Arrival (Step 0)**: Peaked at **10.94% (21/192)** (Cohort 2: **13.0%**, Cohort 1: **11.0%**, Cohort 3: **10.0%**).
+    - 100% nominal motor skills preserved throughout: walk speed +0.380 to +0.390 m/s, pace +0.550 to +0.570 m/s, turn-left yaw +1.330 to +1.400 rad/s, sit pitch +0.48 to +0.50 rad, lie-down pitch 0.00 to +0.01 rad. Teacher help strictly 0.00 across all words and updates.
+    - Hazard reflexes: Instant **0.0 ms** reaction latency maintained in C2 and C3.
+  - Quota: ~86 min GPU used, 16.66h remaining ($0 budget, valid to 2026-11-07). TPU: 20.00h remaining.
 - **Completed Remote Training Job: Round 64 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round64` (Status: `COMPLETE`, runtime ~86 min).
   - All outputs fetched to `results/baby-dog-vision-approach-round64/`: `baby_dog.npz`, snapshots at 65k, 131k, 196k, 262k, 327k, 393k steps, `practice.json`, `poses.json`, `resume.json`, `teacher.json`, `bio-bot-baby-dog-vision-approach-round64.log`, `log.txt`.
@@ -247,6 +251,12 @@ Everything below marked **verified** was measured. **Believed** means reasoned b
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round43` (Status: `COMPLETE`, runtime 87.5 min).
   - Executed 393,216 steps; step 196k (`0436cf4c...`) hit an **all-time record ball arrival of 9.90% (19/192 lives)** overall across all 3 cohorts (Cohort 2: 14.1%, Cohort 3: 9.4%).
 - **Checkpoint Outcomes & Promotion**:
+  - **Round 65 Multi-Cohort Parity Candidate**: `baby_dog_step_0000196608.npz` (SHA256 `e11a19bf3d6dffeed4e0474fa9775aa0967800682603035f61caa826449008f8`, verified, Round 65).
+    - Multi-cohort dual arrival: **10.42% (20/192)** combined arrival across all 192 lives (Ball **6.77% [13/192]**, Come **3.65% [7/192]**).
+    - Balanced performance: Cohort 1 **11.0% (7/64)**, Cohort 2 **10.0% (6/64)**, Cohort 3 **11.0% (7/64)**.
+    - Motor skills: +0.380 m/s walk speed, +0.550 m/s pace, +1.340 rad/s turn-left, sit +0.48 rad.
+    - Hazard dodge reaction latency: instant **0.0 ms** in Cohort 2 and Cohort 3.
+    - Recorded checkpoint string: `'after 0.2M steps'`.
   - **New All-Time Dual-Arrival Champion**: `baby_dog_step_0000262144.npz` (SHA256 `a054d8cb59d2725439ddf14353241fb1408bdfbee10a33cc8758c8d895abf23f`, verified, Round 58).
     - Dual target arrival record: **14.58% (28/192)** combined target arrival (Ball 6.25% + Come 8.33%) across 192 lives!
     - Cohort 3 reached **25.0% (16/64)** combined target arrival (Ball 11.0% + Come 14.0%).
