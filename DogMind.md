@@ -14,6 +14,17 @@ Results go in `LOGBOOK.md` as they come in (§6). Built:
 
 Steps 5–8 are still a plan.
 
+**2 Nov 2026 update (supersedes the pending notes below):** the owner agreed the **Embodiogenesis** plan
+(`Embodiogenesis.md`).
+- The goal steps of this plan remain the goals: step 5 (ball, come, dodge) and steps 6–8.
+- The way of getting there changes:
+  - fix the eye (each ommatidium integrates over its ~5° cone), the curriculum, the reward and the compute first;
+  - then add dopamine-gated lifetime plasticity;
+  - then let the brain grow connections and neurons from the fly seed, append-only.
+- The "vision approach" rounds 3–68 did not teach approach: the dog ended farther from the ball than it started
+  (`LOGBOOK.md` §6.11).
+- §4's fixed fly core is now the starting wiring, not the final one.
+
 10 Oct continuation: the owner reaffirmed **self-learning** as the main goal and required **free compute only**,
 with **no checks or training on the laptop**. Focused Kaggle lessons will rehearse all existing skills, keep teacher
 movement help at zero, and progress from perception to orienting to approaching. Senses, wobble and park hazards stay.
