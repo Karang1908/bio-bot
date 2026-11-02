@@ -1,15 +1,66 @@
 # HANDOFF: bio-bot, "One Brain, Many Bodies"
 
-The handoff for the next AI coding agent. Written 10 Oct 2026; updated 11 Oct 2026 after the longer-history trial.
+The handoff for the next AI coding agent. Written 10 Oct 2026; current state (§0) updated 2 Nov 2026.
 
 Read this file first, then:
+- `Embodiogenesis.md`: the current plan (agreed 2 Nov), which supersedes the approach rounds;
 - `LOGBOOK.md`: every experiment, number and mistake;
 - `DogMind.md`: the agreed plan for senses, self-discovery and mind;
 - `TechnicalDesign.md` / `Requirements.md`: the design, the infrastructure, the Kaggle gotchas.
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-**Current state, 02 Nov 01:30 Dubai: Round 68 GPU Training RUNNING on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round68', Status 'RUNNING'); Resumed from All-Time Dual Target Record Champion baby_dog_step_0000262144.npz (SHA256 a054d8cb..., Round 58 step 262k, 14.58% [28/192] Combined Arrival Across 192 Lives, 25.0% in C3, 19.0% in C2, 8.33% Owner Arrival, 3.36m End Distance, 0.0 ms Dodge Latency) with the Dual-Zone Penetration & Capture Formula (fwd_pay = 72.0, sprint_pay = 50.0, yaw_pay = 35.0 [3.48:1 dominance], align_floor = 0.28 [~73.7 deg aperture], misalign_cost = 1.5, brake_scale = 1.55, brake_floor = 0.62, reach_pay = 350.0, stay_pay = 250.0); Quota: Kaggle GPU 13.70h Remaining ($0 budget, next refresh 2026-11-07T00:00:00 UTC), TPU 20.0h Remaining.**
+## 0. Current state: 2 Nov 2026 (this section overrides everything below it)
+
+**The plan changed.** The owner agreed the **Embodiogenesis** plan (working name) on 2 Nov. Read `Embodiogenesis.md`
+first. The reward-coefficient "vision approach" rounds (3–68) are **stopped**. No code has changed yet; the next agent
+starts Phase 0.
+
+**Why (verified; details in LOGBOOK §6.11 and Round 68):**
+- The dog never learned to go to the ball. In every ball test in Rounds 67–68 it ended farther away than it started
+  (about 2.5 m → 3.1–3.9 m) and turned away from it.
+- The "records" and "champions" below were picked from noise. Each one regressed to the mean when resumed.
+- The eye's 5° point rays can miss a 0.22 m ball beyond about 2.5 m (from code; the rate is not measured).
+- About 10–15 of each round's 88 minutes was learning.
+- The brain step multiplies a full matrix that is about 99% empty.
+
+**Jobs and compute (verified 2 Nov):**
+- No Kaggle job is running.
+- Round 68 is `COMPLETE` (87.2 min). Its outputs were fetched with overwrite to
+  `results/baby-dog-vision-approach-round68/`. No checkpoint was promoted.
+- Kaggle GPU: 12.25 h left of 30 (resets 2026-11-07 00:00 UTC). TPU: 20 h, but unusable for MJX (LOGBOOK §8.19).
+- No monitor is active.
+- The owner expects access to an **RTX 5070**. It is **not yet authorized or set up**: wait for the owner's go-ahead
+  and remote access, and see `Embodiogenesis.md` §5.1 for what to verify (Linux or WSL2, CUDA ≥ 12.8, jax pin,
+  wiring-draw determinism). The laptop rule still holds.
+
+**Brains:**
+- **Best established brain for skills:** unchanged in principle. `stage16_park3_open.npz` (core v2, senses open) and
+  the later let-go checkpoints all walk, pace, canter, run, turn and sit with zero teacher help.
+- **None of them goes to the ball or the owner, dodges, eats or gets up.** Lie-down is lost. Falls are high
+  (Round 68 verdict: walk 1.94 falls per 13 s).
+- **Restart for Phase 0:** not chosen yet. Compare `stage16_park3_open.npz` with the Round 58 262k checkpoint
+  (`a054d8cb…`) on one identical retention and falls protocol, on fresh lives, and pick by that measurement. Earlier
+  fall numbers came from different protocols and are not interchangeable.
+- `bio-bot-brains` still holds stage15. Do not upload local checkpoints; use `--kernel-source` with hosted outputs.
+
+**Next measured question (Phase 0, in order):**
+1. Profile where a job's time goes, and build the sparse brain engine. Gate: identical commands on Kaggle CPU.
+2. Ommatidium-cone eye. Gate: ball visible in ≥ 95% of in-view placements.
+3. Distance curriculum, simple outcome reward and the random-walk floor.
+4. One long run (8–10 h, light tests during training).
+
+   Gate: the ball distance falls and the dog beats the random-walk floor on fresh lives by at least 2 standard
+   errors, with all skills retained.
+
+**Rules added 2 Nov** (also in AGENTS.md):
+- Growth of connections and neurons is allowed, append-only. The body-to-brain line mapping stays fixed.
+- Decision models (Jev, OpenJev, Laya) are not used.
+- Promotion requires fresh-life evidence by at least 2 standard errors.
+
+---
+
+**Historical state note (02 Nov 01:30 Dubai), superseded by §0 above; Round 68 has since completed:** Round 68 GPU Training RUNNING on Kaggle 2x Nvidia Tesla T4 GPU (Job 'bio-bot-baby-dog-vision-approach-round68', Status 'RUNNING'); Resumed from All-Time Dual Target Record Champion baby_dog_step_0000262144.npz (SHA256 a054d8cb..., Round 58 step 262k, 14.58% [28/192] Combined Arrival Across 192 Lives, 25.0% in C3, 19.0% in C2, 8.33% Owner Arrival, 3.36m End Distance, 0.0 ms Dodge Latency) with the Dual-Zone Penetration & Capture Formula (fwd_pay = 72.0, sprint_pay = 50.0, yaw_pay = 35.0 [3.48:1 dominance], align_floor = 0.28 [~73.7 deg aperture], misalign_cost = 1.5, brake_scale = 1.55, brake_floor = 0.62, reach_pay = 350.0, stay_pay = 250.0); Quota: Kaggle GPU 13.70h Remaining ($0 budget, next refresh 2026-11-07T00:00:00 UTC), TPU 20.0h Remaining.**
 - **Active Remote Training Job: Round 68 on Kaggle 2x Tesla T4 GPU**:
   - Kernel: `karang1908/bio-bot-baby-dog-vision-approach-round68` (Status: `RUNNING`).
   - Configuration: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 8 total evaluations including baseline and final), 2-hour cap (`--timeout 7200`). Teacher movement help zero from rest (`help_ = 0.00`).
@@ -3696,7 +3747,7 @@ a fixed three-hour expiry or resubmit a notebook when its status is unknown.
 .venv/bin/python scripts/kaggle_job.py fetch baby_dog --job baby_dog_selflearn_long_history_pilot
 ```
 
-The current monitor is already running; do not start duplicate GPU runs. Its submit script under
+(Historical, 11 Oct: no monitor or job is active as of 2 Nov; see §0.) The current monitor is already running; do not start duplicate GPU runs. Its submit script under
 `results/kaggle/baby_dog_selflearn_long_history_pilot/` records the exact hosted checkpoint and job arguments.
 Use `--kernel-source` to attach existing cloud outputs. `bio-bot-brains` still contains stage15, so it is not the
 current restart. An earlier local-checkpoint upload was rejected by automatic approval review; no upload occurred.
@@ -3824,6 +3875,9 @@ Numbered roughly in order; the logbook's §8 has more. Each item: what happened,
 ---
 
 ## 6. What I believe should happen next
+
+**Superseded 2 Nov:** the current next steps are in §0 and `Embodiogenesis.md` §6. The Round 32/33 notes below are
+historical; that "record" did not survive the 2 Nov review (LOGBOOK §6.11).
 
 1. **Round 32 Completed & Evaluated (New All-Time Project Records):**
    - Checkpoint `baby_dog_step_0000393216.npz` (SHA256 `d23d8f2c91d7f9d83f30d408a62e40285864046e91a3462b70755ac83008ef2e`, 0.40M steps, 24 updates) achieved:
