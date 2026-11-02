@@ -2,6 +2,13 @@
 
 _Technical design · 23 September 2026 · Status: Bio-Bot Studio (sandbox + open world, body inspector, navigation) built; Stage 0 brain built and running (untrained)_
 
+> **2 Nov 2026 status:** this document is the original design. The brain is now trained on the Go2 dog (core v2,
+> 7,019 units; see `LOGBOOK.md`), and the current plan is `Embodiogenesis.md`. In that plan the connectome is a
+> **seed** that may grow: plasticity, connections that form and are pruned, and new neurons, all append-only. This
+> reverses the rejection of structural growth in §14. The topology claim becomes a comparison: fly seed vs random
+> seed under the same growth rules. The three-factor plasticity (§4.5) and the calibrated dopamine reward (§4.6)
+> were never built; they are Phase 1. Decision models (Laya, Jev) stay unused.
+
 Companion docs: [README](README.md) (summary) · [Overview](Overview.md) (non-technical) · [Requirements](Requirements.md) (infrastructure) · [LegacyIdea](LegacyIdea.md) (original concept)
 
 ---
@@ -466,7 +473,7 @@ Sensor-only bodies (cameras) and actuator-only bodies (smart plugs) are ordinary
 | Laya as a training teacher | reads only text; the per-step judge would cost 3–8 CPU-weeks (193–464 ms per call) or 20–44 T4-hours per 10M steps; base model scores 0.362 vs a 0.461 majority baseline zero-shot. Only its calibration *idea* is borrowed (§4.6) |
 | Jev (via OpenCode free tier) | free "for a limited time"; reports from Sept 2026 say the free tier now rejects non-OpenCode clients; text-only and remote |
 | Naive merge (concatenate channels) | predicted to fail (H2a); kept only as a baseline |
-| Structural edge growth | undermines the topology claim; per-body reorganisation is measured through learned gains and gates instead (deferred) |
+| Structural edge growth | ~~undermines the topology claim~~ **Reversed 2 Nov 2026:** adopted as append-only growth from the fly seed (`Embodiogenesis.md` §2.3–2.6); the topology question becomes fly seed vs random seed under the same growth rules |
 | jax-metal / MLX-only stack | jax-metal is unmaintained; training runs on Kaggle CUDA; the Mac runs JAX on CPU for debugging |
 
 ## 15. Related work
