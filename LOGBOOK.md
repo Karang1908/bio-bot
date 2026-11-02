@@ -5453,7 +5453,7 @@ Promotions & Standing Ranks:
 ### Visual target approach round 68 (dual-zone penetration & capture formula on 2x Nvidia Tesla T4 GPU)
 
 Notebook: https://www.kaggle.com/code/karang1908/bio-bot-baby-dog-vision-approach-round68 (version 1).
-Status: `RUNNING` on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU).
+Status: `COMPLETE` on 2x Nvidia Tesla T4 GPU (512 envs, 256/GPU), runtime 87.2 min (checked 2 Nov).
 
 Setup: 393,216 steps (24 updates × 16,384 steps = 512 envs, 256/GPU), 6 evaluation checkpoints (every ~65k steps across 3 fresh cohorts = 192 lives per eval, 8 total evaluations including baseline and final), 2-hour cap (`--timeout 7200`). Teacher movement help zero from rest (`help_ = 0.00`).
 Resumed from All-Time Dual Target Record Champion `baby_dog_step_0000262144.npz` (`a054d8cb59d2725439ddf14353241fb1408bdfbee10a33cc8758c8d895abf23f`, Round 58 step 262k, 14.58% [28/192] combined arrival across 192 lives, 25.0% in C3, 19.0% in C2, 8.33% owner arrival, 3.36m end distance, 0.0 ms dodge latency) mounted via `--kernel-source karang1908/bio-bot-baby-dog-vision-approach-round58`. Expected checkpoint string: `'after 0.3M steps'`.
@@ -5462,7 +5462,64 @@ Embedded modules: `train/brain_dog.py`, `train/dog_world.py`.
 Hyperparameters: `fwd_pay = 72.0`, `task_pay = 90.0`, `reach_pay = 350.0`, `stay_pay = 250.0`, `prox_pay = 60.0`, `face_pay = 45.0`, `search_pay = 45.0`, `yaw_pay = 35.0` (3.48:1 forward-to-yaw dominance ratio), `sprint_pay = 50.0` (total forward incentive 122.0), `sprint_floor = 0.38`, `align_floor = 0.28` (~73.7 deg aperture, unblocks lateral spawns), `misalign_cost = 1.5` (halved penalty preventing corner-braking), `brake_scale = 1.55`, `brake_floor = 0.62` (preserves ~0.37 m/s forward speed to comfortably penetrate 1.0m owner zone and 0.35m ball circle, smooth deceleration within 0.54m ball / 1.55m owner), `task_motion = v_fwd^2 + v_side^2 + 0.25*wz^2`, `upright_cost = 2.5`, `roll_cost = 5.0`, `side_cost = 1.5`, `task_fall_cost = 15.0`, `lr = 3e-6`, `voice_lr = 3e-4`, `vision_lr = 3e-4`, `core = v2`, `task_scale = 60.0`, `eval_repeats = 3`, `seed = 0`.
 Objective: Cross the >15% sustained visual arrival threshold across all 192 lives / 3 cohorts without teacher help by combining the all-time dual target record baseline (14.58%) with lateral spawn unblocking (align_floor 0.28, misalign_cost 1.5) and calibrated dual-zone braking/capture (brake_scale 1.55, brake_floor 0.62, stay_pay 250.0).
 
+Outputs fetched 2 Nov with overwrite (`kaggle kernels output … -o`) to `results/baby-dog-vision-approach-round68/`.
+The `log.txt` there is an older partial copy from 11:22; the full log is `bio-bot-baby-dog-vision-approach-round68.log`.
+
+Results (from the fetched log, verified; per-cohort percentages as printed, 64 lives each):
+- **The baseline did not reproduce the champion.** The resumed Round 58 checkpoint (14.58% combined when it was
+  selected) measured 3% / 9% / 3% for ball and 3% / 5% / 3% for come by cohort: about 5% ball and 3.7% come.
+- **"Ball" moved away from the ball at every checkpoint.** In all 24 ball tests, the start distance was 2.34–2.64 m and
+  the end distance 3.10–3.78 m. The facing cosine fell from about 0 to between −0.15 and −0.52. Per-cohort ball
+  arrival ranged from 2% to 12% with no trend.
+- **"Come" stayed flat:** 3.53–3.91 m → 3.32–3.93 m, arrival 2–11%.
+- **Dodging:** hit 69–86% (a still dog: ~96%). The printed median "reactions" of 0–280 ms include impossible 0 ms
+  values (see §8.29).
+- **Motor skills were kept, but falls are high.** Final verdicts: walk +0.378 m/s, pace +0.566, canter +0.383,
+  run +0.551, turn-left +1.390 rad/s, turn-right +1.179; sit nose-up +0.48; lie-down lost (trunk 0.95). Falls per
+  13 s: walk 1.94, jump 1.40. Getting up 0%. Teacher help 0.00.
+- **Critic value error:** 527 to 13,776 across the 7 logged updates.
+- Checkpoint SHA256:
+  - 65k `590ac4cd4b2a52807a0734dea366e490da68d814a4632b3fb404ef96812662cf`
+  - 131k `b48ec0c563dc58654ba8a948070cb76a7051d1c5039ec323b83afd149a9c308f`
+  - 196k `f50220fb9b98263e777b7ad248c4a2554d79e0792ba9fe2b807d7638ff667c0c`
+  - 262k `775229e5c1068a603519c0b345c864ba58e820bdc0c2aecedcf4b0ac7a46687d`
+  - 327k `02fdd303753a7c6c3bea316d769b7a062035601a02a68b85a6ed4bc7f4cbcaec`
+  - 393k `97458652d0d27f47e937decb5b57218b132e8af301110c7133177c0223a929bb`
+  - final `61eabfd8527fff1982ec237bf6f9670c6601f36929e40d0d201b8076ef71e87d`
+- **No checkpoint promoted.** Kaggle quota after this run: GPU 17.75 h used, 12.25 h left (resets 2026-11-07 00:00 UTC);
+  TPU 20 h.
+
+### 6.11 Review of the vision-approach rounds (2 Nov): the approach was never learned; plan replaced
+
+This corrects the earlier round notes in §6. Where those notes call a checkpoint a "record" or "champion", or say the
+dog "closed distance", read them with the points below. The full replacement plan is in `Embodiogenesis.md`.
+
+1. **The dog moved away from its target.** In Rounds 67 and 68, every ball test ended farther from the ball than it
+   started (Round 67: 2.34–2.64 → 3.11–3.90 m). End distances such as "3.24 m" were reported as closing records, but
+   they were measured against the end distances of other checkpoints, not against the start distance.
+2. **The champions were selected from noise.** One 192-life evaluation at about 10% has a standard error of about
+   ±2.2 points; one 64-life cohort about ±3.7. Picking the best checkpoint from 8 evaluations × 3 cohorts × several
+   metrics, over 60+ rounds, produces 14–25% by chance. Every resume regressed to the mean (Round 66 11.98% → 7.29%
+   at Round 67's baseline; Round 58 14.58% → about 9% combined at Round 68's baseline).
+3. **The eye often cannot see the ball** (from the code; the rate is not measured). The ball is 0.22 m across, eye
+   rays are 5° apart, and it is placed 1–4 m away in a random direction. Beyond about 2.5 m it can fall between rays,
+   and it usually starts outside the 120° view.
+4. **About 10–15 minutes of each roughly 88-minute round was learning.** The rest was setup, compiling and
+   evaluations (Round 67 timestamps).
+5. **The brain step multiplies a full 7,019 × 7,019 matrix** in which about 1% of the entries are real connections.
+6. **The reward overwhelmed learning.** Task terms of 250–350 sat beside motor rewards of about 1, and the critic
+   error reached 500–13,800. That this is a main cause is believed, not shown.
+7. **Decision.** The owner agreed the Embodiogenesis plan on 2 Nov:
+   - no more reward-coefficient rounds;
+   - fix the eye, the curriculum, the reward and the compute;
+   - then add lifetime plasticity, then connections that form and are pruned, then neuron growth.
+
+   Decision models (Jev, OpenJev, Laya) are out of scope. No code has changed yet.
+
 ## 7. Open problems and next steps
+
+**Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
+ommatidium-cone eye, distance curriculum, simple outcome reward, random-walk floor). The items below remain open.
 
 The full plan is in `DogMind.md` §7: let go, the full robot's senses, a larger fly brain, sensory babbling, a world
 with a ball and thrown objects, drives, thinking, and the never-taught tests.
@@ -5476,7 +5533,8 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
    pose error).
 4. **The human body**, then both bodies in one brain: the research question itself. Not started.
 5. **Studio integration:** a mode that runs this brain on the dog with voice or text commands. Not started.
-6. **GPU budget:** about 29 of the 30 weekly Kaggle hours were used this week (reset around 3 Oct).
+6. **GPU budget (2 Nov):** 17.75 of the 30 weekly Kaggle GPU hours used, 12.25 h left until 2026-11-07 00:00 UTC.
+   The owner expects access to an RTX 5070. It is not yet authorized or set up; see `Embodiogenesis.md` §5.1.
 
 ---
 
@@ -5585,6 +5643,20 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
     checkpoints could finish. **Mitigation:** Use `--skip_baseline` for short or bounded continuation trials where the
     parent candidate baseline has already been measured, reserving the compute budget for training steps and periodic
     checkpoints.
+28. **Champions chosen from noise.** From Round 30 to Round 68, the best of about 8 evaluations × 3 cohorts × several
+    metrics was promoted. Gaps of 1–8 points were treated as progress, but one cohort's standard error is about ±3.7
+    points. Resumed champions regressed to the mean every time. **Rule now** (`Embodiogenesis.md` §4): promote only on
+    fresh lives not used to select the checkpoint, by at least 2 standard errors, against a random-walk floor.
+29. **Impossible measurements accepted.**
+    - "0.0 ms" dodge reactions were reported as reflex records, but the brain acts every 20 ms and a signal needs
+      several steps to reach the legs.
+    - "Closest end distance" was reported as closing on the target, while the end distance was larger than the start.
+
+    Lesson: compare every number to its physical floor and to its own starting value before calling it progress.
+30. **Many rounds tuning reward weights without checking the premise.** About 65 rounds changed weights such as
+    `fwd_pay`, `yaw_pay`, `brake_scale` and `stay_pay`. Nobody checked whether the eye could see the ball at the
+    distances where it was placed: a 0.22 m ball against 5° ray spacing at 1–4 m. Lesson: after two or three flat
+    rounds, stop tuning and test the input the behaviour depends on.
 
 ---
 
