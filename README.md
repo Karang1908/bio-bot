@@ -78,15 +78,29 @@ Safety principle for all real-world use: **configure the fence, not the function
 | [TechnicalDesign.md](TechnicalDesign.md) | Architecture, training, experiments, baselines, risks, related work | building or reviewing it |
 | [Requirements.md](Requirements.md) | Hardware, software, data, compute budget and workflow for running and training | setting it up |
 | [DESIGN.md](DESIGN.md) · [PRODUCT.md](PRODUCT.md) | The studio's visual system and product record | changing the studio's interface |
+| [Embodiogenesis.md](Embodiogenesis.md) | The current plan (2 Nov 2026): a brain that grows from the fly seed and keeps learning | working on it now |
+| [HANDOFF.md](HANDOFF.md) · [LOGBOOK.md](LOGBOOK.md) · [DogMind.md](DogMind.md) | Current state, every experiment, the dog's plan | continuing the work |
 | [LegacyIdea.md](LegacyIdea.md) | The original concept document (17 Sep 2026), kept for reference | curious how it started |
 
 ## Status
+
+**2 Nov 2026.** The core idea now has a working name, **Embodiogenesis**: a brain born unconfigured that discovers
+its body, wires itself to it and keeps learning for life.
+- **The dog (Unitree Go2):** a fly-connectome brain (core v2, 7,019 units) walks, paces, canters, runs, turns, backs
+  and sits on words with no teacher help.
+- **Not learned yet:** going to a ball or person, dodging, eating, getting up and lying down.
+- **Next** (`Embodiogenesis.md`):
+  - fix its eye and training setup;
+  - add dopamine-gated lifetime learning;
+  - let the brain grow connections and neurons from the fly seed;
+  - then the humanoid.
+- **The studio and Stage 0 notes below** describe the 23 Sep state.
 
 **Bio-Bot Studio is running:** two 3D worlds in MuJoCo. The **Sandbox** is an empty stage for testing bodies one at a time, then two, then all. The **Open world** is an 80 × 80 m map with a furnished house, a road loop with sidewalks and street lamps, a small downtown of six buildings, stairs and a ramp, a park, a lake you can float in, and hills. It has five bodies: Unitree G1 humanoid, Unitree Go2 dog, Skydio X2 drone, the flybody fruit fly enlarged 100×, and a go-kart. Click any body to inspect it: every motor and sensor is live, and in **Take control** you move each joint yourself, drive the car or fly the drone with the arrow keys. A clickable map, camera buttons and keyboard shortcuts (press `?`) make getting around easy. Each body can also be switched off (limp), held (standing / hovering / braking) or set to explore. The drone and the car already reach named places with their built-in controllers.
 
 **The brain (Stage 0) is built and running, untrained:** the full MaleCNS connectome (166,700 neurons, 25.58M connections) runs live on the Mac GPU. The bodies' joint movements feed its sense neurons, and the studio's **Brain** tab shows every neuron in 3D lighting up as the signal spreads, with activity bars for seven plain-language groups (Senses, Vision, Central brain, Brain → body, Body → brain, Nerve cord, Muscles). It only listens: training (Stage 1) comes next.
 
-Everything runs on free resources: a MacBook Air M3 for development and Kaggle's free GPUs for training.
+Everything runs on free resources: the MacBook Air M3 for editing only (no checks or training on it since 10 Oct), and Kaggle's free GPUs for every check and training run. An RTX 5070 may be added once the owner authorizes it.
 
 ## Run it
 
