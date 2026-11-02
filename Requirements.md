@@ -27,8 +27,8 @@ Applications this setup is meant to reach:
 | Work | Machine | Why |
 |---|---|---|
 | Bio-Bot Studio: sandbox + open world, body inspector, command box | MacBook Air M3 | open world with all five bodies has 1.24× real-time headroom, the sandbox 2.35×; the browser renders at 60 fps (measured) |
-| Writing code, debugging, unit tests | MacBook Air M3 | always available; JAX on CPU is fine at tiny scale |
-| Coarse-scale experiments (~2k-unit brain), quick checks | MacBook Air M3 | minutes per run (measured, §3.1) |
+| Writing code, debugging, unit tests | MacBook Air M3 | **superseded (10 Oct):** editing only; every check and test runs on free remote compute (`AGENTS.md`) |
+| Coarse-scale experiments (~2k-unit brain), quick checks | MacBook Air M3 | **superseded (10 Oct):** no checks or training on the laptop |
 | Main training runs (mesoscale and larger, 3D bodies, many seeds) | **Kaggle free GPUs** | GPU-parallel physics (MJX) + brain |
 | Paired comparisons (connectome vs baseline) | Kaggle, **one T4 per condition** | two T4s per session means side-by-side runs with identical settings |
 | Live demos, full MaleCNS brain | MacBook Air M3 | full brain runs in real time (measured) |
@@ -81,6 +81,27 @@ Rules of use:
 - **Each job starts from a fresh machine**, so pin package versions and install them at the top of the script.
 - **Budget:** 30 GPU-hours is about two full sessions a week. Anything that doesn't need a GPU runs on the Mac.
 - **TPU hours are a bonus.** Test once whether MJX physics runs well on the TPU before planning around it.
+
+### 3.2b RTX 5070 machine (owner's access expected; not yet authorized or set up, 2 Nov 2026)
+
+| | RTX 5070 | one Kaggle T4 | Kaggle 2× T4 |
+|---|---|---|---|
+| memory | 12 GB GDDR7 | 16 GB | 32 GB |
+| bandwidth | 672 GB/s | 320 GB/s | 640 GB/s |
+| FP32 | ~30.9 TFLOPS | ~8 TFLOPS | ~16 TFLOPS |
+| limits | none (owner's machine) | 12 h session, ~30 h/week | same |
+
+The 5070's specs come from spec databases; how fast this project runs on it is not measured yet.
+- **Believed:** one 5070 has roughly the raw throughput of the 2× T4 pair, with less memory.
+- **The real gain:** no session cap, no weekly quota, and no reinstall or queue per job.
+- **12 GB is enough** for the 7,019-unit brain at 512 environments (estimate). A much larger grown brain needs fewer
+  environments or shorter unrolls.
+- **Verify before use** (`Embodiogenesis.md` §5.1):
+  - Linux or WSL2 (JAX's CUDA build does not run on native Windows);
+  - CUDA ≥ 12.8 for Blackwell (sm_120), and whether the pinned jax 0.7.2 runs there;
+  - the fixed wiring draw is identical to Kaggle's, because NVIDIA notes non-deterministic JAX RNG on consumer
+    Blackwell.
+- **Rules:** use it only with the owner's explicit go-ahead. Kaggle stays as a second lane.
 
 ### 3.3 Linux machine
 
@@ -170,7 +191,7 @@ Storage:
 
 ### 6.1 Loop
 
-1. Write and test on the Mac at tiny scale (`python train/<run>.py --steps 20000 --envs 16`).
+1. ~~Write and test on the Mac at tiny scale~~ **Superseded (10 Oct):** edit locally; run every check on Kaggle CPU (preflight) and every training run on free GPU.
 2. `scripts/kaggle_job.py push <run>` writes the job's settings into the script and sends it to Kaggle.
 3. `scripts/kaggle_job.py wait <run>` polls until it finishes.
 4. `scripts/kaggle_job.py fetch <run>` pulls the log, training curve, evaluation and policy into `results/<run>/`.
