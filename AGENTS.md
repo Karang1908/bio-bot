@@ -7,6 +7,8 @@ Do not treat historical plans or pending-status notes as current authorization o
 ## Read before working
 
 - Read `HANDOFF.md` for the current state, exact checkpoints, running jobs and takeover instructions.
+- Read `Embodiogenesis.md` for the current plan (agreed 2 Nov 2026). It supersedes the reward-tuning "vision
+  approach" rounds and is the order of work: Phase 0, then lifetime plasticity, then growth, then the humanoid.
 - Read the relevant sections of `LOGBOOK.md`, including mistakes and failed trials, before changing or running
   training. Read `DogMind.md` for the agreed learning plan and `TechnicalDesign.md` / `Requirements.md` for context.
 - Keep standing rules here, current state in `HANDOFF.md`, and experiment evidence in `LOGBOOK.md`. Follow a
@@ -16,7 +18,9 @@ Do not treat historical plans or pending-status notes as current authorization o
 
 ## Objective and learning design
 
-- **Self-learning is the main goal.** The fly brain must discover its body and world and learn useful behavior.
+- **Self-learning is the main goal.** The project calls it **Embodiogenesis** (working name, 2 Nov): a brain born
+  unconfigured that discovers its body, wires itself to it and keeps learning for life. The fly brain must discover
+  its body and world and learn useful behavior.
   Complete the robot dog first; then the same brain learns the humanoid and ultimately distinguishes and controls
   both bodies. Do not replace this with separate learned controllers for each body.
 - The fly brain is the decision-making layer. Actions, goals, plans and self-reports must come from it. Do not add
@@ -40,6 +44,11 @@ Do not treat historical plans or pending-status notes as current authorization o
 
 - **One brain, one fixed body wiring.** Preserve established input/motor mappings across lives and continuations.
   New nerves must not change the existing random draws, signs, scales, ordering or motor mappings.
+- **The brain may grow (owner, 2 Nov).** The connectome is the starting wiring, not a cage. Synaptic plasticity,
+  connections that form and are pruned, and new neurons (copied cell types that then diverge) are allowed, as long
+  as growth is append-only: existing units, connections, learned values and the body-to-brain line mapping are kept.
+  New connections must start learnable, not at near-zero gain (LOGBOOK §8.17).
+- Do not use external decision models (Jev, OpenJev, Laya or similar) anywhere in the brain or the runtime (owner, 2 Nov).
 - Keep everything the brain experienced while learning at evaluation and runtime: all senses, body interfaces,
   words, learned voice, motor wobble (±0.1), and the relevant environment and hazards. Do not simplify the body or
   remove exploration noise to obtain a better-looking result. The teacher is a training signal and may leave.
@@ -59,6 +68,9 @@ Do not treat historical plans or pending-status notes as current authorization o
 - **No checks or training on the owner's laptop, including light checks.** Do not run local tests, syntax checks,
   lint/type checks, neural forward passes, simulations, benchmarks or training. Do not create local JAX/MJX
   environments to work around this restriction. All validation and training belong on free remote compute.
+- The owner expects access to an RTX 5070 machine. It is not the laptop, but use it only after the owner explicitly
+  authorizes it and sets up access. Before trusting it, verify the items in `Embodiogenesis.md` §5.1, including
+  that the fixed wiring draw is identical to the Kaggle draw (consumer Blackwell GPUs have non-deterministic JAX RNG).
 - Local file reading/editing, result-JSON analysis, Git operations and remote API/CLI monitoring are permitted.
   Use the existing `.venv` as an API client, not a local model runtime. Inspect active Git hooks before committing
   so a Git operation does not accidentally run prohibited local checks.
@@ -92,6 +104,13 @@ Do not treat historical plans or pending-status notes as current authorization o
   Fetch outputs with overwrite to avoid the known same-size stale-download problem.
 - Do not infer a causal explanation or mastery from small metric changes, training loss alone, one cohort or a
   static synthetic probe. Verify actual checkpoint behavior and retention before claiming success.
+- **Promotion rule (2 Nov).** Promote a checkpoint only if it beats its parent on fresh lives not used to select
+  it, by at least 2 standard errors, and beats a scripted random-walk floor. Report counts (k/n) with intervals.
+  Picking the best of many checkpoints and cohorts produced false "records" in Rounds 30–68 (LOGBOOK §6.11, §8.28).
+- Check every number against its physical floor and against its own starting value. A goal task must reduce the
+  distance from start to end, and a reaction cannot be faster than one brain step (20 ms).
+- After two or three flat rounds, stop tuning coefficients and test the premise, for example whether the sense the
+  behavior depends on can perceive the target at all.
 
 ## Notebook monitoring and communication
 
