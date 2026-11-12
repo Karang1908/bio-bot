@@ -307,10 +307,12 @@ def top_processes(n=12):
 
 def gpu_apps():
     rows = []
+    names = {str(p["pid"]): p["args"][:90] for p in python_procs()}    # under WSL nvidia-smi reports "[Not Found]"
     for line in sh([NVSMI, "--query-compute-apps=pid,process_name,used_memory", "--format=csv,noheader"]).splitlines():
         f = [x.strip() for x in line.split(",")]
         if len(f) == 3:
-            rows.append({"pid": f[0], "name": f[1], "mem": f[2]})
+            name = f[1] if f[1] and "Not Found" not in f[1] else names.get(f[0], "unknown process")
+            rows.append({"pid": f[0], "name": name, "mem": f[2]})
     return rows
 
 
