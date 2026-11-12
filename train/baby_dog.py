@@ -2426,12 +2426,13 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     if Path("/kaggle").exists():
         os.environ.setdefault("MUJOCO_GL", "egl")        # headless GPU rendering for the films
-    # Full float32 matmuls. On GPUs with TF32 (Ampere and later, e.g. the RTX 4500 Ada) JAX's default precision made
-    # the physics NaN (teacher's walk: forward nan, 5.5 falls per 5 s; 12 Nov). The T4 has no TF32, so Kaggle is unchanged.
-    os.environ.setdefault("JAX_DEFAULT_MATMUL_PRECISION", "highest")
     bd = import_brain_dog()
     bd.ensure_packages()
     import jax
+    # Full float32 matmuls. On GPUs with TF32 (Ampere and later, e.g. the RTX 4500 Ada) JAX's default precision made
+    # the physics NaN (teacher's walk: forward nan, 5.5 falls per 5 s; 12 Nov). The T4 has no TF32, so Kaggle is unchanged.
+    # Set through jax.config, not the environment: the environment variable is ignored if jax was imported earlier.
+    jax.config.update("jax_default_matmul_precision", "highest")
     print("jax", jax.__version__, "devices", jax.devices(), flush=True)
     {"babble": babble, "name": name, "act": act, "walk_words": walk_words, "walk": walk, "start_stop": start_stop,
      "gaits": gaits, "no_parent": no_parent, "practice": practice, "poses": poses,
