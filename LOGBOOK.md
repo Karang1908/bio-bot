@@ -5516,6 +5516,48 @@ dog "closed distance", read them with the points below. The full replacement pla
 
    Decision models (Jev, OpenJev, Laya) are out of scope. No code has changed yet.
 
+### 6.12 The owner's RTX 4500 Ada PC (12 Nov): set up, a NaN bug fixed, speed measured, long run 1 started
+
+**Machine.** RTX 4500 Ada (24 GB), Threadripper PRO 7995WX, Windows with WSL2 Ubuntu 24.04. Reached by SSH over
+Tailscale. The pinned packages are the same as Kaggle's. Details: `Embodiogenesis.md` §5.1.
+
+**Setup problems, in order:**
+1. **The Windows OpenSSH install failed** (`0x800f0806`). The SSH server and Tailscale run inside WSL instead.
+2. **C: filled up.** The first package install failed with `Input/output error (os error 5)`. WSL's disk lived on C:,
+   which had 7.2 GB free. The owner moved the distro to D:, and the filesystem recovered its journal. The WSL swap file,
+   also on C:, now lives on `D:\WSL\swap.vhdx` (`.wslconfig`). A hidden keep-alive at Windows logon keeps WSL running
+   (Startup folder, no admin).
+
+**TF32 made the physics NaN.** With Round 68's settings, every teacher walk try gave `'forward': nan` with 4.5–7.4
+falls per 5 s. Kaggle gave 0.56 m/s and 0 falls. JAX uses TF32 for float32 matmuls on Ampere and later GPUs; the T4
+has none. Forcing `highest` precision fixed it. The teacher's walk is 0.554 m/s, falls_ref 0.251 (Kaggle: 0.560,
+0.246). Commits `35d74fb`, `6c51f6d`, then `da0415a`, `2b96196`, which set it through `jax.config` (see §8.32).
+
+**The fixed wiring (`WIRING = 20260927`)** matches between this PC's CPU and GPU. Line order, signs and nerves are
+bit-identical; scales and offsets differ by at most 4.8e-7.
+
+**Speed** (Round 68 settings, 512 environments, from Round 58's 262k checkpoint):
+- update 1: 148.7 s; update 2: 148.8 s (a second compile); updates 3–6: **7.74–7.76 s**.
+- Kaggle 2× T4: about 11–12 s per update (upper bound from test-gap timestamps). So the PC is about 1.5× faster.
+- The GPU ran at about 36% utilization, about 1,200 MHz and 54 W of 210 W, so it is underused.
+- 1,024 environments ran out of memory (32.4 GiB requested); 512 is the limit as the code stands.
+- The JAX profiler hung under WSL.
+
+**Long run 1** (started 16:23, commit `2b96196`, output `~/runs/long1_r68cfg/` on the PC):
+- Round 68's exact settings, from Round 58's 262k checkpoint (`a054d8cb…`, verified).
+- Only the length changes: 3,000 updates × 16,384 steps (49.2M steps, about 6.5 h of learning), 6 evaluations ×
+  3 cohorts.
+- Question: were the 24-update rounds simply too short? If about 125× more learning still does not close the distance
+  to the ball, the eye and reward fixes of Phase 0 are confirmed as the priority.
+- **Its starting test matches Kaggle's** Round 68 starting test on the same lives:
+  - start distances 2.49 / 2.63 / 2.34 m on both;
+  - walk 0.376 / 0.378 / 0.396 m/s (Kaggle 0.387 / 0.377 / 0.381);
+  - ball arrival 2 / 5 / 3% (Kaggle 3 / 9 / 3%), and the dog ends farther away on both;
+  - the PC's test took 19.6 min (Kaggle 33).
+
+  So results from the PC and Kaggle are comparable, within noise.
+- Nothing is promoted from this run without fresh-life evidence (§8.28).
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
@@ -5533,8 +5575,11 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
    pose error).
 4. **The human body**, then both bodies in one brain: the research question itself. Not started.
 5. **Studio integration:** a mode that runs this brain on the dog with voice or text commands. Not started.
-6. **GPU budget (2 Nov):** 17.75 of the 30 weekly Kaggle GPU hours used, 12.25 h left until 2026-11-07 00:00 UTC.
-   The owner expects access to an RTX 5070. It is not yet authorized or set up; see `Embodiogenesis.md` §5.1.
+6. **Compute (12 Nov):** the owner's RTX 4500 Ada PC is the main training machine (§6.12), with Kaggle as a second
+   lane. Open speed work:
+   - remove the second compile (about 2.5 min per job);
+   - the sparse brain engine;
+   - fit more than 512 environments in memory.
 
 ---
 
@@ -5657,6 +5702,15 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
     `fwd_pay`, `yaw_pay`, `brake_scale` and `stay_pay`. Nobody checked whether the eye could see the ball at the
     distances where it was placed: a 0.22 m ball against 5° ray spacing at 1–4 m. Lesson: after two or three flat
     rounds, stop tuning and test the input the behaviour depends on.
+31. **TF32 on a new GPU made the physics NaN** (12 Nov). JAX's default float32 matmul precision on Ampere and later GPUs
+    is TF32, and MJX's solver blew up with it. The T4 has no TF32, so Kaggle never showed it. Lesson: on new hardware,
+    check a known number first (the teacher's walk speed) before trusting any run.
+32. **A precision setting that depended on import order.** The first fix set `JAX_DEFAULT_MATMUL_PRECISION` with
+    `os.environ.setdefault` before `import jax`. A wrapper script that had already imported jax silently kept TF32, and
+    the run went NaN. It is now set with `jax.config.update` right after the import. Verified: with jax imported first,
+    the old code gives `None` and the new code `highest`.
+33. **A timing that hid a compile.** Updates 2–10 were timed together at 24 s each. Update 2 secretly includes a second
+    compile of about 2.5 min; the real steady state is 7.75 s. Lesson: time individual updates and drop the first two.
 
 ---
 
