@@ -1441,6 +1441,8 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     if Path("/kaggle").exists():
         os.environ.setdefault("MUJOCO_GL", "egl")        # headless GPU rendering for the films
+    # Full float32 matmuls: TF32 (Ampere and later GPUs) made the MJX physics NaN on the RTX 4500 Ada (12 Nov).
+    os.environ.setdefault("JAX_DEFAULT_MATMUL_PRECISION", "highest")
     ensure_packages()
     import jax
     print("jax", jax.__version__, "devices", jax.devices(), flush=True)
