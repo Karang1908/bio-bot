@@ -151,25 +151,36 @@ This answers whether the fly's wiring helps as a starting genome. Either answer 
 | packages as a Kaggle dataset; compile cache kept between jobs | setup of a few minutes instead of about 19 |
 | both free GPU slots: two seeds or conditions side by side | comparisons with a control at no extra cost |
 
-### 5.1 The owner's RTX 5070 (access expected soon; not yet authorized for jobs)
-- **Specs (vendor and spec databases):** 12 GB GDDR7, 672 GB/s, about 30.9 TFLOPS FP32. One Kaggle T4 is
-  16 GB, 320 GB/s and about 8 TFLOPS FP32. So one 5070 is roughly the Kaggle 2× T4 pair in raw throughput, with less
-  memory. This is believed, not measured.
-- **The real gain:**
-  - no 12 h session limit, no 30 h weekly quota, no queue and no reinstall;
-  - so probably several times more learning hours per week;
-  - and Kaggle stays as a second lane for control runs.
-- **12 GB is enough** for the 7,019-unit brain with 512 environments, especially with the sparse engine (estimate).
-  A much larger grown brain will need fewer environments or shorter unrolls.
-- **Must verify before use:**
-  1. Linux or WSL2. JAX's CUDA build does not run on native Windows.
-  2. CUDA 12.8 or newer for Blackwell (sm_120). Whether the pinned jax 0.7.2 runs on sm_120 must be tested; a newer
-     pin may be needed.
-  3. NVIDIA's JAX notes say the random number generator is **not deterministic on consumer Blackwell GPUs**. The
-     body wiring is drawn with `jax.random` from `WIRING = 20260927`. Draw it on CPU, or check its hash against the
-     Kaggle draw, so the brain's one fixed wiring cannot silently change.
-- **Rules:** the "no checks or training on the owner's laptop" rule still holds. The 5070 machine is separate compute
-  and needs the owner's explicit go-ahead, plus remote access set up by the owner. The budget stays $0.
+### 5.1 The owner's GPU PC: RTX 4500 Ada (in use since 12 Nov; the planned RTX 5070 did not come)
+- **Machine:** NVIDIA RTX 4500 Ada (24 GB, sm_89, driver 581.80), AMD Threadripper PRO 7995WX (96 cores), Windows with
+  WSL2 Ubuntu 24.04. WSL sees 125 GB of RAM. The WSL disk and swap live on D: (179 GB free on 12 Nov); C: is almost
+  full, so nothing may be stored there. Access: SSH over Tailscale into WSL, with a dedicated key. The owner authorized it.
+- **Same packages as Kaggle:** jax[cuda12] 0.7.2, jaxlib 0.7.2, mujoco and mujoco-mjx 3.14.0, optax 0.2.8, in
+  `~/bio-bot/.venv` (installed with uv; no sudo).
+- **TF32 made the physics NaN (verified, fixed).** JAX's default float32 matmul precision uses TF32 on Ampere and later
+  GPUs. With it the teacher's walk gave `forward: nan` and 4.5–7.4 falls per 5 s. The T4 has no TF32, so Kaggle never
+  saw this. `baby_dog.py` and `brain_dog.py` now set `jax_default_matmul_precision = "highest"` through `jax.config`
+  right after importing jax (commits `35d74fb` to `2b96196`). Verified on the PC: the walk is 0.554 m/s and falls_ref is
+  0.251, against Kaggle's 0.560 and 0.246.
+- **The fixed wiring (verified):** the draw from `WIRING = 20260927` matches between this PC's CPU and GPU. Line order,
+  signs and nerves are bit-identical; the continuous scales differ by at most 4.8e-7 (float32 rounding).
+- **Speed (measured, Round 68 settings, 512 environments):**
+
+  | | RTX 4500 Ada | Kaggle 2× T4 |
+  |---|---|---|
+  | one update (16,384 steps), steady state | **7.75 s** | about 11–12 s (upper bound, from test-gap timestamps) |
+  | compile | about 2.5 min, **twice** (updates 1 and 2) | the same code, so the same double compile |
+
+  - The second compile is believed to come from `pmap` receiving host-made inputs on the first call and its own
+    outputs afterwards. Removing it saves about 2.5 min per job. Not fixed yet.
+  - The GPU ran at about 36% utilization and about half its clock during updates. Speed is limited by issuing many
+    small operations, not by the GPU's arithmetic.
+  - Memory: one update needs about 32 MB of scratch per environment, so 512 fit in 24 GB and 1,024 do not (that run
+    failed asking for 32.4 GiB).
+  - The JAX profiler hung under WSL; measure with timers and `nvidia-smi` samples instead.
+- **The real gain:** no session limit, no weekly quota, no queue and no reinstall, at about 1.5× Kaggle's speed. Kaggle
+  stays as a second lane for control runs.
+- **Rules:** the "no checks or training on the owner's laptop" rule still holds. The budget stays $0.
 
 ---
 
