@@ -82,26 +82,24 @@ Rules of use:
 - **Budget:** 30 GPU-hours is about two full sessions a week. Anything that doesn't need a GPU runs on the Mac.
 - **TPU hours are a bonus.** Test once whether MJX physics runs well on the TPU before planning around it.
 
-### 3.2b RTX 5070 machine (owner's access expected; not yet authorized or set up, 2 Nov 2026)
+### 3.2b The owner's GPU PC: RTX 4500 Ada (in use since 12 Nov 2026; the planned RTX 5070 did not come)
 
-| | RTX 5070 | one Kaggle T4 | Kaggle 2× T4 |
+| | RTX 4500 Ada | one Kaggle T4 | Kaggle 2× T4 |
 |---|---|---|---|
-| memory | 12 GB GDDR7 | 16 GB | 32 GB |
-| bandwidth | 672 GB/s | 320 GB/s | 640 GB/s |
-| FP32 | ~30.9 TFLOPS | ~8 TFLOPS | ~16 TFLOPS |
+| memory | 24 GB | 16 GB | 32 GB |
+| bandwidth (spec) | 432 GB/s | 320 GB/s | 640 GB/s |
+| FP32 (spec) | ~39.6 TFLOPS | ~8 TFLOPS | ~16 TFLOPS |
+| one update, Round 68 settings, 512 environments (**measured**) | **7.75 s** | — | about 11–12 s |
 | limits | none (owner's machine) | 12 h session, ~30 h/week | same |
 
-The 5070's specs come from spec databases; how fast this project runs on it is not measured yet.
-- **Believed:** one 5070 has roughly the raw throughput of the 2× T4 pair, with less memory.
-- **The real gain:** no session cap, no weekly quota, and no reinstall or queue per job.
-- **12 GB is enough** for the 7,019-unit brain at 512 environments (estimate). A much larger grown brain needs fewer
-  environments or shorter unrolls.
-- **Verify before use** (`Embodiogenesis.md` §5.1):
-  - Linux or WSL2 (JAX's CUDA build does not run on native Windows);
-  - CUDA ≥ 12.8 for Blackwell (sm_120), and whether the pinned jax 0.7.2 runs there;
-  - the fixed wiring draw is identical to Kaggle's, because NVIDIA notes non-deterministic JAX RNG on consumer
-    Blackwell.
-- **Rules:** use it only with the owner's explicit go-ahead. Kaggle stays as a second lane.
+- **Runs in WSL2 Ubuntu 24.04** (JAX's CUDA build does not run on native Windows), reached by SSH over Tailscale. The
+  WSL disk and swap are on D:. CPU: Threadripper PRO 7995WX, 96 cores.
+- **Same pinned packages as Kaggle** (jax 0.7.2, mujoco-mjx 3.14.0). The fixed wiring draw is identical in order,
+  signs and nerves, and equal to float32 rounding in scales (verified).
+- **Full float32 matmul precision is required** on this GPU. TF32 made the physics NaN; the training scripts now
+  force full precision.
+- **Memory:** 512 environments fit; 1,024 need about 32 GB and do not.
+- Details: `Embodiogenesis.md` §5.1. Kaggle stays as a second lane.
 
 ### 3.3 Linux machine
 
