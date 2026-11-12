@@ -173,8 +173,9 @@ This answers whether the fly's wiring helps as a starting genome. Either answer 
 
   - The second compile is believed to come from `pmap` receiving host-made inputs on the first call and its own
     outputs afterwards. Removing it saves about 2.5 min per job. Not fixed yet.
-  - The GPU ran at about 36% utilization and about half its clock during updates. Speed is limited by issuing many
-    small operations, not by the GPU's arithmetic.
+  - In steady training the GPU is busy: 99% utilization (minimum 96%), 2,730 MHz, 158 W (20 samples during long
+    run 1). A first reading of about 36% came mostly from compile and setup time and was wrong. The way to go faster
+    is less work per update (the sparse engine), not a busier GPU.
   - Memory: one update needs about 32 MB of scratch per environment, so 512 fit in 24 GB and 1,024 do not (that run
     failed asking for 32.4 GiB).
   - The JAX profiler hung under WSL; measure with timers and `nvidia-smi` samples instead.
