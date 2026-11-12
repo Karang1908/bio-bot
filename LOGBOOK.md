@@ -5539,7 +5539,8 @@ bit-identical; scales and offsets differ by at most 4.8e-7.
 **Speed** (Round 68 settings, 512 environments, from Round 58's 262k checkpoint):
 - update 1: 148.7 s; update 2: 148.8 s (a second compile); updates 3–6: **7.74–7.76 s**.
 - Kaggle 2× T4: about 11–12 s per update (upper bound from test-gap timestamps). So the PC is about 1.5× faster.
-- The GPU ran at about 36% utilization, about 1,200 MHz and 54 W of 210 W, so it is underused.
+- In steady training the GPU is busy: 99% utilization (minimum 96%), 2,730 MHz, 158 W. An early reading of about 36%
+  came mostly from compile and setup time and was wrong.
 - 1,024 environments ran out of memory (32.4 GiB requested); 512 is the limit as the code stands.
 - The JAX profiler hung under WSL.
 
