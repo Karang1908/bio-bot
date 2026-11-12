@@ -51,6 +51,7 @@ AMBIENT, HOT, MELT = 25.0, 65.0, 90.0   # degC: weaker from HOT, at 40% strength
 LOOK = {"grass": (0.12, 0.42), "fence": (0.55, 0.60), "tree": (0.10, 0.20), "owner": (0.45, 0.35),
         "ball": (0.05, 0.95), "thrown": (0.10, 0.30), "pad": (0.85, 0.20), "dog": (0.35, 0.40),
         "sky": (0.90, 0.60)}
+ROUND_LIT = 0.66                # the cone eye: a round thing's mean brightness seen from the side (shade's lighting)
 TREES = 3
 
 
@@ -116,6 +117,61 @@ def eye_dirs():
     return np.stack([np.cos(E) * np.cos(A), np.cos(E) * np.sin(A), np.sin(E)], -1)
 
 
+def eye_angles():
+    """Azimuth [W] and elevation [H] of the eye's points in radians (the same grid as eye_dirs)."""
+    w, h = int(EYE_FOV[0] / EYE_STEP), int(EYE_FOV[1] / EYE_STEP)
+    return (np.radians(EYE_FOV[0] / 2 - EYE_STEP * (np.arange(w) + 0.5)),
+            np.radians(EYE_FOV[1] / 2 - EYE_STEP * (np.arange(h) + 0.5)))
+
+
+def cone_cover(xp, c, radius, half_len=0.0):
+    """How much of each eye point's cone a round thing fills, [H, W] in 0..1. A real ommatidium collects light over
+    about 5 degrees; it does not sample one point. So a ball too small or too far for any point ray to hit still
+    colours the eye points it lies in, by the share of each one it fills.
+    c: the thing's centre in the eye's frame (x forward, y left, z up). radius: a sphere's, or an upright capsule's
+    with half_len (the half length of its cylinder). A sphere's outline is taken as a box in (azimuth, elevation)
+    of the same area: a disc of angular radius rho covers pi rho^2, so the box's half side is rho sqrt(pi) / 2."""
+    az, el = (xp.asarray(a) for a in eye_angles())
+    step = np.radians(EYE_STEP)
+    flat = xp.sqrt(c[0] ** 2 + c[1] ** 2)
+    az0 = xp.arctan2(c[1], c[0])
+    if half_len:
+        half_az = xp.arcsin(xp.clip(radius / xp.maximum(flat, 1e-6), 0.0, 1.0))
+        lo, hi = xp.arctan2(c[2] - half_len - radius, flat), xp.arctan2(c[2] + half_len + radius, flat)
+    else:
+        dist = xp.sqrt(flat ** 2 + c[2] ** 2)
+        rho = xp.arcsin(xp.clip(radius / xp.maximum(dist, 1e-6), 0.0, 1.0)) * (np.sqrt(np.pi) / 2)
+        el0 = xp.arctan2(c[2], flat)
+        half_az = rho / xp.maximum(xp.cos(el0), 0.2)       # azimuth lines draw together away from the horizon
+        lo, hi = el0 - rho, el0 + rho
+    overlap = lambda x, a, b: xp.clip(xp.minimum(x + step / 2, b) - xp.maximum(x - step / 2, a), 0.0, step) / step
+    return overlap(el, lo, hi)[:, None] * overlap(az, az0 - half_az, az0 + half_az)[None, :]
+
+
+def round_things(model, ball, thrown, owner):
+    """What the cone eye adds: (centre in the world, radius, half length, look) for the owner (an upright capsule;
+    `owner` is where it stands), the ball and the thrown thing."""
+    g = model.geom("owner")
+    return [(owner + np.asarray(g.pos), float(g.size[0]), float(g.size[1]), LOOK["owner"]),
+            (ball, BALL_R, 0.0, LOOK["ball"]), (thrown, THROWN_R, 0.0, LOOK["thrown"])]
+
+
+def cone_blend(xp, img, dist, gid, o_eye, R, e_dirs, things):
+    """Add the round things to what the point rays saw, each by the share of every eye point's cone it fills
+    (cone_cover). An eye point whose ray hit something nearer than the thing keeps what it saw (shared by the MJX
+    eye and the CPU check). R: the trunk's rotation (its columns are the dog's forward, left and up)."""
+    sky = xp.asarray(LOOK["sky"]) * (0.7 + 0.3 * xp.clip(e_dirs[..., 2:3], 0.0, 1.0))
+    for centre, radius, half_len, look in things:
+        c = (centre - o_eye) @ R                               # the thing's centre in the eye's frame
+        near = (xp.sqrt(c[0] ** 2 + c[1] ** 2) if half_len else xp.sqrt(xp.sum(c ** 2))) - radius
+        shown = (gid < 0) | (dist > near - 1e-3)
+        fade = xp.exp(-xp.maximum(near, 0.0) / HAZE)
+        colour = xp.asarray(look) * ROUND_LIT * fade + sky * (1.0 - fade)
+        w = (cone_cover(xp, c, radius, half_len) * shown)[..., None]
+        img = img * (1.0 - w) + colour * w
+    return img
+
+
 def lidar_dirs():
     """[9, 36, 3]: elevation -40..+40 degrees, all the way round."""
     az = np.radians(np.arange(0.0, 360.0, LIDAR_STEP))
@@ -156,9 +212,12 @@ def shade(xp, dist, gid, origin, dirs, looks, geom_xpos):
     return xp.where(hit[..., None], col * fade + sky * (1.0 - fade), sky)
 
 
-def make_world(model, throws: bool = False):
+def make_world(model, throws: bool = False, cone_eye: bool = False):
     """JAX functions for the world, per dog (vmap them): place (a new life), tick (each control step: throws,
-    battery, motor heat), sense (everything the dog senses now), strength (how much each motor can still do)."""
+    battery, motor heat), sense (everything the dog senses now), strength (how much each motor can still do),
+    put (the ball or the owner appears somewhere else).
+    cone_eye: each eye point collects light over its whole 5-degree cone for the ball, the owner and the thrown
+    thing (cone_cover), so a small or distant ball no longer falls between the point rays."""
     import jax
     import jax.numpy as jp
     from mujoco import mjx
@@ -178,6 +237,8 @@ def make_world(model, throws: bool = False):
     touch = [model.sensor_adr[model.sensor(f"{f}_touch").id] for f in FEET]
     skin = int(model.sensor_adr[model.sensor("skin_touch").id])
     parked = jp.array([50.0, 50.0, THROWN_R])
+    ball_g, owner_g = model.geom("ball").id, model.geom("owner").id
+    owner_off = jp.asarray(model.geom("owner").pos)
 
     def place(key, d):
         """A new life: trees, owner, pad and ball somewhere in the park, each in its own sixth of the circle around
@@ -249,8 +310,11 @@ def make_world(model, throws: bool = False):
             dist, gid = cast(d, o_eye, e_dirs)
             o_lid = pos + R @ jp.array(LIDAR_POS)
             l_dist, l_gid = cast(d, o_lid, lidar @ R.T)
-            out = {"eye": shade(jp, dist, gid, o_eye, e_dirs, looks, d.geom_xpos),
-                   "lidar": jp.where(l_gid >= 0, jp.minimum(l_dist, LIDAR_RANGE), LIDAR_RANGE)}
+            img = shade(jp, dist, gid, o_eye, e_dirs, looks, d.geom_xpos)
+            if cone_eye:
+                img = cone_blend(jp, img, dist, gid, o_eye, R, e_dirs, round_things(
+                    model, d.qpos[ball_q:ball_q + 3], d.qpos[thr_q:thr_q + 3], d.mocap_pos[mocap["owner"]]))
+            out = {"eye": img, "lidar": jp.where(l_gid >= 0, jp.minimum(l_dist, LIDAR_RANGE), LIDAR_RANGE)}
         # ears: two ears on the sides of the head; three bands (low: a flying thing, mid: the owner, high: the ball)
         ball, thr = d.qpos[ball_q:ball_q + 3], d.qpos[thr_q:thr_q + 3]
         owner = d.mocap_pos[mocap["owner"]] + jp.array([0.0, 0.0, 1.5])
@@ -283,13 +347,26 @@ def make_world(model, throws: bool = False):
                 "thrown": d.qpos[thr_q:thr_q + 3], "thrown_vel": d.qvel[thr_v:thr_v + 3],
                 "owner": d.mocap_pos[mocap["owner"]], "pad": d.mocap_pos[mocap["pad"]]}
 
-    return {"place": place, "tick": tick, "sense": sense, "strength": strength, "where": where,
+    def put(d, xy, ball_here, owner_here):
+        """The ball (at rest) or the owner appears at xy; with both flags off nothing changes. What the eye's and
+        the LiDAR's rays hit moves at once (the physics itself only places the shapes at its next step)."""
+        ball = jp.where(ball_here, jp.array([xy[0], xy[1], BALL_R]), d.qpos[ball_q:ball_q + 3])
+        owner = d.mocap_pos[mocap["owner"]]
+        owner = jp.where(owner_here, owner.at[:2].set(xy), owner)
+        shapes = d.geom_xpos.at[ball_g].set(jp.where(ball_here, ball, d.geom_xpos[ball_g]))
+        shapes = shapes.at[owner_g].set(jp.where(owner_here, owner + owner_off, shapes[owner_g]))
+        return d.replace(qpos=d.qpos.at[ball_q:ball_q + 3].set(ball),
+                         qvel=d.qvel.at[ball_v:ball_v + 6].set(jp.where(ball_here, 0.0, d.qvel[ball_v:ball_v + 6])),
+                         mocap_pos=d.mocap_pos.at[mocap["owner"]].set(owner), geom_xpos=shapes)
+
+    return {"place": place, "tick": tick, "sense": sense, "strength": strength, "where": where, "put": put,
             "eye_shape": tuple(eye.shape[:2]), "lidar_shape": tuple(lidar.shape[:2])}
 
 
 # ============================================================================ the CPU check: what the dog sees
-def see_cpu(model, data):
-    """The eye and the LiDAR computed with MuJoCo's own C ray caster (the MJX version must agree with this)."""
+def see_cpu(model, data, cone_eye: bool = False):
+    """The eye and the LiDAR computed with MuJoCo's own C ray caster (the MJX version must agree with this).
+    eye_rays is what the point rays alone see; with cone_eye, eye also has the round things by cone cover."""
     import mujoco
     base = model.body("base").id
     group = np.array([1, 1, 0, 1, 0, 0], np.uint8)
@@ -307,11 +384,99 @@ def see_cpu(model, data):
     o_eye = pos + R @ np.array(EYE_POS)
     e_dirs = eye_dirs() @ R.T
     dist, gid = cast(o_eye, e_dirs)
-    eye = shade(np, dist, gid, o_eye, e_dirs, looks, data.geom_xpos)
+    rays = eye = shade(np, dist, gid, o_eye, e_dirs, looks, data.geom_xpos)
+    if cone_eye:
+        q = lambda name: int(model.jnt_qposadr[model.joint(name).id])
+        eye = cone_blend(np, rays, dist, gid, o_eye, R, e_dirs, round_things(
+            model, data.qpos[q("ball"):q("ball") + 3], data.qpos[q("thrown"):q("thrown") + 3],
+            data.mocap_pos[model.body_mocapid[model.body("owner").id]]))
     o_lid = pos + R @ np.array(LIDAR_POS)
     l_dist, l_gid = cast(o_lid, lidar_dirs() @ R.T)
-    return {"eye": eye, "eye_gid": gid, "lidar": np.where(l_gid >= 0, np.minimum(l_dist, LIDAR_RANGE), LIDAR_RANGE),
-            "lidar_gid": l_gid}
+    return {"eye": eye, "eye_rays": rays, "eye_gid": gid,
+            "lidar": np.where(l_gid >= 0, np.minimum(l_dist, LIDAR_RANGE), LIDAR_RANGE), "lidar_gid": l_gid}
+
+
+def eye_check(model, n: int = 3000, seed: int = 0) -> dict:
+    """How often can the eye see the ball where the park puts it (1-4 m from a standing dog, any direction)? The
+    point-ray eye against the cone eye, by distance. Seen: some eye point changes by more than 0.02 when the ball is
+    there. Only placements with the ball's centre inside the camera's view count (Embodiogenesis gate: >= 95%).
+    Then the MJX cone eye against this CPU one on the same scenes, and after the ball is moved with put."""
+    import mujoco
+    rng = np.random.default_rng(seed)
+    data = mujoco.MjData(model)
+    base = model.body("base").id
+    ball = int(model.jnt_qposadr[model.joint("ball").id])
+    mid = lambda name: int(model.body_mocapid[model.body(name).id])
+    edges = np.arange(1.0, 4.01, 0.5)
+    seen = np.zeros((len(edges) - 1, 3), int)                 # per distance band: in view, seen by rays, seen by cones
+    scenes = []
+
+    def scene():
+        data.qpos[:] = model.keyframe("home").qpos
+        yaw, turn = rng.uniform(-np.pi, np.pi), rng.uniform(0.0, 2 * np.pi)
+        data.qpos[3:7] = [np.cos(yaw / 2), 0.0, 0.0, np.sin(yaw / 2)]
+        def spot(sector, rmin, rmax):                         # as make_world's place does
+            r, a = rng.uniform(rmin, rmax), turn + (sector + rng.uniform(0.15, 0.85)) * np.pi / 3
+            return np.clip([r * np.cos(a), r * np.sin(a)], -ARENA + 0.5, ARENA - 0.5)
+        for i in range(TREES):
+            data.mocap_pos[mid(f"tree{i}"), :2] = spot(2 * i, 1.5, 5.0)
+        data.mocap_pos[mid("owner"), :2], data.mocap_pos[mid("pad"), :2] = spot(5, 2.0, 5.0), spot(3, 1.5, 4.0)
+        data.qpos[ball:ball + 3] = [*spot(1, 1.0, 4.0), BALL_R]
+        mujoco.mj_forward(model, data)
+
+    for _ in range(n):
+        scene()
+        R, pos = data.xmat[base].reshape(3, 3), data.xpos[base]
+        c = (data.qpos[ball:ball + 3] - (pos + R @ np.array(EYE_POS))) @ R
+        if (abs(np.degrees(np.arctan2(c[1], c[0]))) > EYE_FOV[0] / 2
+                or abs(np.degrees(np.arctan2(c[2], np.hypot(c[0], c[1])))) > EYE_FOV[1] / 2):
+            continue
+        far = float(np.linalg.norm(data.qpos[ball:ball + 2]))
+        there = see_cpu(model, data, cone_eye=True)
+        if len(scenes) < 6:
+            scenes.append((data.qpos.copy(), data.mocap_pos.copy(), there["eye"].copy()))
+        data.qpos[ball:ball + 3] = [50.0, -50.0, BALL_R]
+        mujoco.mj_forward(model, data)
+        gone = see_cpu(model, data)["eye"]
+        band = min(int((far - 1.0) / 0.5), len(edges) - 2)
+        seen[band] += [1, np.abs(there["eye_rays"] - gone).max() > 0.02, np.abs(there["eye"] - gone).max() > 0.02]
+    for b in range(len(edges) - 1):
+        k = seen[b]
+        print(f"ball {edges[b]:.1f}-{edges[b + 1]:.1f} m, in view: point rays see it {k[1]}/{k[0]} ({k[1] / max(k[0], 1):.0%}), "
+              f"cones see it {k[2]}/{k[0]} ({k[2] / max(k[0], 1):.0%})", flush=True)
+    total = seen.sum(0)
+    result = {"in_view": int(total[0]), "placed": n, "rays": float(total[1] / max(total[0], 1)),
+              "cones": float(total[2] / max(total[0], 1))}
+    print(f"EYE CHECK: of {n} placements {total[0]} have the ball in view; point rays see it in {total[1]}/{total[0]} "
+          f"({result['rays']:.1%}), cones in {total[2]}/{total[0]} ({result['cones']:.1%}); gate >= 95%: "
+          f"{'PASS' if result['cones'] >= 0.95 else 'FAIL'}", flush=True)
+
+    import jax
+    import jax.numpy as jp
+    from mujoco import mjx
+    world = make_world(model, cone_eye=True)
+    mx = mjx.put_model(model, impl="jax")
+    state = {"battery": jp.ones(()), "heat": jp.full(model.nu, AMBIENT), "voice": jp.zeros(())}
+    look = jax.jit(lambda d: world["sense"](d, state, jax.random.PRNGKey(0))["eye"])
+    load = jax.jit(lambda q, m: mjx.forward(mx, mjx.make_data(model, impl="jax").replace(qpos=q, mocap_pos=m)))
+    moved = jax.jit(lambda d, xy: world["put"](d, xy, True, False))
+    as_placed, after_put = [], []                              # per scene: |MJX - CPU| at every eye point
+    for qpos, mocap_pos, eye in scenes:
+        d = load(jp.asarray(qpos), jp.asarray(mocap_pos))
+        as_placed.append(np.abs(np.asarray(look(d)) - eye))
+        data.qpos[:], data.mocap_pos[:] = qpos, mocap_pos       # then the ball appears 1 m straight ahead of the dog
+        mujoco.mj_forward(model, data)
+        ahead = data.xpos[base, :2] + data.xmat[base].reshape(3, 3)[:2, 0]
+        data.qpos[ball:ball + 3] = [*ahead, BALL_R]
+        mujoco.mj_forward(model, data)
+        after_put.append(np.abs(np.asarray(look(moved(d, jp.asarray(ahead)))) - see_cpu(model, data, cone_eye=True)["eye"]))
+    for name, diffs in (("as placed", as_placed), ("after the ball is put 1 m ahead", after_put)):
+        diffs = np.stack(diffs)
+        result[f"mjx_vs_cpu {name}"] = {"same": float((diffs < 0.02).mean()), "median": float(np.median(diffs)), "worst": float(diffs.max())}
+        print(f"EYE CHECK: the MJX cone eye against the CPU one, {name}, {len(scenes)} scenes: {(diffs < 0.02).mean():.1%} "
+              f"of eye values within 0.02; median difference {np.median(diffs):.5f}, largest {diffs.max():.3f} "
+              f"(a ray grazing an edge may land on either side)", flush=True)
+    return result
 
 
 def _png(path: Path, rgb: np.ndarray) -> None:
@@ -366,6 +531,9 @@ if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import brain_dog
     model = brain_dog.build_model(repo / "third_party" / "mujoco_menagerie" / "unitree_go2", world=True)
+    if "eye_check" in sys.argv[1:]:              # python train/dog_world.py eye_check: can the eye see the ball?
+        eye_check(model)
+        sys.exit(0)
     data = mujoco.MjData(model)
     data.qpos[:] = model.keyframe("home").qpos
     print(f"world: {model.ngeom} geoms, {model.nbody} bodies, {model.nmocap} mocap, nq {model.nq}, dog mass "
