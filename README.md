@@ -100,7 +100,7 @@ its body, wires itself to it and keeps learning for life.
 
 **The brain (Stage 0) is built and running, untrained:** the full MaleCNS connectome (166,700 neurons, 25.58M connections) runs live on the Mac GPU. The bodies' joint movements feed its sense neurons, and the studio's **Brain** tab shows every neuron in 3D lighting up as the signal spreads, with activity bars for seven plain-language groups (Senses, Vision, Central brain, Brain → body, Body → brain, Nerve cord, Muscles). It only listens: training (Stage 1) comes next.
 
-Everything runs on free resources: the MacBook Air M3 for editing only (no checks or training on it since 10 Oct), and Kaggle's free GPUs for every check and training run. An RTX 5070 may be added once the owner authorizes it.
+Everything runs on free resources: the MacBook Air M3 for editing only (no checks or training on it since 10 Oct), the owner's RTX 4500 Ada PC (WSL2, since 12 Nov) as the main training machine, and Kaggle's free GPUs as a second lane.
 
 ## Run it
 
