@@ -24,15 +24,23 @@ starts Phase 0.
 - About 10–15 of each round's 88 minutes was learning.
 - The brain step multiplies a full matrix that is about 99% empty.
 
-**Jobs and compute (verified 2 Nov):**
-- No Kaggle job is running.
+**Update 12 Nov: the owner's GPU PC is the main training machine** (`Embodiogenesis.md` §5.1, LOGBOOK §6.12):
+- RTX 4500 Ada in WSL2 Ubuntu. Reach it with `ssh` to `karan@100.117.83.79` (Tailscale) using the key
+  `~/.ssh/biobot_gpu` on the Mac. The repo is at `~/bio-bot` with `.venv`; outputs go to `~/runs/`.
+- Verified: same packages as Kaggle, identical wiring draw, and the same starting-test results as Kaggle on the same
+  lives. A steady update takes 7.75 s (Kaggle 2× T4: about 11–12 s).
+- Fixed: TF32 made the physics NaN; the training scripts now force full float32 precision (`2b96196`).
+- **Active job: long run 1**, started 2026-11-12 16:23 on the PC (`~/long1.sh`, output `~/runs/long1_r68cfg/`,
+  timestamped `run.log`).
+  - Round 68's exact settings from Round 58's 262k checkpoint, 3,000 updates (49.2M steps), 6 evaluations × 3 cohorts.
+  - Expected to finish around 01:00–02:00 on 13 Nov (PC time, UTC+4).
+  - Question: does about 125× more learning than a Round fix approach? Promote nothing without fresh-life evidence.
+- No monitor runs after a session ends; check `run.log` and `ps` on the PC.
+- Kaggle: no job running. Its quota reset on 2026-11-07, and it was not checked since.
+
+**Jobs and compute as of 2 Nov (historical):**
 - Round 68 is `COMPLETE` (87.2 min). Its outputs were fetched with overwrite to
   `results/baby-dog-vision-approach-round68/`. No checkpoint was promoted.
-- Kaggle GPU: 12.25 h left of 30 (resets 2026-11-07 00:00 UTC). TPU: 20 h, but unusable for MJX (LOGBOOK §8.19).
-- No monitor is active.
-- The owner expects access to an **RTX 5070**. It is **not yet authorized or set up**: wait for the owner's go-ahead
-  and remote access, and see `Embodiogenesis.md` §5.1 for what to verify (Linux or WSL2, CUDA ≥ 12.8, jax pin,
-  wiring-draw determinism). The laptop rule still holds.
 
 **Brains:**
 - **Best established brain for skills:** unchanged in principle. `stage16_park3_open.npz` (core v2, senses open) and
