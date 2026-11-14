@@ -657,6 +657,9 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
                        "sp_1": nrm((OL_CH + 8, 16), (1 / (OL_CH + 8)) ** 0.5), "sp_2": nrm((16, 2), 0.1)})
     if say:                                 # its voice: a readout from its own central and descending neurons
         params.update({"say_w": nrm((G, say), (1 / G) ** 0.5), "say_b": jp.zeros((say,), jp.float32)})
+    if say and words:                       # its inner voice (inner_voice below): all zero, so silent until it is set
+        params.update({"inner_gate": jp.zeros((words, say + 1), jp.float32), "inner_say": jp.zeros((say + 1, words), jp.float32),
+                       "inner_sure": jp.zeros((), jp.float32), "inner_hold": jp.zeros((), jp.float32)})
     if "v1_unit" in core:                   # neurons the v1 brain never had are silent at rest (they speak when driven)
         params["bias"] = jp.where(jp.array(core["v1_unit"]) >= 0, params["bias"], 0.0).astype(jp.float32)
         # (new connections start at full strength: started at ~1%, the eye, nose and hunger never reached the old
@@ -684,7 +687,29 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
             s.update({"eye": jp.zeros((batch, *eye_shape, 2)), "lidar": jp.zeros((batch, *lidar_shape)),
                       "sight_pred": jp.zeros((batch, *eye_shape, 2)), "has_pred": jp.zeros((batch,)),   # what it expected
                       "surprise_fast": jp.zeros((batch,)), "surprise_slow": jp.zeros((batch,))})       # (curiosity)
+        if say and words:
+            s["inner"] = jp.zeros((batch, say + 1))                 # the report its inner voice is following
         return s
+
+    def inner_voice(p, s, heard):
+        """Its inner voice: told to go to something, the brain listens to what it says to itself about that thing
+        (its own voice, read from its own neurons) and hears the word it already knows instead: "the ball is on my
+        left" becomes "turn-left". Nothing here knows where anything is; the report and the skill are the brain's.
+        inner_gate [words, say + 1]: which reports a heard word listens to, and how much each counts (the last
+        column: "nothing to report"). inner_say [say + 1, words]: the known word each report becomes. A report
+        counts above inner_sure; the one already followed gets inner_hold added, so it does not flicker between two.
+        All zero, the brain hears exactly what was said.
+        Returns the words as it hears them this step [B, words] and the report it follows now [B, say + 1]."""
+        told = jp.tanh(jax.nn.relu(s["v"]))[:, static["goal"]] @ p["say_w"] + p["say_b"]      # [B, say] what it says now
+        listen = heard @ p["inner_gate"]                                                        # [B, say + 1]
+        score = listen[:, :say] * (told + p["inner_hold"] * s["inner"][:, :say])
+        best = jp.argmax(score, -1)
+        pick = lambda a: jp.take_along_axis(a, best[:, None], 1)[:, 0]
+        sure = ((pick(score) > p["inner_sure"]) & (pick(listen[:, :say]) > 0)).astype(jp.float32)
+        quiet = (1.0 - sure) * (listen[:, say] > 0)                                             # listening, nothing to report
+        follows = jp.concatenate([jax.nn.one_hot(best, say) * sure[:, None], quiet[:, None]], -1)
+        speaking = jp.sum(follows, -1, keepdims=True)                                           # 0 or 1
+        return (1.0 - speaking) * heard + follows @ p["inner_say"], follows
 
     def eye_halves(e, before):
         """Each side's half of the eye (colour and its change), seen from the midline outward: mirror images."""
@@ -751,7 +776,11 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
             u = u.at[:, static["sense"][vis]].add(seen_now)
         u = u.at[:, static["goal"]].add(cmd @ p["goal_w"])
         if words:
-            u = u.at[:, static["goal"]].add(seen["words"] @ p["word_w"])
+            heard = seen["words"]
+            if "inner_gate" in p:           # what it tells itself may take the place of a goal word (inner_voice)
+                heard, follows = inner_voice(p, s, heard)
+                new = {**new, "inner": follows}
+            u = u.at[:, static["goal"]].add(heard @ p["word_w"])
         alpha = jp.clip(TICK_DT / jp.exp(p["log_tau"]), 0.02, 1.0)
         r = jp.tanh(jax.nn.relu(s["v"]))
         rec = jp.dot(r.astype(jp.float16), W.astype(jp.float16), preferred_element_type=jp.float32)
