@@ -657,9 +657,6 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
                        "sp_1": nrm((OL_CH + 8, 16), (1 / (OL_CH + 8)) ** 0.5), "sp_2": nrm((16, 2), 0.1)})
     if say:                                 # its voice: a readout from its own central and descending neurons
         params.update({"say_w": nrm((G, say), (1 / G) ** 0.5), "say_b": jp.zeros((say,), jp.float32)})
-    if say and words:                       # its inner voice (inner_voice below): all zero, so silent until it is set
-        params.update({"inner_gate": jp.zeros((words, say + 1), jp.float32), "inner_say": jp.zeros((say + 1, words), jp.float32),
-                       "inner_sure": jp.zeros((), jp.float32), "inner_hold": jp.zeros((), jp.float32)})
     if "v1_unit" in core:                   # neurons the v1 brain never had are silent at rest (they speak when driven)
         params["bias"] = jp.where(jp.array(core["v1_unit"]) >= 0, params["bias"], 0.0).astype(jp.float32)
         # (new connections start at full strength: started at ~1%, the eye, nose and hunger never reached the old
@@ -687,29 +684,7 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
             s.update({"eye": jp.zeros((batch, *eye_shape, 2)), "lidar": jp.zeros((batch, *lidar_shape)),
                       "sight_pred": jp.zeros((batch, *eye_shape, 2)), "has_pred": jp.zeros((batch,)),   # what it expected
                       "surprise_fast": jp.zeros((batch,)), "surprise_slow": jp.zeros((batch,))})       # (curiosity)
-        if say and words:
-            s["inner"] = jp.zeros((batch, say + 1))                 # the report its inner voice is following
         return s
-
-    def inner_voice(p, s, heard):
-        """Its inner voice: told to go to something, the brain listens to what it says to itself about that thing
-        (its own voice, read from its own neurons) and hears the word it already knows instead: "the ball is on my
-        left" becomes "turn-left". Nothing here knows where anything is; the report and the skill are the brain's.
-        inner_gate [words, say + 1]: which reports a heard word listens to, and how much each counts (the last
-        column: "nothing to report"). inner_say [say + 1, words]: the known word each report becomes. A report
-        counts above inner_sure; the one already followed gets inner_hold added, so it does not flicker between two.
-        All zero, the brain hears exactly what was said.
-        Returns the words as it hears them this step [B, words] and the report it follows now [B, say + 1]."""
-        told = jp.tanh(jax.nn.relu(s["v"]))[:, static["goal"]] @ p["say_w"] + p["say_b"]      # [B, say] what it says now
-        listen = heard @ p["inner_gate"]                                                        # [B, say + 1]
-        score = listen[:, :say] * (told + p["inner_hold"] * s["inner"][:, :say])
-        best = jp.argmax(score, -1)
-        pick = lambda a: jp.take_along_axis(a, best[:, None], 1)[:, 0]
-        sure = ((pick(score) > p["inner_sure"]) & (pick(listen[:, :say]) > 0)).astype(jp.float32)
-        quiet = (1.0 - sure) * (listen[:, say] > 0)                                             # listening, nothing to report
-        follows = jp.concatenate([jax.nn.one_hot(best, say) * sure[:, None], quiet[:, None]], -1)
-        speaking = jp.sum(follows, -1, keepdims=True)                                           # 0 or 1
-        return (1.0 - speaking) * heard + follows @ p["inner_say"], follows
 
     def eye_halves(e, before):
         """Each side's half of the eye (colour and its change), seen from the midline outward: mirror images."""
@@ -776,11 +751,7 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
             u = u.at[:, static["sense"][vis]].add(seen_now)
         u = u.at[:, static["goal"]].add(cmd @ p["goal_w"])
         if words:
-            heard = seen["words"]
-            if "inner_gate" in p:           # what it tells itself may take the place of a goal word (inner_voice)
-                heard, follows = inner_voice(p, s, heard)
-                new = {**new, "inner": follows}
-            u = u.at[:, static["goal"]].add(heard @ p["word_w"])
+            u = u.at[:, static["goal"]].add(seen["words"] @ p["word_w"])
         alpha = jp.clip(TICK_DT / jp.exp(p["log_tau"]), 0.02, 1.0)
         r = jp.tanh(jax.nn.relu(s["v"]))
         rec = jp.dot(r.astype(jp.float16), W.astype(jp.float16), preferred_element_type=jp.float32)
@@ -821,6 +792,79 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
 
     return params, weights, init_state, step, {"N": N, "A": A, "Mo": Mo, "G": G, "edges": len(pre), "rho": rho,
                                                "motor_idx": idx["motor"].tolist(), "readout": readout}
+
+
+# ============================================================================ lifetime learning (Embodiogenesis)
+MB_EVERY = 30            # control steps one choice lasts (0.6 s: long enough for a gait to show what it earns)
+MB_OBEY = 2.0            # the "as told" output's head start: untaught, it does as it is told about 4 times in 10
+MB_RATE = 2.0            # how far one unit of dopamine moves a marked synapse (a few rewarded tries change a choice)
+MB_EXPECT_RATE = 0.3     # the same for what it expects (the dopamine neurons' own forecast)
+MB_DOPAMINE = 1.0        # dopamine saturates at plus or minus this (one fall must not erase everything it has learned)
+MB_DISCOUNT = 0.9        # what it expects after a choice counts this much (per choice)
+MB_TRACE = 0.7           # a synapse's mark keeps this share from one choice to the next
+
+
+def make_mushroom(n_words: int, n_say: int, programs):
+    """Lifetime learning without backprop: a grown mushroom body that chooses, moment by moment, which of the skills
+    the brain already has to use, and learns that choice from dopamine alone.
+      Kenyon cells    one per pair (a heard word, or silence) x (something its voice says is true now, or "always").
+                      Like a fly's Kenyon cells, each fires on a coincidence: this word heard and this said.
+      output neurons  one per programme (a word whose skill it has) and one for "as told". They compete; one wins and
+                      holds for MB_EVERY steps. The brain then hears the winner's word in place of what was said
+                      ("as told": it hears what was said).
+      dopamine        the reward it did not expect: the reward since the choice, plus what it expects now, minus
+                      what it expected then. What it expects is learned from the same Kenyon cells.
+      plasticity      a Kenyon-cell -> output synapse is marked when its cell was active and its output won (beyond
+                      how likely that was), and it changes by its mark x dopamine. Three factors, all local.
+    Nothing says which programme belongs to which situation: every synapse starts at zero.
+    programs: the vocabulary indices of the words it may tell itself. Its state is per dog and lasts for life, across
+    new bodies: init(batch). step(mb, heard, told, key, restart, plastic) -> mb, the words it hears [B, n_words]
+    (restart: what is said just changed; plastic: 1 to learn, 0 to only choose). pay(mb, reward, over) -> mb, once
+    the body has moved (over: the body was put back)."""
+    import jax
+    import jax.numpy as jp
+    n_out, n_kc = len(programs) + 1, (n_words + 1) * (n_say + 1)
+    tells = jp.concatenate([jp.zeros((1, n_words)), jax.nn.one_hot(jp.asarray(programs), n_words)])    # row 0: as told
+
+    def init(batch: int):
+        z = lambda *shape: jp.zeros((batch, *shape))
+        return {"w": z(n_out, n_kc), "expect_w": z(n_kc), "mark": z(n_out, n_kc), "expect_mark": z(n_kc),
+                "expected": z(), "paid": z(), "over": z(), "chose": z(),
+                "choice": jp.zeros((batch,), jp.int32), "clock": jp.zeros((batch,), jp.int32)}
+
+    def cells(heard, told):
+        """The Kenyon cells active now [B, n_kc], each 0 or 1."""
+        word = jp.concatenate([heard, 1.0 - jp.sum(heard, -1, keepdims=True)], -1)                 # the last: silence
+        says = jp.concatenate([(told > 0).astype(jp.float32), jp.ones((heard.shape[0], 1))], -1)   # the last: always
+        return (word[:, :, None] * says[:, None, :]).reshape(heard.shape[0], n_kc)
+
+    def step(mb, heard, told, key, restart, plastic=1.0):
+        kc = cells(heard, told)
+        drive = kc / jp.sum(kc, -1, keepdims=True)                # the active cells share one unit of drive
+        due = (mb["clock"] >= MB_EVERY) | restart | (mb["chose"] == 0) | (mb["over"] > 0)
+        # the last choice is settled: dopamine is the reward it did not expect (a body put back expects nothing more)
+        expects = jp.sum(mb["expect_w"] * drive, -1)
+        dopamine = jp.clip(mb["paid"] + MB_DISCOUNT * expects * (1.0 - mb["over"]) - mb["expected"], -MB_DOPAMINE, MB_DOPAMINE)
+        settle = (due & (mb["chose"] > 0)).astype(jp.float32) * plastic * dopamine
+        w = mb["w"] + MB_RATE * settle[:, None, None] * mb["mark"]
+        expect_w = mb["expect_w"] + MB_EXPECT_RATE * settle[:, None] * mb["expect_mark"]
+        # a new choice: the output neurons compete, and the synapses that took part are marked
+        logits = jp.einsum("bkc,bc->bk", w, drive).at[:, 0].add(MB_OBEY)
+        pick = jax.random.categorical(key, logits, -1)
+        fade = MB_DISCOUNT * MB_TRACE * (1.0 - mb["over"])        # a new body starts with clean marks
+        mark = fade[:, None, None] * mb["mark"] + (jax.nn.one_hot(pick, n_out) - jax.nn.softmax(logits, -1))[:, :, None] * kc[:, None, :]
+        expect_mark = fade[:, None] * mb["expect_mark"] + kc
+        new = {"w": w, "expect_w": expect_w,
+               "mark": jp.where(due[:, None, None], mark, mb["mark"]), "expect_mark": jp.where(due[:, None], expect_mark, mb["expect_mark"]),
+               "expected": jp.where(due, jp.sum(expect_w * drive, -1), mb["expected"]), "paid": jp.where(due, 0.0, mb["paid"]),
+               "over": jp.where(due, 0.0, mb["over"]), "chose": jp.ones_like(mb["chose"]),
+               "choice": jp.where(due, pick, mb["choice"]).astype(jp.int32), "clock": jp.where(due, 0, mb["clock"]).astype(jp.int32)}
+        return new, jp.where((new["choice"] == 0)[:, None], heard, tells[new["choice"]])
+
+    def pay(mb, reward, over):
+        return {**mb, "paid": mb["paid"] + reward, "clock": mb["clock"] + 1, "over": jp.maximum(mb["over"], over.astype(jp.float32))}
+
+    return {"init": init, "step": step, "pay": pay, "cells": n_kc, "outputs": n_out, "tells": [-1, *programs]}
 
 
 def make_critic(P: int, key):
