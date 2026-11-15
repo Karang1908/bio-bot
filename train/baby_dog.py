@@ -101,14 +101,8 @@ GOAL_VIEW = (0.4, 3.1416)   # rad: it appears within this bearing of straight ah
 GOAL_WORD_S = (4.0, 12.0)   # s: how long a goal word lasts on average, at level 0 and at level 1 (far goals take longer)
 LEVEL_UP, LEVEL_DOWN = 0.15, 0.03   # m/s its nose closes on the goal while not there: above, harder; below, easier
 LEVEL_STEP = 0.01        # how far the level moves per update
-# its inner voice, set by hand and not trained (inner_voice_weights): told to go to something, what it says to itself
-# about that thing becomes a word it already knows. "run" when the thing is ahead: its fastest and steadiest way
-# forward (Round 68's starting test: "run" +0.55 m/s with 1.1 falls per 13 s; "walk" +0.38 m/s with 1.9 falls).
-INNER_GOALS = {"ball": "ball", "come": "owner"}      # the goal word, and the thing its reports are about
-INNER_WORDS = {"left": "turn-left", "ahead": "run", "right": "turn-right"}
-INNER_SEARCH = "turn-left"   # nothing to report: turn on the spot until the thing comes into view
-INNER_AHEAD = 2.0        # "it is ahead" counts double against "left" and "right" (go, rather than keep correcting)
-INNER_PARTS = ("inner_gate", "inner_say", "inner_sure", "inner_hold")   # its tables in the brain (all zero: silent)
+THING_OF = {"ball": "ball", "come": "owner"}     # the thing each goal word is about, as its voice names it
+SIDES = ("left", "ahead", "right")               # where its voice can say that thing is
 # real-dog practice: each word and the real dog's behaviour it means ("back" has no recording: the teacher's trot reversed)
 DOG_WORDS = {"stand": "stand", "walk": "walk", "pace": "pace", "canter": "canter", "run": "run", "turn-left": "turn-left",
              "turn-right": "turn-right", "back": None, "sit": "sit", "lie-down": "lie", "jump": "jump"}
@@ -199,8 +193,10 @@ def carry_over(fresh: dict, learned: dict) -> dict:
 
 
 def reset_brain_state(state, new_life, xp, tree):
-    """A new life clears recurrent memory; other batch members keep their state."""
-    return tree.tree_map(lambda x: xp.where(new_life.reshape(-1, *([1] * (x.ndim - 1))), 0.0, x), state)
+    """A new life clears recurrent memory; other batch members keep their state. What its mushroom body has
+    learned ("mb", lifetime learning) is kept: it lasts for life."""
+    clear = lambda x: xp.where(new_life.reshape(-1, *([1] * (x.ndim - 1))), 0.0, x)
+    return {k: v if k == "mb" else tree.tree_map(clear, v) for k, v in state.items()}
 
 
 def mean_test_rows(rows, xp, name=""):
@@ -359,28 +355,6 @@ def open_senses(bp: dict, core: dict) -> dict:
     print(f"opened the senses: {int(new_edge.sum()):,} connections to full strength, {int(new_unit.sum()):,} new neurons "
           f"silent at rest", flush=True)
     return out
-
-
-def inner_voice_weights(bp: dict, ahead: str = INNER_WORDS["ahead"], sure: float = 0.5, hold: float = 0.5) -> dict:
-    """The brain's inner voice, set by hand (no training): told "ball", it listens to its own "ball-left / ahead /
-    right" and hears "turn-left / run / turn-right" instead; with nothing to report it hears "turn-left" and so
-    looks around. The same for "come" and the owner. Only these four small tables change; every learned weight,
-    every word's own code and what its voice reads stay as they are (brain_dog.inner_voice).
-    ahead: the word for "it is ahead". sure: how strongly it must say something to act on it. hold: how much the
-    report it is already following counts extra."""
-    import numpy as np
-    gate = np.zeros((len(VOCAB), len(SAY) + 1), np.float32)
-    say = np.zeros((len(SAY) + 1, len(VOCAB)), np.float32)
-    for goal, thing in INNER_GOALS.items():
-        for side, word in {**INNER_WORDS, "ahead": ahead}.items():
-            gate[VOCAB.index(goal), SAY.index(f"{thing}-{side}")] = INNER_AHEAD if side == "ahead" else 1.0
-            say[SAY.index(f"{thing}-{side}"), VOCAB.index(word)] = 1.0
-        gate[VOCAB.index(goal), len(SAY)] = 1.0                      # nothing to report: it still listens
-    say[len(SAY), VOCAB.index(INNER_SEARCH)] = 1.0
-    missing = [k for k in INNER_PARTS if k not in bp]
-    if missing or np.shape(bp["inner_gate"]) != gate.shape or np.shape(bp["inner_say"]) != say.shape:
-        raise SystemExit(f"STOP: this brain has no inner voice to set (missing {missing}; it needs a voice and words)")
-    return {**bp, "inner_gate": gate, "inner_say": say, "inner_sure": np.array(sure, np.float32), "inner_hold": np.array(hold, np.float32)}
 
 
 def load_brain(path: Path) -> dict:
@@ -1389,7 +1363,7 @@ def practice(args, bd, out: Path) -> dict:
         mismatches = []
         for name, p in fresh_bp.items():
             pairs = [(f"{name}/{k}", v, saved_bp.get(name, {}).get(k)) for k, v in p.items()] if isinstance(p, dict) else [(name, p, saved_bp.get(name))]
-            mismatches += [n for n, f, l in pairs if n not in INNER_PARTS and (l is None or np.shape(f) != np.shape(l))]
+            mismatches += [n for n, f, l in pairs if l is None or np.shape(f) != np.shape(l)]
         if mismatches:
             raise SystemExit(f"STOP: self-learning resume would reset learned parameters: {mismatches}")
     learned = carry_over(fresh_bp, saved_bp)
@@ -1437,6 +1411,11 @@ def practice(args, bd, out: Path) -> dict:
     start0, start1 = (jp.array([GOAL_START[w][i] if w in GOAL_START else (0.0, 0.0) for w in said], jp.float32) for i in (0, 1))
     if fetch and not tasks:
         raise SystemExit("STOP: the fetch lesson needs the park's goals (--park --tasks)")
+    mush = None
+    if args.self_learn:                          # lifetime learning: its mushroom body chooses among the skills it has
+        if not (fetch and voice):
+            raise SystemExit("STOP: lifetime learning needs the fetch lesson and its voice (--lesson fetch --park --tasks --voice)")
+        mush = bd.make_mushroom(V, len(SAY), [VOCAB.index(w) for w in said if w in VOCAB and w not in tasks])
     if tasks or free:
         if fetch:                                    # goals, with every known skill still rehearsed
             share = [0.10] + [0.35 / len(gaits)] * len(gaits) + [0.10 / len(rests)] * len(rests)
@@ -1512,18 +1491,31 @@ def practice(args, bd, out: Path) -> dict:
     def logprob(a, mean):                        # the wobble is its exploration: a ~ N(tanh(mu), WOBBLE)
         return jp.sum(-0.5 * ((a - mean) / WOBBLE) ** 2 - np.log(WOBBLE), -1)
 
-    def rollout(params, env, s, ins, air_ema, key, help_):
+    def rollout(params, env, s, ins, air_ema, key, help_, level=0.0):
+        """level: the fetch lesson's level, 0 (goals appear near and in view) to 1 (anywhere in the park's own range)."""
         bp = params["brain"]
         W = weights(bp)
 
         def one(carry, k):
             env, s, ins, air_ema = carry
             k_new, k_sw, k_wob, k_push, k_size, k_act = jax.random.split(k, 6)
-            p_task = 0.0018 if lesson in ("orient", "approach") else 0.008
+            p_task = (bd.CTRL_DT / (GOAL_WORD_S[0] + level * (GOAL_WORD_S[1] - GOAL_WORD_S[0])) if fetch else
+                      0.0018 if lesson in ("orient", "approach") else 0.008)
             switch = jax.random.uniform(k_sw, (B,)) < jp.where(is_task[ins], p_task, jp.where(is_gait[ins], 0.006, 0.008))
             new_ins = jp.where(switch, jax.random.choice(k_new, n_i, (B,), p=choose), ins)
             spoke = (new_ins != ins) & ~is_free[new_ins]  # the owner said something new (the ears hear the voice)
             ins = new_ins
+            if fetch:                                    # a goal word is spoken: the goal appears where the level puts it
+                k_far, k_side = jax.random.split(jax.random.fold_in(k, 7))
+                span = start0[ins] + level * (start1[ins] - start0[ins])                 # [B, 2] nearest, farthest
+                far = span[:, 0] + jax.random.uniform(k_far, (B,)) * (span[:, 1] - span[:, 0])
+                Rb = env["d"].xmat[:, base]
+                side = jp.arctan2(Rb[:, 1, 0], Rb[:, 0, 0]) + jax.random.uniform(k_side, (B,), minval=-1.0, maxval=1.0) * (
+                    GOAL_VIEW[0] + level * (GOAL_VIEW[1] - GOAL_VIEW[0]))
+                at = jp.clip(env["d"].xpos[:, base, :2] + far[:, None] * jp.stack([jp.cos(side), jp.sin(side)], -1),
+                             -dw.ARENA + 0.5, dw.ARENA - 0.5)
+                onset = spoke & is_task[ins]
+                env = {**env, "d": v_put(env["d"], at, onset & to_ball[ins], onset & ~to_ball[ins])}
             moving = is_gait[ins]
             prev_cmd = env["info"]["cmd"]
             env = {**env, "info": {**env["info"], "cmd": cmd_of[ins], "spoke": spoke}}
@@ -1538,6 +1530,9 @@ def practice(args, bd, out: Path) -> dict:
             env, seen = v_sense(env)
             seen = {**seen, "words": words_of[ins], "cmd": jp.zeros_like(seen["cmd"])}
             s = fresh(s, seen["new_life"])
+            if "mb" in s:                                # its mushroom body chooses which of its skills to use now
+                mb, hears = mush["step"](s["mb"], words_of[ins], bstep.say(bp, s), jax.random.fold_in(k, 11), spoke)
+                s, seen = {**s, "mb": mb}, {**seen, "words": hears}
             priv = jp.concatenate([v_priv(env), jax.nn.one_hot(ins, n_i)], -1)
             s_before = s
             s, mu = bstep(bp, W, s, seen)
@@ -1562,7 +1557,7 @@ def practice(args, bd, out: Path) -> dict:
                 w0, head0 = v_where(env["d"]), head_of(env["d"])
                 trunk0 = env["d"].xpos[:, base, :2]
                 battery0 = env["world"]["battery"]
-                if tasks:
+                if tasks and not fetch:                  # (the fetch lesson gives no speed or turn to follow)
                     goal_b = jp.where(to_ball[ins][:, None], w0["ball"][:, :2], w0["owner"][:, :2])
                     Rh0 = env["d"].xmat[:, base]
                     to0 = goal_b - env["d"].xpos[:, base, :2]
@@ -1616,7 +1611,22 @@ def practice(args, bd, out: Path) -> dict:
                 if "jump" in said:                       # a jump is all four feet off the ground at once
                     flying = jp.all(env["d"].geom_xpos[:, body["feet"], 2] > bd.FOOT_UP, -1)
                     r = r + (ins == said.index("jump")) * JUMP_REWARD * flying * bd.CTRL_DT
-            if tasks:                                    # going to what was asked: getting closer, and getting there
+            goal = {}
+            if tasks and fetch:                          # the outcome alone: its nose nearer the goal, and being there
+                w1, head1 = v_where(env["d"]), head_of(env["d"])
+                goal0 = jp.where(to_ball[ins][:, None], w0["ball"][:, :2], w0["owner"][:, :2])
+                goal1 = jp.where(to_ball[ins][:, None], w1["ball"][:, :2], w1["owner"][:, :2])
+                nose0 = jp.linalg.norm(head0[:, :2] - goal0, axis=-1)
+                nose1 = jp.linalg.norm(head1[:, :2] - goal1, axis=-1)
+                closer = jp.where(done, 0.0, jp.clip((nose0 - nose1) / bd.CTRL_DT, -2.0, 2.0))    # m/s; a new body is no progress
+                there = is_task[ins] & ~done & (nose1 < near_of[ins])
+                going = is_task[ins] & ~there
+                # asked for no speed, the body pays for standing still and not turning; on the way to a goal that must not count
+                stand_pay = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05) - 0.1 * jp.abs(st["wz"])
+                r = r + (is_task[ins] * GOAL_CLOSER * closer + GOAL_THERE * there - going * stand_pay) * bd.CTRL_DT
+                goal = {"goal_on": is_task[ins].astype(jp.float32), "goal_there": there.astype(jp.float32),
+                        "goal_going": going.astype(jp.float32), "goal_closer": going * closer}
+            if tasks and not fetch:                      # going to what was asked: getting closer, and getting there
                 w1, head1 = v_where(env["d"]), head_of(env["d"])
                 trunk1 = env["d"].xpos[:, base, :2]
                 goal0 = jp.where(to_ball[ins][:, None], w0["ball"][:, :2], w0["owner"][:, :2])
@@ -1699,9 +1709,12 @@ def practice(args, bd, out: Path) -> dict:
             r = r + hp * teach
             gw = jp.where(is_rest[ins], GUIDE_REST, GUIDE) * hp * ~(is_task[ins] | is_free[ins])   # nobody shows it how
             gw = jp.where(env["info"]["down"], 0.0, gw)           # the teacher cannot show how to get up
+            if "mb" in s:                                # what the choice in force earned; the output that holds now
+                s = {**s, "mb": mush["pay"](s["mb"], r_out, done)}
+                goal = {**goal, "mb_choice": s["mb"]["choice"]}
             return (env, s, ins, air_ema), {**seen, "a": a, "logp": logprob(a, mean), "guide": guide, "gw": gw, "priv": priv, "r": r,
                                             "r_out": r_out, "power": power, "done": done, "fell": st["fell"],
-                                            "v_fwd": st["v_fwd"], "wz": st["wz"], "ins": ins, **extra}
+                                            "v_fwd": st["v_fwd"], "wz": st["wz"], "ins": ins, **extra, **goal}
         (env, s_end, ins, air_ema), traj = jax.lax.scan(one, (env, s, ins, air_ema), jax.random.split(key, T))
         last = jp.concatenate([v_priv(env), jax.nn.one_hot(ins, n_i)], -1)
         return env, s_end, ins, air_ema, traj, last
@@ -1800,10 +1813,15 @@ def practice(args, bd, out: Path) -> dict:
         v = jax.lax.pmean(((x - m) ** 2).mean(0), "d")
         return m, jp.maximum(jp.sqrt(v), 0.05)
 
-    def iteration(params, opt_state, env, s, ins, air_ema, pstat, key, brain_on, help_):
+    def goal_stats(traj, total=jp.sum):
+        """Goal words: how fast its nose closes on the goal while not there (m/s), and the share of goal time there."""
+        on, going = jp.maximum(total(traj["goal_on"]), 1.0), jp.maximum(total(traj["goal_going"]), 1.0)
+        return {"goal_closing": total(traj["goal_closer"]) / going, "goal_there": total(traj["goal_there"]) / on}
+
+    def iteration(params, opt_state, env, s, ins, air_ema, pstat, key, brain_on, help_, level):
         kr, ku = jax.random.split(key)
         s0 = s
-        env, s, ins, air_ema, traj, last = rollout(params, env, s, ins, air_ema, kr, help_)
+        env, s, ins, air_ema, traj, last = rollout(params, env, s, ins, air_ema, kr, help_, level)
         adv, ret = advantages(params, traj, last, pstat)
         params, opt_state, m = update(params, opt_state, traj, s0, adv, ret, pstat, ku, brain_on)
         pstat = norm_stats(traj["priv"].reshape(-1, P))
@@ -1815,12 +1833,14 @@ def practice(args, bd, out: Path) -> dict:
             pos = jax.lax.psum(jp.sum(y * yhat, (0, 1)), "d") / jp.maximum(jax.lax.psum(jp.sum(y, (0, 1)), "d"), 1.0)
             neg = jax.lax.psum(jp.sum((1 - y) * (1 - yhat), (0, 1)), "d") / jp.maximum(jax.lax.psum(jp.sum(1 - y, (0, 1)), "d"), 1.0)
             stats.update({f"say_{w}": 0.5 * (pos[i] + neg[i]) for i, w in enumerate(SAY)})
+        if fetch:
+            stats.update(goal_stats(traj, lambda x: jax.lax.psum(jp.sum(x), "d")))
         said_ = jax.nn.one_hot(traj["ins"], n_i)                     # per word: what the dog achieved on its own
         per_word = (jax.lax.psum(jp.sum(said_ * traj["r_out"][..., None], (0, 1)), "d"),
                     jax.lax.psum(jp.sum(said_, (0, 1)), "d"))
         return params, opt_state, env, s, ins, air_ema, pstat, stats, per_word
 
-    step = jax.pmap(iteration, axis_name="d", in_axes=(0, 0, 0, 0, 0, 0, 0, 0, None, None))
+    step = jax.pmap(iteration, axis_name="d", in_axes=(0, 0, 0, 0, 0, 0, 0, 0, None, None, None))
     rep = lambda x: jax.device_put_replicated(x, jax.local_devices())
     params_r, opt_r = rep(params), rep(opt.init(params))
     keys = jax.random.split(jax.random.PRNGKey(args.seed + 1), nd + 1)
@@ -1834,8 +1854,7 @@ def practice(args, bd, out: Path) -> dict:
 
     sc = make_scripted(bd, model, body_test, weights, init_state, bstep, teacher, walk_g, n=64)
     sc_down = make_scripted(bd, model, body_down, weights, init_state, bstep, teacher, walk_g, n=64)
-    tested = {}                                      # the inner voice test puts the brain it is testing here
-    host = lambda: tested["bp"] if "bp" in tested else jax.tree_util.tree_map(lambda x: np.asarray(x)[0], params_r["brain"])
+    host = lambda: jax.tree_util.tree_map(lambda x: np.asarray(x)[0], params_r["brain"])
     if args.dog:                                     # the yardstick is the real dog itself
         teacher_ref = {g: {"walks_from_rest": GAITS[g][0], "turn_rate": GAITS[g][2]} for g in gaits}
     else:
@@ -1859,11 +1878,12 @@ def practice(args, bd, out: Path) -> dict:
         all_along = lambda w: jp.full((park_steps,), w, jp.int32)      # one word for the whole life
 
         @jax.jit
-        def park_life(bp, key, word, throw_step, battery=-1.0):
+        def park_life(bp, key, word, throw_step, battery=-1.0, mb=None):
             """64 dogs in the park as it runs now (wobble on, nobody helps): "stand" 1 s, then the words in `word`
             (one per step) for 9 s; an object is thrown at each dog at throw_step (-1: never). Per step: the nose's
             distance to the ball and to the owner, the thrown thing's distance to the trunk, the trunk's speed over
-            the ground, falls; and last, what its voice says (before the yes/no) and the report its inner voice follows."""
+            the ground, falls; and last, what its voice says (before the yes/no).
+            mb: each dog's mushroom body, which then chooses what it hears (it learns nothing during the test)."""
             W = weights(bp)
             env = v_reset(jax.random.split(key, n_t))
             env = {**env, "world": {**env["world"], "battery": jp.where(battery >= 0, battery, env["world"]["battery"])}}
@@ -1877,14 +1897,19 @@ def practice(args, bd, out: Path) -> dict:
                 env, seen = v_sense(env)
                 seen = {**seen, "words": jp.broadcast_to(vocab_eye[said_now], (n_t, V)), "cmd": jp.zeros_like(seen["cmd"])}
                 s = fresh(s, seen["new_life"])
+                if mb is not None:
+                    chooses, hears = mush["step"](s["mb"], seen["words"], bstep.say(bp, s), jax.random.fold_in(k, 11),
+                                                  jp.full((n_t,), t == int(1.0 / bd.CTRL_DT)), 0.0)
+                    s, seen = {**s, "mb": chooses}, {**seen, "words": hears}
                 s, mu = bstep(bp, W, s, seen)
                 truth = voice_truth(env) if voice else jp.zeros((n_t, len(SAY)))
                 told = bstep.say(bp, s) if voice else jp.zeros_like(truth)
                 predicted = told > 0
-                follows = s["inner"] if "inner" in s else jp.zeros((n_t, len(SAY) + 1))
                 k1, k2 = jax.random.split(k)
                 a = jp.clip(jp.tanh(mu) + WOBBLE * jax.random.normal(k1, mu.shape), -1.0, 1.0)
-                env, _, _, st = v_act(env, a, jax.random.split(k2, n_t), 0.0)
+                env, _, over, st = v_act(env, a, jax.random.split(k2, n_t), 0.0)
+                if mb is not None:
+                    s = {**s, "mb": mush["pay"](s["mb"], jp.zeros((n_t,)), over)}
                 w, head = v_where(env["d"]), head_of(env["d"])
                 trunk = env["d"].subtree_com[:, base]
                 direction = env["d"].xmat[:, base, :2, 0]
@@ -1897,15 +1922,16 @@ def practice(args, bd, out: Path) -> dict:
                                   jp.linalg.norm(w["thrown"] - trunk, axis=-1),
                                   jp.linalg.norm(env["d"].qvel[:, 0:2], axis=-1), st["fell"],
                                   jp.max(jp.abs(trunk[:, :2] - w["pad"][:, :2]), -1), trunk[:, :2], truth, predicted, facing,
-                                  told, follows)
-            return jax.lax.scan(one, (env, init_state(n_t)), (jp.arange(park_steps), jax.random.split(key, park_steps)))[1]
+                                  told)
+            s0 = init_state(n_t) if mb is None else {**init_state(n_t), "mb": mb}
+            return jax.lax.scan(one, (env, s0), (jp.arange(park_steps), jax.random.split(key, park_steps)))[1]
 
-        def park_test(bp, label, seed_offset=0, goals_only=False):
-            """goals_only: just the goal words and the random-walk floor (the inner voice test's fresh cohorts)."""
+        def park_test(bp, label, seed_offset=0, goals_only=False, mb=None):
+            """goals_only: just the goal words and the random-walk floor. mb: the dogs' mushroom bodies, for the goal words."""
             rows = {}
             reports = []
             for task in tasks:
-                obs = tuple(np.asarray(x) for x in park_life(bp, jax.random.PRNGKey(21 + seed_offset), all_along(VOCAB.index(task)), -1))
+                obs = tuple(np.asarray(x) for x in park_life(bp, jax.random.PRNGKey(21 + seed_offset), all_along(VOCAB.index(task)), -1, mb=mb))
                 d_ball, d_owner, _, _, fell, _, _ = obs[:7]
                 if voice:
                     reports.append((obs[7][int(1.0 / bd.CTRL_DT):], obs[8][int(1.0 / bd.CTRL_DT):]))
@@ -1924,21 +1950,17 @@ def practice(args, bd, out: Path) -> dict:
                       f"facing cosine {rows[task]['facing_start_cos']:+.2f} -> {rows[task]['facing_end_cos']:+.2f}, "
                       f"aligned in last second {rows[task]['aligned_last_s']:.0%}", flush=True)
                 if voice:                                # does its voice name the right side while the thing is in view?
-                    thing = INNER_GOALS[task]
-                    cols = [SAY.index(f"{thing}-{side}") for side in INNER_WORDS]
+                    thing = THING_OF[task]
+                    cols = [SAY.index(f"{thing}-{side}") for side in SIDES]
                     in_view = facing[begin:] > 0.5       # within 60 degrees of straight ahead: inside the camera's width
                     names_it = obs[10][begin:][..., cols].argmax(-1) == obs[7][begin:][..., cols].argmax(-1)
                     share = lambda mask: float(names_it[mask].mean()) if mask.any() else None
-                    follows = obs[11][begin:]
                     rows[task].update({"in_view": float(in_view.mean()), "names_side_in_view": share(in_view),
-                                       "names_side_out_of_view": share(~in_view),
-                                       "follows": {**{side: float(follows[..., c].mean()) for side, c in zip(INNER_WORDS, cols)},
-                                                   "nothing": float(follows[..., -1].mean())}})
+                                       "names_side_out_of_view": share(~in_view)})
                     pct = lambda x: "never sampled" if x is None else f"{x:.0%}"
                     print(f"          the {thing} is in view {rows[task]['in_view']:.0%} of the time; of left / ahead / right its voice "
                           f"names the true one {pct(rows[task]['names_side_in_view'])} of that time (out of view "
-                          f"{pct(rows[task]['names_side_out_of_view'])}; a guess: 33%); its inner voice follows "
-                          + ", ".join(f"{k} {v:.0%}" for k, v in rows[task]["follows"].items()), flush=True)
+                          f"{pct(rows[task]['names_side_out_of_view'])}; a guess: 33%)", flush=True)
             if tasks:                                    # the floor to beat: the same lives, told only to walk, pace and turn
                 roam = np.repeat(np.random.default_rng(31 + seed_offset).choice(
                     [VOCAB.index(w) for w in ("walk", "pace", "turn-left", "turn-right")], park_steps // 75 + 1), 75)[:park_steps]
@@ -1949,7 +1971,7 @@ def practice(args, bd, out: Path) -> dict:
                                  for task, gap in (("ball", obs[0]), ("come", obs[1])) if task in tasks}
                 print(f"[{(time.time() - t0) / 60:5.1f} min] PARK TEST {label}, random walk on the same lives (a new one of walk, "
                       f"pace, turn-left, turn-right every 1.5 s; no goal word): " + "; ".join(
-                          f"{r_['got_there']:.0%} came within {NEAR[task]} m of the {INNER_GOALS[task]}, distance "
+                          f"{r_['got_there']:.0%} came within {NEAR[task]} m of the {THING_OF[task]}, distance "
                           f"{r_['start_m']:.2f} -> {r_['end_m']:.2f} m" for task, r_ in rows["floor"].items()), flush=True)
             if goals_only:
                 return {f"park_{k}": v for k, v in rows.items()}
@@ -2043,60 +2065,117 @@ def practice(args, bd, out: Path) -> dict:
         raise SystemExit("STOP: self-learning requested but teacher help is not zero")
     best, got_r, got_n = np.full(n_i, -np.inf), np.zeros(n_i), np.zeros(n_i)
     reconsider = max(1, iters // HELP_CHECKS)
-    if args.inner_test:                          # no training: the brain as it is against itself with its inner voice set
-        if not (tasks and voice):
-            raise SystemExit("STOP: the inner voice test needs the park's goals and its voice (--park --tasks --voice)")
-        if args.inner_test < 2:
-            raise SystemExit("STOP: the inner voice test needs at least two cohorts (one half chooses a setting, the other judges it)")
-        eye_name = "cone eye" if args.cone_eye else "point-ray eye"
-        as_is = jax.tree_util.tree_map(np.asarray, learned)
-        tested["bp"] = as_is
-        real_test(f"as it is, {eye_name}")       # every skill once, on the lives of the earlier starting tests
-        n_c, half = args.inner_test, args.inner_test // 2
-        settings = {"as it is": None, **{f'inner voice ("{a}" when ahead, sure above {s_})': (a, s_)
-                                         for a, s_ in (("run", 0.0), ("run", 0.5), ("run", 1.5), ("walk", 0.5))}}
-        brains = {name: as_is if how is None else inner_voice_weights(as_is, *how) for name, how in settings.items()}
-        got = {name: [park_test(bp_v, f"{name}, {eye_name}, fresh cohort {i + 1}/{n_c}", 1000 + 100 * i, goals_only=True)
-                      for i in range(n_c)] for name, bp_v in brains.items()}
+    if mush:                                     # lifetime learning: no backprop, no update of any brain weight
+        names = ["as told", *[VOCAB[i] for i in mush["tells"][1:]]]
+        per_minute = round(60.0 / bd.CTRL_DT / T)
+        one_brain, no_help = {"brain": bp, "critic": cp}, jp.zeros(n_i)
 
-        def tally(runs, row):                    # over cohorts: how many lives got there, and the mean distances
-            pick = [row(r) for r in runs]
-            out = {"k": int(sum(round(p["got_there"] * n_t) for p in pick)), "n": n_t * len(pick),
-                   "start_m": float(np.mean([p["start_m"] for p in pick])), "end_m": float(np.mean([p["end_m"] for p in pick]))}
-            if "falls" in pick[0]:
-                out["falls"] = float(np.mean([p["falls"] for p in pick]))
-            return out
-        table = {task: {name: {part: tally(runs[sl], lambda r, t=task: r[f"park_{t}"])
-                               for part, sl in (("all", slice(None)), ("chosen_on", slice(0, half)), ("checked_on", slice(half, None)))}
-                        for name, runs in got.items()} for task in tasks}
-        floor = {task: tally(got["as it is"], lambda r, t=task: r["park_floor"][t]) for task in tasks}
+        @jax.jit
+        def live(env, s, ins, air_ema, key, level):
+            """T steps of life for B dogs; with a mushroom body in its state a dog chooses and learns as it lives."""
+            env, s, ins, air_ema, traj, _ = rollout(one_brain, env, s, ins, air_ema, key, no_help, level)
+            skill = 1.0 - traj["goal_on"]                                      # steps under a skill word, or in silence
+            row = {**goal_stats(traj), "skill_pay": jp.sum(traj["r_out"] * skill) / jp.maximum(jp.sum(skill), 1.0) / bd.CTRL_DT,
+                   "falls_per_min": jp.mean(traj["fell"]) * 60.0 / bd.CTRL_DT}
+            if "mb_choice" in traj:
+                won = jax.nn.one_hot(traj["mb_choice"], mush["outputs"])       # [T, B, outputs]
+                row["tells_goal"] = jp.sum(won * traj["goal_on"][..., None], (0, 1)) / jp.maximum(jp.sum(traj["goal_on"]), 1.0)
+                row["as_told_skill"] = jp.sum(won[..., 0] * skill) / jp.maximum(jp.sum(skill), 1.0)
+            return env, s, ins, air_ema, row
+
+        born = jax.jit(v_reset)
+
+        def dogs(k, learns):                     # B new dogs; `learns`: each with its own mushroom body, all synapses at zero
+            brain_state = {**init_state(B), "mb": mush["init"](B)} if learns else init_state(B)
+            return born(jax.random.split(k, B)), brain_state, jp.zeros((B,), jp.int32), jp.zeros((B, 4))
+
+        def minute(pack, k, level):              # one minute of life; the minute's mean of every measure
+            rows = []
+            for kk in jax.random.split(k, per_minute):
+                *pack, row = live(*pack, kk, np.float32(level))
+                rows.append({a: np.asarray(b) for a, b in row.items()})
+            return tuple(pack), {a: np.mean([r_[a] for r_ in rows], 0) for a in rows[0]}
+
+        def report(label, level, m):
+            line = (f"[{(time.time() - t0) / 60:5.1f} min] LIFE {label}, level {level:.1f}: its nose closes {m['goal_closing']:+.3f} m/s on "
+                    f"its goals, at the goal {m['goal_there']:.0%} of goal time; skills earn {m['skill_pay']:+.2f}/s; "
+                    f"falls {m['falls_per_min']:.1f}/min")
+            if "tells_goal" in m:
+                top = np.argsort(-m["tells_goal"])[:4]
+                line += ("; told a goal it tells itself " + ", ".join(f"{names[i]} {m['tells_goal'][i]:.0%}" for i in top)
+                         + f"; told a skill it does as told {m['as_told_skill']:.0%}")
+            print(line, flush=True)
+            return {"label": label, "level": level, **{a: np.asarray(b).tolist() for a, b in m.items()}}
+
+        keys = jax.random.split(jax.random.PRNGKey(args.seed + 3), 6)
+        log = {"as_it_is": [], "learning": [], "exam": []}
+        pack = dogs(keys[0], False)              # the yardstick: the same brain, no mushroom body
+        for i, lv in enumerate((0.0, 0.0, 1.0, 1.0)):
+            pack, m = minute(pack, jax.random.fold_in(keys[1], i), lv)
+            log["as_it_is"].append(report(f"as it is, minute {i + 1}", lv, m))
+        pack, level = dogs(keys[2], True), max(args.level, 0.0)
+        n_learn = int(round(args.self_learn))
+        print(f"lifetime learning: {B} dogs, each with its own mushroom body ({mush['cells']} Kenyon cells, {mush['outputs']} outputs: "
+              f"{', '.join(names)}), every synapse at zero; {n_learn} minutes of life, then 3 at level 1. No backprop: the "
+              f"brain's own weights do not change.", flush=True)
+        for i in range(n_learn):
+            pack, m = minute(pack, jax.random.fold_in(keys[3], i), level)
+            log["learning"].append(report(f"learning, minute {i + 1}/{n_learn}", level, m))
+            level = min(1.0, level + 0.1) if m["goal_closing"] > LEVEL_UP else max(0.0, level - 0.1) if m["goal_closing"] < LEVEL_DOWN else level
+        for i in range(3):                       # the park's own range, still learning as it lives
+            pack, m = minute(pack, jax.random.fold_in(keys[4], i), 1.0)
+            log["exam"].append(report(f"after {n_learn} minutes of learning, minute {i + 1}/3", 1.0, m))
+        mb = jax.tree_util.tree_map(np.asarray, pack[1]["mb"])
+
+        # what each dog learned, read from its synapses: the output it prefers for each thing it can say about a goal
+        learned_table, cell = {}, lambda word, say: VOCAB.index(word) * (len(SAY) + 1) + say
+        for task in tasks:
+            for side in (*SIDES, None):
+                on = [cell(task, len(SAY))] + ([cell(task, SAY.index(f"{THING_OF[task]}-{side}"))] if side else [])
+                logits = mb["w"][:, :, on].mean(-1)
+                logits[:, 0] += bd.MB_OBEY
+                share = np.bincount(logits.argmax(-1), minlength=len(names)) / len(logits)
+                first_, second = np.argsort(-share)[:2]
+                saying = f"saying \"{THING_OF[task]}-{side}\"" if side else "with nothing to say about it"
+                learned_table[f"{task}/{side}"] = {names[i]: float(share[i]) for i in range(len(names))}
+                print(f"LEARNED told \"{task}\", {saying}: {names[first_]} in {share[first_]:.0%} of dogs, then {names[second]} "
+                      f"{share[second]:.0%}", flush=True)
+
+        # the standard test from rest, on fresh lives: each learned dog once, against the same brain without a mushroom body
+        n_c = B // n_t
+        runs = {"as it is": [], "learned": []}
+        for i in range(n_c):
+            part = {**mush["init"](n_t), "w": jp.asarray(mb["w"][i * n_t:(i + 1) * n_t]),
+                    "expect_w": jp.asarray(mb["expect_w"][i * n_t:(i + 1) * n_t])}
+            runs["as it is"].append(park_test(bp, f"as it is, fresh cohort {i + 1}/{n_c}", 1000 + 100 * i, goals_only=True))
+            runs["learned"].append(park_test(bp, f"after {n_learn + 3} minutes of its own learning, fresh cohort {i + 1}/{n_c}",
+                                             1000 + 100 * i, goals_only=True, mb=part))
+
+        def tally(rows_):                        # over cohorts: how many lives got there, and the mean distances
+            out_ = {"k": int(sum(round(r_["got_there"] * n_t) for r_ in rows_)), "n": n_t * len(rows_),
+                    "start_m": float(np.mean([r_["start_m"] for r_ in rows_])), "end_m": float(np.mean([r_["end_m"] for r_ in rows_]))}
+            return {**out_, "falls": float(np.mean([r_["falls"] for r_ in rows_]))} if "falls" in rows_[0] else out_
         rate = lambda c: c["k"] / max(c["n"], 1)
+        verdict = {}
         for task in tasks:
-            f_ = floor[task]
-            print(f"VERDICT inner voice test, {eye_name}, \"{task}\", random walk on the same lives: got there {f_['k']}/{f_['n']} "
-                  f"({rate(f_):.1%}); nose distance {f_['start_m']:.2f} -> {f_['end_m']:.2f} m", flush=True)
-            for name in got:
-                c = table[task][name]["all"]
-                print(f"VERDICT inner voice test, {eye_name}, \"{task}\", {name}: got there {c['k']}/{c['n']} ({rate(c):.1%}); "
-                      f"nose distance {c['start_m']:.2f} -> {c['end_m']:.2f} m; falls {c['falls']:.2f}", flush=True)
-        # choose one setting on the first half of the cohorts; judge it on the other half, which did not choose it
-        chosen = max((n for n in got if n != "as it is"), key=lambda n: sum(table[t][n]["chosen_on"]["k"] for t in tasks))
-        for task in tasks:
-            new, old = table[task][chosen]["checked_on"], table[task]["as it is"]["checked_on"]
+            floor_ = tally([r_["park_floor"][task] for r_ in runs["as it is"]])
+            old, new = (tally([r_[f"park_{task}"] for r_ in runs[who]]) for who in ("as it is", "learned"))
             se = (rate(new) * (1 - rate(new)) / max(new["n"], 1) + rate(old) * (1 - rate(old)) / max(old["n"], 1)) ** 0.5
-            print(f"VERDICT inner voice test, {eye_name}, \"{task}\": chosen on cohorts 1-{half}: {chosen}. On cohorts {half + 1}-{n_c}, "
-                  f"which did not choose it: got there {new['k']}/{new['n']} ({rate(new):.1%}) against {old['k']}/{old['n']} "
-                  f"({rate(old):.1%}) as it is: {rate(new) - rate(old):+.1%}, {(rate(new) - rate(old)) / max(se, 1e-9):+.1f} standard errors; "
-                  f"nose distance {new['start_m']:.2f} -> {new['end_m']:.2f} m against {old['start_m']:.2f} -> {old['end_m']:.2f} m", flush=True)
-        result = {"eye": eye_name, "input_sha256": resume["sha256"], "lives_per_cohort": n_t, "cohorts": n_c, "settings": settings,
-                  "chosen": chosen, "table": table, "floor": floor, "curve": curve}
-        (out / "inner_voice_test.json").write_text(json.dumps(result, indent=1))
-        # the brain with the chosen inner voice: set by hand, not trained, and not promoted by this test alone
-        save_brain(brains[chosen], out / "baby_dog_inner_voice.npz", {
-            "stage": resume_meta.get("stage"), "wiring": WIRING, "readout": args.readout, "vocab": VOCAB, "curve": curve,
-            "core": args.core, "absolute_drives": args.absolute_drives, "cone_eye": args.cone_eye, "resume": resume,
-            "inner_voice": {"set_by_hand": True, "ahead": settings[chosen][0], "sure": settings[chosen][1], "hold": 0.5,
-                            "words": INNER_WORDS, "search": INNER_SEARCH, "test": {t: table[t][chosen] for t in tasks}}})
+            verdict[task] = {"random_walk": floor_, "as_it_is": old, "learned": new,
+                             "difference_in_standard_errors": float((rate(new) - rate(old)) / max(se, 1e-9))}
+            print(f"VERDICT lifetime learning, told \"{task}\" from rest ({new['n']} fresh lives, each learned dog once): got there "
+                  f"{new['k']}/{new['n']} ({rate(new):.1%}) against {old['k']}/{old['n']} ({rate(old):.1%}) as it is and "
+                  f"{floor_['k']}/{floor_['n']} ({rate(floor_):.1%}) for a random walk: {rate(new) - rate(old):+.1%}, "
+                  f"{verdict[task]['difference_in_standard_errors']:+.1f} standard errors; nose distance {new['start_m']:.2f} -> "
+                  f"{new['end_m']:.2f} m against {old['start_m']:.2f} -> {old['end_m']:.2f} m as it is; falls {new['falls']:.2f} "
+                  f"against {old['falls']:.2f}", flush=True)
+        result = {"input_sha256": resume["sha256"], "dogs": B, "minutes": n_learn, "cone_eye": args.cone_eye, "outputs": names,
+                  "settings": {a: getattr(bd, a) for a in ("MB_EVERY", "MB_OBEY", "MB_RATE", "MB_EXPECT_RATE", "MB_DOPAMINE",
+                                                           "MB_DISCOUNT", "MB_TRACE")},
+                  "life": log, "learned": learned_table, "verdict": verdict}
+        (out / "lifetime_learning.json").write_text(json.dumps(result, indent=1))
+        np.savez(out / "mushroom_bodies.npz", w=mb["w"], expect_w=mb["expect_w"], meta=json.dumps(
+            {"brain_sha256": resume["sha256"], "outputs": names, "vocab": VOCAB, "say": SAY, "cone_eye": args.cone_eye}))
         return result
 
     if not getattr(args, "skip_baseline", False):
@@ -2117,10 +2196,22 @@ def practice(args, bd, out: Path) -> dict:
     if args.let_go:
         print(f"letting go: each word's help drops 20% whenever the dog does that word at least 90% as well as its best, "
               f"comes back (x1.25) below 70%, and is zero for every word from update {int(HELP_GONE * iters)} on", flush=True)
+    level, closing = (float(args.level) if args.level >= 0 else float(resume_meta.get("fetch_level", 0.0))) if fetch else 0.0, None
+    if fetch:
+        print(f"fetch lesson: starts at level {level:.2f}; it rises {LEVEL_STEP} per update while its nose closes on its goals "
+              f"faster than {LEVEL_UP} m/s, and falls below {LEVEL_DOWN} m/s", flush=True)
     for it in range(iters):
         key, k = jax.random.split(key)
         params_r, opt_r, env, s, ins, air_ema, pstat, st, per_word = step(
-            params_r, opt_r, env, s, ins, air_ema, pstat, jax.random.split(k, nd), float(it >= warm), help_)
+            params_r, opt_r, env, s, ins, air_ema, pstat, jax.random.split(k, nd), float(it >= warm), help_, np.float32(level))
+        if fetch:
+            now = float(np.asarray(st["goal_closing"])[0])
+            closing = now if closing is None else 0.9 * closing + 0.1 * now
+            if it >= warm:                           # (while the critic learns alone the dog does not change)
+                level = min(1.0, level + LEVEL_STEP) if closing > LEVEL_UP else max(0.0, level - LEVEL_STEP) if closing < LEVEL_DOWN else level
+            if (it + 1) % 25 == 0:
+                print(f"          fetch: update {it + 1}/{iters}  level {level:.2f}  nose closing {now:+.3f} m/s (average "
+                      f"{closing:+.3f})  at the goal {float(np.asarray(st['goal_there'])[0]):.0%} of goal time", flush=True)
         if args.let_go and it >= warm and not gone:
             got_r += np.asarray(per_word[0])[0]
             got_n += np.asarray(per_word[1])[0]
@@ -2152,6 +2243,7 @@ def practice(args, bd, out: Path) -> dict:
                                                           "core": args.core, "lesson": lesson, "self_learning": args.self_learning,
                                                           "resume": resume, "absolute_drives": args.absolute_drives,
                                                           "protect_skills": args.protect_skills, "learning_rates": learning_rates,
+                                                          "cone_eye": args.cone_eye, "fetch_level": level,
                                                           "partial": f"{it + 1}/{iters}"})
                 # Keep earlier tested brains if later updates forget a skill; the latest file alone is insufficient.
                 (out / f"baby_dog_step_{(it + 1) * args.envs * T:010d}.npz").write_bytes((out / "baby_dog.npz").read_bytes())
@@ -2180,7 +2272,8 @@ def practice(args, bd, out: Path) -> dict:
                                                 "readout": args.readout, "vocab": VOCAB, "curve": curve,
                                                 "core": args.core, "lesson": lesson, "self_learning": args.self_learning,
                                                 "absolute_drives": args.absolute_drives, "protect_skills": args.protect_skills,
-                                                "learning_rates": learning_rates, "resume": resume})
+                                                "learning_rates": learning_rates, "resume": resume, "cone_eye": args.cone_eye,
+                                                "fetch_level": level})
     if first:
         for g in gaits:
             print(f"VERDICT practice \"{g}\" (no harness, from rest): {score(first[g], g):+.3f} -> {score(last[g], g):+.3f} "
@@ -2502,26 +2595,11 @@ def world_check(args, bd, out: Path) -> dict:
     return report
 
 
-def inner_voice(args, bd, out: Path) -> dict:
-    """No training. The brain as it is against itself with its inner voice set by hand (inner_voice_weights): first
-    with the point-ray eye it learned with, then with the cone eye. Each run is practice's inner voice test, with the
-    full test of every skill first."""
-    import copy
-    results = {}
-    for cone in (False, True):
-        a = copy.copy(args)
-        a.cone_eye, a.inner_test = cone, args.inner_test or 8
-        sub = out / ("cone_eye" if cone else "ray_eye")
-        sub.mkdir(parents=True, exist_ok=True)
-        results["cone eye" if cone else "point-ray eye"] = practice(a, bd, sub)
-    return results
-
-
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", default="babble", choices=["babble", "name", "act", "walk_words", "walk", "start_stop",
                                                         "gaits", "no_parent", "practice", "poses", "film_walk",
-                                                        "mocap_check", "world_check", "grow", "inner_voice"])
+                                                        "mocap_check", "world_check", "grow"])
     ap.add_argument("--gaits", default="walk", help="no_parent: the gaits it already knows, comma-separated")
     ap.add_argument("--get_up", action="store_true", help="practice: falls stay down, some lives start fallen")
     ap.add_argument("--dog", action="store_true", help="practice the real dog's behaviours (MANN dog mocap on the Go2)")
@@ -2536,7 +2614,7 @@ def main() -> None:
     ap.add_argument("--absolute_drives", action="store_true", help="append anonymous battery/heat level senses without changing existing nerves")
     ap.add_argument("--self_learning", action="store_true", help="practice with teacher help fixed at zero; require a let-go checkpoint")
     ap.add_argument("--protect_skills", action="store_true", help="project conflicting brain updates off the current outcome-loss gradient")
-    ap.add_argument("--lesson", choices=["all", "perception", "orient", "approach"], default="all",
+    ap.add_argument("--lesson", choices=["all", "perception", "orient", "approach", "fetch"], default="all",
                     help="focus new learning while keeping senses, hazards and all old skills in rehearsal")
     ap.add_argument("--expect_checkpoint", default="", help="abort on Kaggle unless the input brain's last recorded test matches")
     ap.add_argument("--let_go", action="store_true",
@@ -2578,10 +2656,12 @@ def main() -> None:
     ap.add_argument("--out", default="/kaggle/working" if Path("/kaggle/working").exists() else "results/baby_dog")
     ap.add_argument("--menagerie", default="")
     ap.add_argument("--skip_baseline", action="store_true", help="practice: skip baseline evaluation before practice")
+    ap.add_argument("--level", type=float, default=-1.0, help="fetch lesson: the level to start at, 0 (goals near and in "
+                    "view) to 1 (the park's own range); default: where the brain's last fetch lesson ended, else 0")
+    ap.add_argument("--self_learn", type=float, default=0.0, help="practice without backprop: minutes of life in which each dog's "
+                    "mushroom body learns from dopamine which of its skills to use (needs --lesson fetch)")
     ap.add_argument("--cone_eye", action="store_true", help="in the park: each eye point collects light over its whole "
                     "5-degree cone for the ball, the owner and the thrown thing (a far ball no longer falls between rays)")
-    ap.add_argument("--inner_test", type=int, default=0, help="practice without training: test the brain as it is against "
-                    "itself with its inner voice set by hand, on this many fresh cohorts of 64 lives (stage inner_voice: 8)")
     args = ap.parse_args([]) if JOB_ARGS else ap.parse_args()
     for k, v in JOB_ARGS.items():
         setattr(args, k, v)
@@ -2599,8 +2679,7 @@ def main() -> None:
     print("jax", jax.__version__, "devices", jax.devices(), flush=True)
     {"babble": babble, "name": name, "act": act, "walk_words": walk_words, "walk": walk, "start_stop": start_stop,
      "gaits": gaits, "no_parent": no_parent, "practice": practice, "poses": poses,
-     "film_walk": film_walk, "mocap_check": mocap_check, "world_check": world_check, "grow": grow,
-     "inner_voice": inner_voice}[args.stage](args, bd, out)
+     "film_walk": film_walk, "mocap_check": mocap_check, "world_check": world_check, "grow": grow}[args.stage](args, bd, out)
     print("DONE", flush=True)
 
 
