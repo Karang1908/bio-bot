@@ -101,11 +101,16 @@ def ensure_packages() -> None:
         except metadata.PackageNotFoundError:
             return None
     gpu = Path("/kaggle").exists() or any(have(p) for p in ("jax-cuda12-plugin", "nvidia-cuda-runtime-cu12"))
-    if all(have(p) == v for p, v in PINS.items()) and have("optax"):
-        return
-    jax_spec = f"jax[cuda12]=={PINS['jax']}" if gpu else f"jax=={PINS['jax']}"
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", jax_spec, f"jaxlib=={PINS['jaxlib']}",
-                           f"mujoco=={PINS['mujoco']}", f"mujoco-mjx=={PINS['mujoco-mjx']}", "optax"])
+    if not (all(have(p) == v for p, v in PINS.items()) and have("optax")):
+        jax_spec = f"jax[cuda12]=={PINS['jax']}" if gpu else f"jax=={PINS['jax']}"
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", jax_spec, f"jaxlib=={PINS['jaxlib']}",
+                               f"mujoco=={PINS['mujoco']}", f"mujoco-mjx=={PINS['mujoco-mjx']}", "optax"])
+    # A GPU plugin of another jax version must go. Kaggle's image gained jax-cuda13-plugin 0.11.1 (seen 16 Nov 2026):
+    # it registered itself as the "cuda" backend before the pinned cuda12 plugin could, and then every operation
+    # failed with "Unexpected PJRT_ExecuteOptions size: expected 112, got 88".
+    stale = [p for p in ("jax-cuda13-plugin", "jax-cuda13-pjrt") if have(p) not in (None, PINS["jax"])]
+    if stale:
+        subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-q", "-y", *stale])
 
 
 def fetch_go2(root: Path) -> Path:
