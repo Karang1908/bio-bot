@@ -25,6 +25,10 @@ Do not treat historical plans or pending-status notes as current authorization o
   both bodies. Do not replace this with separate learned controllers for each body.
 - The fly brain is the decision-making layer. Actions, goals, plans and self-reports must come from it. Do not add
   an external LLM or a hand-written runtime controller that thinks or chooses movements for the dog.
+- **Nothing hard-coded (owner, 15 Nov).** Do not set by hand which situation leads to which action, even from the
+  brain's own learned parts: a hand-set "ball-left → turn-left" table was rejected. Build the learning mechanism
+  (dopamine-gated plasticity, growth) and let the association start at zero and be learned from reward. The same
+  holds for rewards: no scripted speed or turn command inside a reward.
 - Teach like a baby: body discovery first, then names, actions and skills. The brain is not told which anonymous
   input/output line corresponds to a body part or physical measurement. Anatomical modality routing and ordered
   eye/LiDAR inputs are intentional; they are not permission to expose privileged labels to the runtime policy.
