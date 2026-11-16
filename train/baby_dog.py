@@ -2108,29 +2108,7 @@ def practice(args, bd, out: Path) -> dict:
             print(line, flush=True)
             return {"label": label, "level": level, **{a: np.asarray(b).tolist() for a, b in m.items()}}
 
-        keys = jax.random.split(jax.random.PRNGKey(args.seed + 3), 6)
-        log = {"as_it_is": [], "learning": [], "exam": []}
-        pack = dogs(keys[0], False)              # the yardstick: the same brain, no mushroom body
-        for i, lv in enumerate((0.0, 0.0, 1.0, 1.0)):
-            pack, m = minute(pack, jax.random.fold_in(keys[1], i), lv)
-            log["as_it_is"].append(report(f"as it is, minute {i + 1}", lv, m))
-        pack, level = dogs(keys[2], True), max(args.level, 0.0)
-        n_learn = int(round(args.self_learn))
-        print(f"lifetime learning: {B} dogs, each with its own mushroom body ({mush['cells']} Kenyon cells, {mush['outputs']} outputs: "
-              f"{', '.join(names)}), every synapse at zero; {n_learn} minutes of life, then 3 at level 1. No backprop: the "
-              f"brain's own weights do not change.", flush=True)
-        for i in range(n_learn):
-            pack, m = minute(pack, jax.random.fold_in(keys[3], i), level)
-            log["learning"].append(report(f"learning, minute {i + 1}/{n_learn}", level, m))
-            if (i + 1) % 10 == 0:
-                log["learning"][-1]["learned"] = learned({k_: np.asarray(pack[1]["mb"][k_]) for k_ in ("w",)})
-            level = min(1.0, level + 0.1) if m["goal_closing"] > LEVEL_UP else max(0.0, level - 0.1) if m["goal_closing"] < LEVEL_DOWN else level
-        for i in range(3):                       # the park's own range, still learning as it lives
-            pack, m = minute(pack, jax.random.fold_in(keys[4], i), 1.0)
-            log["exam"].append(report(f"after {n_learn} minutes of learning, minute {i + 1}/3", 1.0, m))
-        mb = {k_: np.asarray(pack[1]["mb"][k_]) for k_ in ("w", "expect_w")}
-
-        def learned(mb_):
+        def read_synapses(mb_):
             """What each dog learned, read from its synapses: in each goal word's compartment, turn-left minus turn-right
             for the Kenyon cells that look at the left third of the eye, the middle and the right third; and the
             output most preferred when nothing stands out. Positive left and negative right: it turns toward what it sees."""
@@ -2151,7 +2129,29 @@ def practice(args, bd, out: Path) -> dict:
                       + f"; nothing stands out: {names[top[0]]} in {share[top[0]]:.0%} of dogs, then {names[top[1]]} "
                       f"{share[top[1]]:.0%}; synapse sd {w_.std():.3f}", flush=True)
             return rows_
-        learned_table = learned(mb)
+        keys = jax.random.split(jax.random.PRNGKey(args.seed + 3), 6)
+        log = {"as_it_is": [], "learning": [], "exam": []}
+        pack = dogs(keys[0], False)              # the yardstick: the same brain, no mushroom body
+        for i, lv in enumerate((0.0, 0.0, 1.0, 1.0)):
+            pack, m = minute(pack, jax.random.fold_in(keys[1], i), lv)
+            log["as_it_is"].append(report(f"as it is, minute {i + 1}", lv, m))
+        pack, level = dogs(keys[2], True), max(args.level, 0.0)
+        n_learn = int(round(args.self_learn))
+        print(f"lifetime learning: {B} dogs, each with its own mushroom body ({mush['cells']} Kenyon cells, {mush['outputs']} outputs: "
+              f"{', '.join(names)}), every synapse at zero; {n_learn} minutes of life, then 3 at level 1. No backprop: the "
+              f"brain's own weights do not change.", flush=True)
+        for i in range(n_learn):
+            pack, m = minute(pack, jax.random.fold_in(keys[3], i), level)
+            log["learning"].append(report(f"learning, minute {i + 1}/{n_learn}", level, m))
+            if (i + 1) % 10 == 0:
+                log["learning"][-1]["learned"] = read_synapses({k_: np.asarray(pack[1]["mb"][k_]) for k_ in ("w",)})
+            level = min(1.0, level + 0.1) if m["goal_closing"] > LEVEL_UP else max(0.0, level - 0.1) if m["goal_closing"] < LEVEL_DOWN else level
+        for i in range(3):                       # the park's own range, still learning as it lives
+            pack, m = minute(pack, jax.random.fold_in(keys[4], i), 1.0)
+            log["exam"].append(report(f"after {n_learn} minutes of learning, minute {i + 1}/3", 1.0, m))
+        mb = {k_: np.asarray(pack[1]["mb"][k_]) for k_ in ("w", "expect_w")}
+
+        learned_table = read_synapses(mb)
 
         # the standard test from rest, on fresh lives: each learned dog once, against the same brain without a mushroom body
         n_c = B // n_t
