@@ -5559,6 +5559,62 @@ bit-identical; scales and offsets differ by at most 4.8e-7.
   So results from the PC and Kaggle are comparable, within noise.
 - Nothing is promoted from this run without fresh-life evidence (§8.28).
 
+### 6.13 Long run 1 cut short; the cone eye; the first lifetime learning (12–16 Nov)
+
+**Long run 1** (§6.12) stopped when the owner's PC went offline after the 16.4M-step test (update 1,000 of 3,000).
+Its two tests, against its own starting test, three cohorts each:
+
+| | before | 8.2M steps | 16.4M steps |
+|---|---|---|---|
+| walk speed (m/s) | 0.38 / 0.38 / 0.40 | 0.26 / 0.30 / 0.28 | 0.08 / 0.08 / 0.10 |
+| ball: start → end (m) | 2.49→3.76, 2.63→3.27, 2.34→3.41 | 2.49→2.79, 2.64→3.03, 2.35→2.98 | 2.48→2.41, 2.65→2.87, 2.34→2.73 |
+| ball arrival | 2 / 5 / 3% | 6 / 2 / 2% | 0 / 2 / 0% |
+
+Verdict: about 40× a round's learning with Round 68's reward made the dog barely move and erased the walk. Time was not
+the missing ingredient. Nothing was promoted.
+
+**The ommatidium-cone eye** (`dog_world.cone_cover`, commit `10021c9`), measured on the PC's CPU over 3,000 placements:
+- In view, the point-ray eye saw the ball in 729/889 placements (82%; 65% at 3.5–4 m). The cone eye saw it in 889/889
+  (100%). Gate (≥ 95%) passed.
+- The MJX cone eye equals the CPU one on 6 scenes, also after moving the ball.
+
+**A hand-set reflex was built and withdrawn** (15 Nov). A table that turned "ball-left" into "turn-left" was coded by hand;
+the owner rejected it ("dont hardcode anythng ... fully biological"). It was removed before it ran. Rule now in AGENTS.md.
+
+**Lifetime learning v1: a mushroom body learning from dopamine** (`brain_dog.make_mushroom`, commits `afac7d2`, `0db0a98`).
+- Kenyon cells: one per pair (word heard or silence) × (each thing its voice says is true now, or "always").
+- Outputs: "as told" plus each skill word it knows. One wins per 0.6 s and the brain hears that word.
+- Dopamine: the reward it did not expect; a three-factor rule (eligibility × dopamine). Every synapse starts at zero.
+- No backprop; the brain's weights did not change.
+- Reward: only the nose getting closer (2 per m) and being at the goal (1 per s). The fetch lesson places the goal near
+  and in view at level 0.
+
+Kaggle 2× T4, Round 58's 262k brain, 256 dogs, 20 minutes of life each, then 3 minutes at level 1:
+
+| | ray eye | cone eye |
+|---|---|---|
+| nose closing, brain as it is (level 0) | −0.049 to −0.057 m/s | −0.045 to −0.057 m/s |
+| nose closing, learning minutes 1 → 20 | −0.003 → −0.046 m/s | +0.003 → −0.030 m/s |
+| told a skill, does as told: minute 1 → 20 | 45% → 49% | 46% → 49% |
+| told a goal, does as told: minute 1 → 20 | 38% → 23% | 40% → 27% |
+| fresh test "ball": learned / as it is / random walk | 11/256 / 13/256 / 13/256 | 6/256 / 22/256 / 12/256 (−3.1 SE) |
+| fresh test "come": learned / as it is / random walk | 6/256 / 15/256 / 7/256 (−2.0 SE) | 12/256 / 14/256 / 7/256 |
+
+What the synapses show (`mushroom_bodies.npz`):
+- The choice does not depend on what the voice reports. For "ball", the preference for turn-left over turn-right is
+  no larger when it says "ball-left" than when it says "ball-right": +0.01 ± 0.39 (ray), +0.36 ± 0.34 (cone).
+- Per-dog synapses wander widely: sd about 5–6, maximum 27. The learning rate is far too high for the signal's size.
+- It did learn something real: told "turn-left" or "stand", "as told" grew to +3 to +4. But for goals it only learned
+  "stop obeying". It picked random skills, and so did worse than the brain as it is.
+- The voice is a weak cue. With the target in view, it names the true side 38–53% of the time; 33% is chance.
+
+Conclusions (believed, from the numbers above):
+1. The update is noise-dominated: a per-choice signal of about 0.3 against fall costs of −2.
+2. The context the Kenyon cells get (its voice's yes/no) carries too little about where the goal is.
+
+Next: Kenyon cells fed from the visual projection neurons (sparse random expansion, as in a fly), a far smaller rate, and
+far longer lives on the owner's PC.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
@@ -5712,6 +5768,9 @@ with a ball and thrown objects, drives, thinking, and the never-taught tests.
     the old code gives `None` and the new code `highest`.
 33. **A timing that hid a compile.** Updates 2–10 were timed together at 24 s each. Update 2 secretly includes a second
     compile of about 2.5 min; the real steady state is 7.75 s. Lesson: time individual updates and drop the first two.
+34. **Plasticity with too high a rate.** Lifetime learning v1 moved a synapse by 2 × dopamine per choice. Over 2,000
+    choices per dog the weights random-walked to sd 5–6 and swamped a signal about 30× smaller. Lesson: size the rate
+    from the signal-to-noise ratio; check that learned synapses differ between contexts before trusting a learning curve.
 
 ---
 
