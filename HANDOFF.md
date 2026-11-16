@@ -24,6 +24,20 @@ starts Phase 0.
 - About 10–15 of each round's 88 minutes was learning.
 - The brain step multiplies a full matrix that is about 99% empty.
 
+**Update 16 Nov (overrides the 12 Nov notes below where they differ):**
+- **Long run 1 ended early.** The PC went offline after its 16.4M-step test. Walking eroded (0.38 → 0.09 m/s) and the
+  ball was still not reached. The run is not resumable as a plan; its outputs are in `~/runs/long1_r68cfg/` on the PC.
+- **Owner rule:** nothing hard-coded (AGENTS.md). Behaviour must come from learning mechanisms.
+- **The cone eye passed its gate:** 889/889 in view, against 82% for point rays (LOGBOOK §6.13).
+- **Lifetime learning v1 (a dopamine mushroom body) failed its test.** Learned dogs were not better than the brain as
+  it is; "ball" with the cone eye was worse, −3.1 SE. The synapses show no dependence on where the target is. Results:
+  `results/baby_dog_lifetime_{ray,cone}/`. Next: Kenyon cells from the visual projection neurons, a much smaller rate,
+  long lives on the PC.
+- **The PC is back online** (16 Nov 21:05; the dashboard has been restarted). **D: has only 9.7 GB free.** Other users'
+  files, not ours (our WSL disk is 8.5 GB). If D: fills, WSL fails as it did on C:.
+- **Kaggle:** no job running. The quota was 30 h at the 14 Nov check (it resets 2026-11-21); two jobs of about 1.3 h
+  each have run since.
+
 **Update 12 Nov: the owner's GPU PC is the main training machine** (`Embodiogenesis.md` §5.1, LOGBOOK §6.12):
 - RTX 4500 Ada in WSL2 Ubuntu. Reach it with `ssh` to `karan@100.117.83.79` (Tailscale) using the key
   `~/.ssh/biobot_gpu` on the Mac. The repo is at `~/bio-bot` with `.venv`; outputs go to `~/runs/`.
