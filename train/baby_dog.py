@@ -1413,9 +1413,10 @@ def practice(args, bd, out: Path) -> dict:
         raise SystemExit("STOP: the fetch lesson needs the park's goals (--park --tasks)")
     mush = None
     if args.self_learn:                          # lifetime learning: its mushroom body chooses among the skills it has
-        if not (fetch and voice):
-            raise SystemExit("STOP: lifetime learning needs the fetch lesson and its voice (--lesson fetch --park --tasks --voice)")
-        mush = bd.make_mushroom(V, len(SAY), [VOCAB.index(w) for w in said if w in VOCAB and w not in tasks])
+        if not (fetch and eyes):
+            raise SystemExit("STOP: lifetime learning needs the fetch lesson and the eyes (--lesson fetch --park --tasks --core v2)")
+        mush = bd.make_mushroom(V, [VOCAB.index(w) for w in said if w in VOCAB and w not in tasks],
+                                [VOCAB.index(w) for w in said if w in VOCAB], eyes["eye_shape"])
     if tasks or free:
         if fetch:                                    # goals, with every known skill still rehearsed
             share = [0.10] + [0.35 / len(gaits)] * len(gaits) + [0.10 / len(rests)] * len(rests)
@@ -1531,7 +1532,7 @@ def practice(args, bd, out: Path) -> dict:
             seen = {**seen, "words": words_of[ins], "cmd": jp.zeros_like(seen["cmd"])}
             s = fresh(s, seen["new_life"])
             if "mb" in s:                                # its mushroom body chooses which of its skills to use now
-                mb, hears = mush["step"](s["mb"], words_of[ins], bstep.say(bp, s), jax.random.fold_in(k, 11), spoke)
+                mb, hears = mush["step"](s["mb"], words_of[ins], seen["eye"], jax.random.fold_in(k, 11), spoke)
                 s, seen = {**s, "mb": mb}, {**seen, "words": hears}
             priv = jp.concatenate([v_priv(env), jax.nn.one_hot(ins, n_i)], -1)
             s_before = s
@@ -1898,7 +1899,7 @@ def practice(args, bd, out: Path) -> dict:
                 seen = {**seen, "words": jp.broadcast_to(vocab_eye[said_now], (n_t, V)), "cmd": jp.zeros_like(seen["cmd"])}
                 s = fresh(s, seen["new_life"])
                 if mb is not None:
-                    chooses, hears = mush["step"](s["mb"], seen["words"], bstep.say(bp, s), jax.random.fold_in(k, 11),
+                    chooses, hears = mush["step"](s["mb"], seen["words"], seen["eye"], jax.random.fold_in(k, 11),
                                                   jp.full((n_t,), t == int(1.0 / bd.CTRL_DT)), 0.0)
                     s, seen = {**s, "mb": chooses}, {**seen, "words": hears}
                 s, mu = bstep(bp, W, s, seen)
@@ -2121,25 +2122,36 @@ def practice(args, bd, out: Path) -> dict:
         for i in range(n_learn):
             pack, m = minute(pack, jax.random.fold_in(keys[3], i), level)
             log["learning"].append(report(f"learning, minute {i + 1}/{n_learn}", level, m))
+            if (i + 1) % 10 == 0:
+                log["learning"][-1]["learned"] = learned({k_: np.asarray(pack[1]["mb"][k_]) for k_ in ("w",)})
             level = min(1.0, level + 0.1) if m["goal_closing"] > LEVEL_UP else max(0.0, level - 0.1) if m["goal_closing"] < LEVEL_DOWN else level
         for i in range(3):                       # the park's own range, still learning as it lives
             pack, m = minute(pack, jax.random.fold_in(keys[4], i), 1.0)
             log["exam"].append(report(f"after {n_learn} minutes of learning, minute {i + 1}/3", 1.0, m))
-        mb = jax.tree_util.tree_map(np.asarray, pack[1]["mb"])
+        mb = {k_: np.asarray(pack[1]["mb"][k_]) for k_ in ("w", "expect_w")}
 
-        # what each dog learned, read from its synapses: the output it prefers for each thing it can say about a goal
-        learned_table, cell = {}, lambda word, say: VOCAB.index(word) * (len(SAY) + 1) + say
-        for task in tasks:
-            for side in (*SIDES, None):
-                on = [cell(task, len(SAY))] + ([cell(task, SAY.index(f"{THING_OF[task]}-{side}"))] if side else [])
-                logits = mb["w"][:, :, on].mean(-1)
-                logits[:, 0] += bd.MB_OBEY
-                share = np.bincount(logits.argmax(-1), minlength=len(names)) / len(logits)
-                first_, second = np.argsort(-share)[:2]
-                saying = f"saying \"{THING_OF[task]}-{side}\"" if side else "with nothing to say about it"
-                learned_table[f"{task}/{side}"] = {names[i]: float(share[i]) for i in range(len(names))}
-                print(f"LEARNED told \"{task}\", {saying}: {names[first_]} in {share[first_]:.0%} of dogs, then {names[second]} "
-                      f"{share[second]:.0%}", flush=True)
+        def learned(mb_):
+            """What each dog learned, read from its synapses: in each goal word's compartment, turn-left minus turn-right
+            for the Kenyon cells that look at the left third of the eye, the middle and the right third; and the
+            output most preferred when nothing stands out. Positive left and negative right: it turns toward what it sees."""
+            col, third = np.asarray(mush["kc_column"]), mush["eye_width"] / 3
+            parts = {"left": col < third, "middle": (col >= third) & (col < 2 * third), "right": col >= 2 * third}
+            tl, tr, rows_ = names.index("turn-left"), names.index("turn-right"), {}
+            for task in tasks:
+                w_ = np.asarray(mb_["w"][:, mush["slots"].index(VOCAB.index(task))], np.float32)    # [dogs, outputs, cells]
+                pref = {part: (w_[:, tl, :bd.MB_KC][:, m] - w_[:, tr, :bd.MB_KC][:, m]).mean(-1) for part, m in parts.items()}
+                none = w_[:, :, bd.MB_KC] + np.eye(len(names))[0] * bd.MB_OBEY
+                share = np.bincount(none.argmax(-1), minlength=len(names)) / len(none)
+                rows_[task] = {**{f"turn_left_minus_right_{k_}": [float(v.mean()), float(v.std() / len(v) ** 0.5)] for k_, v in pref.items()},
+                               "nothing_seen": {names[i]: float(share[i]) for i in range(len(names))},
+                               "synapse_sd": float(w_.std())}
+                top = np.argsort(-share)[:2]
+                print(f"LEARNED told \"{task}\": turn-left minus turn-right for cells looking left " + ", ".join(
+                    f"{k_} {v.mean():+.3f} (se {v.std() / len(v) ** 0.5:.3f})" for k_, v in pref.items())
+                      + f"; nothing stands out: {names[top[0]]} in {share[top[0]]:.0%} of dogs, then {names[top[1]]} "
+                      f"{share[top[1]]:.0%}; synapse sd {w_.std():.3f}", flush=True)
+            return rows_
+        learned_table = learned(mb)
 
         # the standard test from rest, on fresh lives: each learned dog once, against the same brain without a mushroom body
         n_c = B // n_t
@@ -2171,11 +2183,13 @@ def practice(args, bd, out: Path) -> dict:
                   f"against {old['falls']:.2f}", flush=True)
         result = {"input_sha256": resume["sha256"], "dogs": B, "minutes": n_learn, "cone_eye": args.cone_eye, "outputs": names,
                   "settings": {a: getattr(bd, a) for a in ("MB_EVERY", "MB_OBEY", "MB_RATE", "MB_EXPECT_RATE", "MB_DOPAMINE",
-                                                           "MB_DISCOUNT", "MB_TRACE")},
+                                                           "MB_DISCOUNT", "MB_TRACE", "MB_KC", "MB_CLAWS", "MB_SPARSE", "MB_FIRE",
+                                                           "MB_ADAPT")},
                   "life": log, "learned": learned_table, "verdict": verdict}
         (out / "lifetime_learning.json").write_text(json.dumps(result, indent=1))
-        np.savez(out / "mushroom_bodies.npz", w=mb["w"], expect_w=mb["expect_w"], meta=json.dumps(
-            {"brain_sha256": resume["sha256"], "outputs": names, "vocab": VOCAB, "say": SAY, "cone_eye": args.cone_eye}))
+        np.savez(out / "mushroom_bodies.npz", w=mb["w"].astype(np.float16), expect_w=mb["expect_w"].astype(np.float16),
+                 meta=json.dumps({"brain_sha256": resume["sha256"], "outputs": names, "vocab": VOCAB, "slots": mush["slots"],
+                                  "kc_column": mush["kc_column"], "kc_row": mush["kc_row"], "cone_eye": args.cone_eye}))
         return result
 
     if not getattr(args, "skip_baseline", False):
