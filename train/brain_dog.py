@@ -802,74 +802,104 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
 # ============================================================================ lifetime learning (Embodiogenesis)
 MB_EVERY = 30            # control steps one choice lasts (0.6 s: long enough for a gait to show what it earns)
 MB_OBEY = 2.0            # the "as told" output's head start: untaught, it does as it is told about 4 times in 10
-MB_RATE = 2.0            # how far one unit of dopamine moves a marked synapse (a few rewarded tries change a choice)
-MB_EXPECT_RATE = 0.3     # the same for what it expects (the dopamine neurons' own forecast)
+MB_RATE = 0.1            # how far one unit of dopamine moves a marked synapse (v1 used 2.0: its synapses random-walked
+                         # to sd 5-6 and drowned the signal; LOGBOOK 8.34)
+MB_EXPECT_RATE = 0.05    # the same for what it expects (the dopamine neurons' own forecast)
 MB_DOPAMINE = 1.0        # dopamine saturates at plus or minus this (one fall must not erase everything it has learned)
 MB_DISCOUNT = 0.9        # what it expects after a choice counts this much (per choice)
-MB_TRACE = 0.7           # a synapse's mark keeps this share from one choice to the next
+MB_TRACE = 0.7           # a synapse's mark keeps this share from one choice to the next (same word heard)
+MB_KC = 800              # Kenyon cells fed by the eye
+MB_CLAWS = 6             # eye inputs per Kenyon cell (a fly's Kenyon cell has about 6-7 claws), all near one eye point
+MB_SPARSE = 0.05         # share of Kenyon cells allowed to fire at once (the APL neuron's inhibition)
+MB_FIRE = 0.15           # a Kenyon cell also needs this much input to fire at all
+MB_ADAPT = 0.05          # per step: how fast each eye point's expected colour follows what it sees (about 0.4 s)
 
 
-def make_mushroom(n_words: int, n_say: int, programs):
-    """Lifetime learning without backprop: a grown mushroom body that chooses, moment by moment, which of the skills
-    the brain already has to use, and learns that choice from dopamine alone.
-      Kenyon cells    one per pair (a heard word, or silence) x (something its voice says is true now, or "always").
-                      Like a fly's Kenyon cells, each fires on a coincidence: this word heard and this said.
+def make_mushroom(n_words: int, programs, slots, eye_shape, seed: int = 20261116):
+    """Lifetime learning without backprop: a mushroom body that chooses, moment by moment, which of the skills the
+    brain already has to use, and learns that choice from dopamine alone. Version 2 (16 Nov): its Kenyon cells see.
+      eye             each eye point adapts to what it usually sees there (MB_ADAPT); what is brighter or darker
+                      than expected, in either colour, is what drives the Kenyon cells (4 signals per eye point).
+      Kenyon cells    MB_KC cells, each with MB_CLAWS claws on the eye signals around one random eye point (fixed at
+                      birth from `seed`, the same in every dog). Only the most driven MB_SPARSE fire, and only above
+                      MB_FIRE. Two more cells: "nothing stands out" (none fired) and "always".
+      compartments    one set of output synapses per word it can hear (and one for silence): what is heard selects
+                      which synapses act, as a fly's context selects mushroom body compartments.
       output neurons  one per programme (a word whose skill it has) and one for "as told". They compete; one wins and
-                      holds for MB_EVERY steps. The brain then hears the winner's word in place of what was said
-                      ("as told": it hears what was said).
-      dopamine        the reward it did not expect: the reward since the choice, plus what it expects now, minus
-                      what it expected then. What it expects is learned from the same Kenyon cells.
-      plasticity      a Kenyon-cell -> output synapse is marked when its cell was active and its output won (beyond
-                      how likely that was), and it changes by its mark x dopamine. Three factors, all local.
-    Nothing says which programme belongs to which situation: every synapse starts at zero.
-    programs: the vocabulary indices of the words it may tell itself. Its state is per dog and lasts for life, across
-    new bodies: init(batch). step(mb, heard, told, key, restart, plastic) -> mb, the words it hears [B, n_words]
-    (restart: what is said just changed; plastic: 1 to learn, 0 to only choose). pay(mb, reward, over) -> mb, once
-    the body has moved (over: the body was put back)."""
+                      holds for MB_EVERY steps. The brain hears the winner's word ("as told": what was said).
+      dopamine        the reward it did not expect: reward since the choice + what it expects now - what it expected.
+      plasticity      a synapse is marked when its cell was active and its output won (beyond how likely that was),
+                      and changes by its mark x dopamine. Three factors, all local. Every synapse starts at zero.
+    Nothing says which programme belongs to which sight. programs: the vocabulary indices of the words it may tell
+    itself; slots: the vocabulary indices with their own compartment (others share silence's). State per dog, kept for
+    life across new bodies: init(batch). step(mb, heard, eye, key, restart, plastic) -> mb, the words it hears.
+    pay(mb, reward, over) -> mb, once the body has moved (over: the body was put back)."""
     import jax
     import jax.numpy as jp
-    n_out, n_kc = len(programs) + 1, (n_words + 1) * (n_say + 1)
+    import numpy as np
+    H, W = eye_shape
+    rng = np.random.default_rng(seed)
+    ch, cw = rng.integers(0, H, MB_KC), rng.integers(0, W, MB_KC)                      # each cell's eye point
+    hh = np.clip(ch[:, None] + rng.integers(-1, 2, (MB_KC, MB_CLAWS)), 0, H - 1)
+    ww = np.clip(cw[:, None] + rng.integers(-1, 2, (MB_KC, MB_CLAWS)), 0, W - 1)
+    claw = jp.asarray((hh * W + ww) * 4 + rng.integers(0, 4, (MB_KC, MB_CLAWS)))      # which of the 4 signals
+    claw_w = jp.asarray(rng.uniform(0.5, 1.5, (MB_KC, MB_CLAWS)), jp.float32)
+    k_fire = max(1, int(MB_SPARSE * MB_KC))
+    n_out, n_cell, n_slot = len(programs) + 1, MB_KC + 2, len(slots) + 1
+    slot_of = np.full(n_words, len(slots), np.int32)
+    slot_of[np.asarray(slots)] = np.arange(len(slots))
+    slot_of = jp.asarray(slot_of)
     tells = jp.concatenate([jp.zeros((1, n_words)), jax.nn.one_hot(jp.asarray(programs), n_words)])    # row 0: as told
 
     def init(batch: int):
         z = lambda *shape: jp.zeros((batch, *shape))
-        return {"w": z(n_out, n_kc), "expect_w": z(n_kc), "mark": z(n_out, n_kc), "expect_mark": z(n_kc),
-                "expected": z(), "paid": z(), "over": z(), "chose": z(),
-                "choice": jp.zeros((batch,), jp.int32), "clock": jp.zeros((batch,), jp.int32)}
+        return {"w": z(n_slot, n_out, n_cell), "expect_w": z(n_slot, n_cell), "mark": z(n_out, n_cell), "expect_mark": z(n_cell),
+                "base": z(H, W, 2), "expected": z(), "paid": z(), "over": z(), "chose": z(),
+                "slot": jp.zeros((batch,), jp.int32), "choice": jp.zeros((batch,), jp.int32), "clock": jp.zeros((batch,), jp.int32)}
 
-    def cells(heard, told):
-        """The Kenyon cells active now [B, n_kc], each 0 or 1."""
-        word = jp.concatenate([heard, 1.0 - jp.sum(heard, -1, keepdims=True)], -1)                 # the last: silence
-        says = jp.concatenate([(told > 0).astype(jp.float32), jp.ones((heard.shape[0], 1))], -1)   # the last: always
-        return (word[:, :, None] * says[:, None, :]).reshape(heard.shape[0], n_kc)
+    def kenyon(eye, base):
+        """The Kenyon cells active now [B, n_cell], each 0 or 1."""
+        dev = jp.concatenate([jax.nn.relu(eye - base), jax.nn.relu(base - eye)], -1).reshape(eye.shape[0], -1)
+        x = jp.sum(dev[:, claw] * claw_w, -1)                                               # [B, MB_KC]
+        kth = jax.lax.top_k(x, k_fire)[0][:, -1:]
+        fire = ((x >= kth) & (x > MB_FIRE)).astype(jp.float32)
+        none = 1.0 - jp.max(fire, -1, keepdims=True)
+        return jp.concatenate([fire, none, jp.ones_like(none)], -1)
 
-    def step(mb, heard, told, key, restart, plastic=1.0):
-        kc = cells(heard, told)
-        drive = kc / jp.sum(kc, -1, keepdims=True)                # the active cells share one unit of drive
-        due = (mb["clock"] >= MB_EVERY) | restart | (mb["chose"] == 0) | (mb["over"] > 0)
+    def step(mb, heard, eye, key, restart, plastic=1.0):
+        first = mb["chose"] == 0
+        base = jp.where(first[:, None, None, None], eye, mb["base"])
+        kc = kenyon(eye, base)
+        drive = kc / jp.sum(kc, -1, keepdims=True)                   # the active cells share one unit of drive
+        slot = jp.where(jp.sum(heard, -1) > 0, slot_of[jp.argmax(heard, -1)], n_slot - 1)
+        due = (mb["clock"] >= MB_EVERY) | restart | first | (mb["over"] > 0)
         # the last choice is settled: dopamine is the reward it did not expect (a body put back expects nothing more)
-        expects = jp.sum(mb["expect_w"] * drive, -1)
+        at = jax.nn.one_hot(slot, n_slot)                                                   # [B, n_slot]
+        expects = jp.einsum("bs,bsk,bk->b", at, mb["expect_w"], drive)
         dopamine = jp.clip(mb["paid"] + MB_DISCOUNT * expects * (1.0 - mb["over"]) - mb["expected"], -MB_DOPAMINE, MB_DOPAMINE)
-        settle = (due & (mb["chose"] > 0)).astype(jp.float32) * plastic * dopamine
-        w = mb["w"] + MB_RATE * settle[:, None, None] * mb["mark"]
-        expect_w = mb["expect_w"] + MB_EXPECT_RATE * settle[:, None] * mb["expect_mark"]
-        # a new choice: the output neurons compete, and the synapses that took part are marked
-        logits = jp.einsum("bkc,bc->bk", w, drive).at[:, 0].add(MB_OBEY)
+        settle = (due & ~first).astype(jp.float32) * plastic * dopamine
+        was = jax.nn.one_hot(mb["slot"], n_slot)
+        w = mb["w"] + MB_RATE * (settle[:, None] * was)[:, :, None, None] * mb["mark"][:, None]
+        expect_w = mb["expect_w"] + MB_EXPECT_RATE * (settle[:, None] * was)[:, :, None] * mb["expect_mark"][:, None]
+        # a new choice: the output neurons of the heard word's compartment compete; the synapses that took part are marked
+        logits = jp.einsum("bs,bsok,bk->bo", at, w, drive).at[:, 0].add(MB_OBEY)
         pick = jax.random.categorical(key, logits, -1)
-        fade = MB_DISCOUNT * MB_TRACE * (1.0 - mb["over"])        # a new body starts with clean marks
-        mark = fade[:, None, None] * mb["mark"] + (jax.nn.one_hot(pick, n_out) - jax.nn.softmax(logits, -1))[:, :, None] * kc[:, None, :]
-        expect_mark = fade[:, None] * mb["expect_mark"] + kc
-        new = {"w": w, "expect_w": expect_w,
+        keep = MB_DISCOUNT * MB_TRACE * ((slot == mb["slot"]) & (mb["over"] == 0) & ~first)    # a new word or body: clean marks
+        mark = keep[:, None, None] * mb["mark"] + (jax.nn.one_hot(pick, n_out) - jax.nn.softmax(logits, -1))[:, :, None] * kc[:, None, :]
+        expect_mark = keep[:, None] * mb["expect_mark"] + kc
+        new = {"w": w, "expect_w": expect_w, "base": base + MB_ADAPT * (eye - base),
                "mark": jp.where(due[:, None, None], mark, mb["mark"]), "expect_mark": jp.where(due[:, None], expect_mark, mb["expect_mark"]),
-               "expected": jp.where(due, jp.sum(expect_w * drive, -1), mb["expected"]), "paid": jp.where(due, 0.0, mb["paid"]),
-               "over": jp.where(due, 0.0, mb["over"]), "chose": jp.ones_like(mb["chose"]),
+               "expected": jp.where(due, jp.einsum("bs,bsk,bk->b", at, expect_w, drive), mb["expected"]),
+               "paid": jp.where(due, 0.0, mb["paid"]), "over": jp.where(due, 0.0, mb["over"]), "chose": jp.ones_like(mb["chose"]),
+               "slot": jp.where(due, slot, mb["slot"]).astype(jp.int32),
                "choice": jp.where(due, pick, mb["choice"]).astype(jp.int32), "clock": jp.where(due, 0, mb["clock"]).astype(jp.int32)}
         return new, jp.where((new["choice"] == 0)[:, None], heard, tells[new["choice"]])
 
     def pay(mb, reward, over):
         return {**mb, "paid": mb["paid"] + reward, "clock": mb["clock"] + 1, "over": jp.maximum(mb["over"], over.astype(jp.float32))}
 
-    return {"init": init, "step": step, "pay": pay, "cells": n_kc, "outputs": n_out, "tells": [-1, *programs]}
+    return {"init": init, "step": step, "pay": pay, "cells": n_cell, "outputs": n_out, "tells": [-1, *programs],
+            "slots": list(slots), "kc_column": cw.tolist(), "kc_row": ch.tolist(), "eye_width": W}
 
 
 def make_critic(P: int, key):
