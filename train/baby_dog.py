@@ -1626,6 +1626,9 @@ def practice(args, bd, out: Path) -> dict:
                 stand_pay = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05) - 0.1 * jp.abs(st["wz"])
                 # a body whose physics blew up has non-finite speeds: it earns nothing here (as the body's own reward)
                 r = r + jp.where(done, 0.0, is_task[ins] * GOAL_CLOSER * closer + GOAL_THERE * there - going * stand_pay) * bd.CTRL_DT
+                # the dopamine a goal word's compartment gets: progress to the goal, and falling. The body's other costs
+                # (energy, posture) differ from skill to skill about 10x more than progress does, and drowned it (v2).
+                goal_dopamine = jp.where(done, 0.0, GOAL_CLOSER * closer + GOAL_THERE * there) * bd.CTRL_DT - FALL_COST * st["fell"]
                 goal = {"goal_on": is_task[ins].astype(jp.float32), "goal_there": there.astype(jp.float32),
                         "goal_going": going.astype(jp.float32), "goal_closer": going * closer}
             if tasks and not fetch:                      # going to what was asked: getting closer, and getting there
@@ -1712,7 +1715,7 @@ def practice(args, bd, out: Path) -> dict:
             gw = jp.where(is_rest[ins], GUIDE_REST, GUIDE) * hp * ~(is_task[ins] | is_free[ins])   # nobody shows it how
             gw = jp.where(env["info"]["down"], 0.0, gw)           # the teacher cannot show how to get up
             if "mb" in s:                                # what the choice in force earned; the output that holds now
-                s = {**s, "mb": mush["pay"](s["mb"], r_out, done)}
+                s = {**s, "mb": mush["pay"](s["mb"], jp.where(is_task[ins], goal_dopamine, r_out), done)}
                 goal = {**goal, "mb_choice": s["mb"]["choice"]}
             return (env, s, ins, air_ema), {**seen, "a": a, "logp": logprob(a, mean), "guide": guide, "gw": gw, "priv": priv, "r": r,
                                             "r_out": r_out, "power": power, "done": done, "fell": st["fell"],
