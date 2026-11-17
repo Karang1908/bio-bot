@@ -42,6 +42,7 @@ HEBB_RATE = 1e-3         # how fast a motor-to-sensory synapse strengthens
 HELD_AT = 0.6            # m: the trunk is held in the air at this height, as a parent holds a baby
 REPOSITION_S = 15.0      # s: on the ground, a parent sets the dog down somewhere new this often (as babies get moved)
 POSES = ("stand", "belly", "left_side", "right_side")
+FOOT_LOADED_N = 5.0      # N: a foot counts as bearing weight above this (the dog weighs ~150 N)
 
 
 def ensure_packages():
@@ -213,7 +214,7 @@ class Brain:
         return tmax * np.tanh(1.5 * net / np.sqrt(np.bincount(self.drives, minlength=self.n_motors) + 1.0))
 
 
-def babble(body, brain, minutes, rng, log, label):
+def babble(body, brain, minutes, rng, log, label, diag=None):
     """Spontaneous movement; the body map grows by Hebbian learning. Returns what was explored and felt."""
     steps = int(minutes * 60 / BRAIN_DT)
     lines = len(body.feel())
@@ -232,12 +233,20 @@ def babble(body, brain, minutes, rng, log, label):
             body.reset(POSES[rng.integers(len(POSES))], rng)
             trace[:] = 0.0                                                # being moved is not something it did
         burst += BRAIN_DT / BABBLE_TAU * -burst + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(burst))
-        r = brain.step(body.feel(), BABBLE_SIZE * burst)
+        felt = body.feel()
+        r = brain.step(felt, BABBLE_SIZE * burst)
         body.step(brain.torque(r, body.tmax))
         m = r[brain.motor]
         m_mean += 0.01 * (m - m_mean)
         s = r[brain.sense]
         brain.map += HEBB_RATE * np.outer(trace, s - s_prev)            # activity, then what was felt shortly after
+        if diag is not None:                                              # measurement only; changes nothing
+            loaded = int((felt[4 * J:4 * J + 4] > FOOT_LOADED_N).sum())
+            standing = int(loaded >= 3 and -felt[4 * J + 6] > 0.8)
+            diag["feet_loaded"][loaded] += 1
+            diag["standing"] += standing
+            diag["steps"] += 1
+            diag["part"][standing] += HEBB_RATE * np.outer(trace, (s - s_prev)[diag["cols"]])
         trace = TRACE * trace + (1 - TRACE) * (m - m_mean)
         s_prev = s
         q = body.angles()
@@ -313,6 +322,7 @@ def steer(body, brain, S, targets, seconds, flail=None):
     goal = np.array([targets[l] for l in lines])
     scale = max(float(np.percentile(np.abs(S[:, lines]), 99)), 1e-12)
     burst = np.zeros(len(brain.motor))
+    traj = []
     for _ in range(int(seconds / BRAIN_DT)):
         felt = body.feel()
         if flail is not None:
@@ -324,6 +334,15 @@ def steer(body, brain, S, targets, seconds, flail=None):
             drive = np.clip(np.maximum(S[:, lines] @ err, 0.0) / scale, 0.0, 3.0)
         r = brain.step(felt, drive)
         body.step(brain.torque(r, body.tmax))
+        traj.append((float(body.d.qpos[2]), float(-body.gravity()[2]), body.touch()))
+    return traj
+
+
+def end_state(traj):
+    h = np.array([t[0] for t in traj])
+    f = traj[-1][2]
+    return {"min_height_m": float(h.min()), "end_height_m": float(h[-1]), "end_upright": float(traj[-1][1]),
+            "end_touch_N": f.tolist(), "end_feet_loaded": int((f > FOOT_LOADED_N).sum())}
 
 
 def ground_tests(body, brain, log, label, rng):
@@ -341,12 +360,13 @@ def ground_tests(body, brain, log, label, rng):
         brain.v[:] = 0.0
         g = np.array([np.sin(pitch), -np.sin(roll), -np.cos(roll) * np.cos(pitch)])
         r0, p0 = body.tilt()
-        steer(body, brain, S, dict(zip(nerve["gravity"].tolist(), g.tolist())), 2.0)
+        traj = steer(body, brain, S, dict(zip(nerve["gravity"].tolist(), g.tolist())), 2.0)
         r1, p1 = body.tilt()
         want = np.array([roll, pitch])
         moved = np.array([r1 - r0, p1 - p0])
         got.append(float(moved @ want / (want @ want)))                  # share of the asked tilt achieved
-        out[f"tilt {name}"] = {"asked_rad": want.tolist(), "moved_rad": moved.tolist(), "share": got[-1]}
+        out[f"tilt {name}"] = {"asked_rad": want.tolist(), "moved_rad": moved.tolist(), "share": got[-1],
+                               "end": end_state(traj)}
     log(f"[{label}] tilt its trunk 0.25 rad as asked (roll left/right, nose down/up): achieved "
         + ", ".join(f"{v:.0%}" for v in got) + " of the asked tilt")
     # weight: ask for more pressure under one foot (one and a half times what it feels standing)
@@ -355,13 +375,22 @@ def ground_tests(body, brain, log, label, rng):
         body.reset("stand")
         brain.v[:] = 0.0
         base = body.touch()
-        steer(body, brain, S, {int(nerve["touch"][k]): float(1.5 * base[k] + 1.0)}, 2.0)
+        traj = steer(body, brain, S, {int(nerve["touch"][k]): float(1.5 * base[k] + 1.0)}, 2.0)
         now = body.touch()
         s0, s1 = base[k] / max(base.sum(), 1e-6), now[k] / max(now.sum(), 1e-6)
         shares.append((s0, s1))
-        out[f"weight on {foot}"] = {"share_before": float(s0), "share_after": float(s1)}
+        out[f"weight on {foot}"] = {"share_before": float(s0), "share_after": float(s1), "end": end_state(traj)}
     log(f"[{label}] shift its weight onto one foot as asked: that foot's share of the weight "
         + ", ".join(f"{f} {a:.0%}->{b:.0%}" for f, (a, b) in zip(("FL", "FR", "RL", "RR"), shares)))
+    body.reset("stand")
+    brain.v[:] = 0.0
+    out["weight, map switched off"] = {"end": end_state(steer(body, brain, np.zeros_like(S),
+                                                              {int(nerve["touch"][0]): 0.0}, 2.0))}
+    for key in [f"weight on {f}" for f in ("FL", "FR", "RL", "RR")] + ["weight, map switched off"]:
+        e = out[key]["end"]
+        log(f"[{label}]   {key}: after 2 s, feet bearing weight {e['end_feet_loaded']}/4 (forces "
+            + "/".join(f"{x:.0f}" for x in e["end_touch_N"]) + f" N), trunk height {e['end_height_m']:.2f} m "
+            f"(lowest {e['min_height_m']:.2f}; set down standing at 0.27), upright {e['end_upright']:.2f}")
     # getting up: lying on its side, ask its inner ear to feel upright; against flailing and doing nothing
     trials = 8
     up = {"its map": 0, "flailing": 0, "nothing": 0}
@@ -376,13 +405,89 @@ def ground_tests(body, brain, log, label, rng):
             elif how == "flailing":
                 steer(body, brain, S, target, 6.0, flail=np.random.default_rng(900 + t))
             else:
-                steer(body, brain, np.zeros_like(S), target, 6.0)
+                e = end_state(steer(body, brain, np.zeros_like(S), target, 6.0))
+                out.setdefault("get_up_nothing_end", []).append(e)
             up[how] += int(-body.gravity()[2] > 0.8)
     out["get_up_from_side"] = {k: v / trials for k, v in up.items()}
     log(f"[{label}] lying on its side, get upright (trunk within ~37 degrees of upright after 6 s), {trials} tries: "
         + ", ".join(f"{k} {v}/{trials}" for k, v in up.items()))
+    log(f"[{label}]   doing nothing from its side, where it ends: trunk height "
+        + ", ".join(f"{e['end_height_m']:.2f}" for e in out["get_up_nothing_end"]) + " m; feet bearing weight "
+        + ", ".join(str(e["end_feet_loaded"]) for e in out["get_up_nothing_end"]))
     brain.adapting = True
     return out
+
+
+GROUND_LINES = ("FL pressure", "FR pressure", "RL pressure", "RR pressure", "gravity x (pitch)", "gravity y (roll)",
+                "gravity z (upright)")
+
+
+def true_effects(body, pose):
+    """[motors, ground lines]: what each motor really does, in this pose, to foot pressures and the inner ear's gravity
+    within 60 ms (3 brain steps, the span its Hebbian trace covers). Half the difference between pushing each way."""
+    J = len(body.joint)
+    lines = 4 * J + np.arange(7)
+    eff = np.zeros((J, 7))
+    for a in range(J):
+        d = []
+        for sign in (1.0, -1.0):
+            body.reset(pose)
+            f0 = body.feel()[lines]
+            tq = np.zeros(J)
+            tq[a] = sign * 0.5 * body.tmax[a]
+            for _ in range(3):
+                body.step(tq)
+            d.append(body.feel()[lines] - f0)
+        eff[a] = (d[0] - d[1]) / 2
+    return eff
+
+
+def per_motor(brain, S):
+    """[motors, lines]: what the brain's map says pushing each motor does (its neurons' links, signed by their push)."""
+    return np.stack([(brain.push[brain.drives == a, None] * S[brain.drives == a]).mean(0) for a in range(brain.n_motors)])
+
+
+def agreement(learned, true):
+    """Per line: share of the true effect (weighted by its size) whose sign the map has right; and the correlation."""
+    out = []
+    for l in range(true.shape[1]):
+        w = np.abs(true[:, l])
+        agree = float((w * (np.sign(learned[:, l]) == np.sign(true[:, l]))).sum() / max(w.sum(), 1e-12))
+        ok = learned[:, l].std() > 0 and true[:, l].std() > 0
+        out.append({"sign_right": agree, "corr": float(np.corrcoef(learned[:, l], true[:, l])[0, 1]) if ok else None})
+    return out
+
+
+def diagnose(body, brain, diag, log, label, out_dir, dog):
+    J = len(body.joint)
+    n = max(diag["steps"], 1)
+    log(f"[{label}] DIAG babbling time with 0/1/2/3/4 feet bearing weight (> {FOOT_LOADED_N:g} N): "
+        + "/".join(f"{c / n:.0%}" for c in diag["feet_loaded"]) + f"; standing upright on 3-4 feet: {diag['standing'] / n:.1%}")
+    gains = brain.fibre_gain[4 * J:4 * J + 7]
+    part = [np.einsum("mlf,lf->ml", p.reshape(len(brain.motor), 7, NERVE_FIBRES), gains) for p in diag["part"]]
+    S = line_scores(brain)[:, 4 * J:4 * J + 7]
+    share_standing = float(np.abs(part[1]).sum() / max(np.abs(part[0]).sum() + np.abs(part[1]).sum(), 1e-12))
+    log(f"[{label}] DIAG share of the learned foot/inner-ear links that came from standing: {share_standing:.1%}")
+    c = np.corrcoef(S[:, :4].T)
+    log(f"[{label}] DIAG how alike the map's links to the four feet are (correlation across its 370 motor neurons): "
+        f"mean {c[np.triu_indices(4, 1)].mean():+.2f} (FL-FR {c[0, 1]:+.2f}, FL-RL {c[0, 2]:+.2f}, FL-RR {c[0, 3]:+.2f}, "
+        f"FR-RL {c[1, 2]:+.2f}, FR-RR {c[1, 3]:+.2f}, RL-RR {c[2, 3]:+.2f})")
+    learned = {"whole map": per_motor(brain, S), "learned standing": per_motor(brain, part[1]),
+               "learned lying/other": per_motor(brain, part[0])}
+    truth = {pose: true_effects(body, pose) for pose in POSES}
+    report = {"feet_loaded_share": [c_ / n for c_ in diag["feet_loaded"]], "standing_share": diag["standing"] / n,
+              "share_of_links_from_standing": share_standing, "foot_link_corr": c.tolist(), "compare": {}}
+    for pose, tr in truth.items():
+        for what, le in learned.items():
+            ag = agreement(le, tr)
+            report["compare"][f"{what} vs truth {pose}"] = ag
+            log(f"[{label}] DIAG {what:20s} vs what the motors really do {pose:10s}: sign right "
+                + ", ".join(f"{nm.split()[0] if 'pressure' in nm else nm.split()[2]} {a['sign_right']:.0%}"
+                            for nm, a in zip(GROUND_LINES, ag)))
+    np.savez_compressed(out_dir / f"babble_diag_dog{dog}.npz", map=brain.map, line_scores=line_scores(brain),
+                        drives=brain.drives, push=brain.push, part_other=part[0], part_standing=part[1],
+                        **{f"truth_{p}": t for p, t in truth.items()})
+    return report
 
 
 def main():
@@ -390,6 +495,7 @@ def main():
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
     ap.add_argument("--ground", action="store_true", help="free on the ground, with foot touch and an inner ear")
+    ap.add_argument("--diagnose", action="store_true", help="on the ground: record posture, the map, and the physical truth")
     ap.add_argument("--out", default="/kaggle/working" if Path("/kaggle/working").exists() else "results/babble")
     args = ap.parse_args([]) if JOB_ARGS else ap.parse_args()
     for k, v in JOB_ARGS.items():
@@ -419,7 +525,13 @@ def main():
         before = control_test(body, brain, joint_scores(brain, body), log, label + ", newborn (map empty)")
         ground_before = ground_tests(body, brain, log, label + ", newborn (map empty)", None) if args.ground else None
         body.reset()
-        explored = babble(body, brain, args.minutes, np.random.default_rng(1000 + dog), log, label)
+        diag = None
+        if args.ground and args.diagnose:
+            diag = {"feet_loaded": [0] * 5, "standing": 0, "steps": 0,
+                    "cols": brain.fibre_col[4 * len(body.joint):4 * len(body.joint) + 7].ravel(),
+                    "part": np.zeros((2, len(brain.motor), 7 * NERVE_FIBRES))}
+        explored = babble(body, brain, args.minutes, np.random.default_rng(1000 + dog), log, label, diag)
+        diag_report = diagnose(body, brain, diag, log, label, out, dog + 1) if diag is not None else None
         scores = joint_scores(brain, body)
         after = control_test(body, brain, scores, log, label + f", after {args.minutes:g} min of babbling")
         ground_after = ground_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling", None) if args.ground else None
@@ -437,7 +549,7 @@ def main():
                 f"{explored['limit_felt_steps'][j][0]}/{explored['limit_felt_steps'][j][1]}; its motor neurons mapped to it "
                 f"{np.mean(best == j):.0%}")
         results.append({"dog": dog + 1, "map": acc, "per_joint": per_joint, "control_newborn": before, "control_after": after,
-                        "ground_newborn": ground_before, "ground_after": ground_after})
+                        "ground_newborn": ground_before, "ground_after": ground_after, "diagnosis": diag_report})
     reach = lambda rows: float(np.mean([np.clip(r_["reach"], -1, 1) for r_ in rows]))
     log("VERDICT babbling: " + "; ".join(
         f"dog {r_['dog']}: body map right joint {r_['map']['joint']:.0%} (direction too {r_['map']['both']:.0%}), "
