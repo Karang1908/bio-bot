@@ -5775,6 +5775,49 @@ and damping 0.5. The motor pools move the set point at up to 4 rad/s, and their 
 Open: the brain does not yet use its own map; the tests do. Tilt and weight results measure that test controller as
 much as the brain.
 
+### 6.19 The brain's own reflexes: they knock it over, and which ones (18 Nov)
+
+`babble.py --ground --tone --reflex` (`111522c`, job `babble-reflex1`, 3 dogs) and `--reflex_diag` (`badd38b`, job
+`babble-reflex-diag1`).
+
+- **Reflexes:** sensory-to-motor synapses tuned by the babbling twitches (rule as in newborn rats' spinal reflexes,
+  Petersson et al. 2003). A link grows when the motor neuron's activity is followed by a fall in that sensory neuron.
+  They are the body map's reverse with the opposite sign, silent while babbling and on in tests. Their strength is
+  set in units of the map's own scale (99th percentile of its links).
+- **Tests:** the test only shifts a nerve's felt reference once, and drives no motor neuron.
+
+Results, dogs 1–2 identical in pattern:
+
+| own reflexes | standing, nothing asked (5 s) | one joint to an end | standing after the 24 joint moves |
+|---|---|---|---|
+| ×0 (off) | 0.20 m, 4 feet | 1% | 24/24 |
+| ×0.5 | 0.09–0.10 m | 15–17% | 1–3/24 |
+| ×1 / ×2 / ×4 | 0.08–0.10 m | 14–15% | 0/24 |
+
+At every strength above 0, tilt and weight trials fell, and getting up from its side was 0/8.
+
+Which reflexes knock it over (standing, nothing asked, one kind at a time, ×0.5 / ×1):
+
+| reflexes from | after 5 s | set points moved | one-way push |
+|---|---|---|---|
+| none | stands 0.20 / 0.19 m | 0.10 / 0.14 rad | — |
+| joint angle | stands 0.19 / 0.19 m | 0.07 / 0.06 | — |
+| joint speed | stands taller, 0.27 / 0.25 m (wobbles 6.6 flips/s at ×1) | 0.22 / 0.37 | — |
+| **effort** | **falls at 0.98 / 0.84 s** | **1.11 / 1.28** | **0.77 / 0.49** |
+| **limit push-back** | **falls at 0.98 / 0.80 s** | **1.20 / 1.27** | **0.82 / 0.66** |
+| foot pressure | stands 0.19 m / sinks, down at 4.46 s | 0.08 / 0.55 | — |
+| gravity, turning | stands 0.16–0.20 m | 0.13–0.31 | — |
+| connectome-only sensory neurons | stands 0.19 m / down at 2.2 s | 0.15 / 0.46 | — |
+| all | falls at 1.3 / 1.36 s | 0.93 / 1.00 | 0.52 / 0.35 |
+
+**Mechanism.** On a standing dog, effort and limit push-back are load senses: limit push-back also carries ground
+contact forces through the joints. The twitch rule makes every reflex oppose change, so a rising load makes the reflex
+push less. Under body weight the leg then gives, the load rises further, and the dog slides down in under a second.
+Walking animals reverse load reflexes in stance (positive force feedback). A rule that only opposes change cannot
+learn that, and the reflexes were tuned mostly lying down (standing was 1.1% of babbling).
+
+Not brain size: the same brain learns a 100% map and moves joints at 99% when steered.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
