@@ -229,6 +229,13 @@ class Brain:
         return self.rates()
 
     motor_baseline = None    # with tone: each motor pool's steady resting drive, adapted away
+    rest_baseline = None     # that baseline after settling at rest; every test trial starts from it
+
+    def fresh(self):
+        """A new trial from rest: neurons quiet, and the motor pools' adaptation as it is after resting."""
+        self.v[:] = 0.0
+        if self.rest_baseline is not None:
+            self.motor_baseline[:] = self.rest_baseline
 
     def command(self, r):
         net = np.bincount(self.drives, weights=self.push * r[self.motor], minlength=self.n_motors)
@@ -316,15 +323,30 @@ def map_accuracy(brain, body):
     return {"joint": float(right.mean()), "both": float((right & direction).mean())}
 
 
+def settle_at_rest(body, brain, seconds=15.0):
+    """Before a battery of tests: set down standing, the brain's output cut, until its motor pools' adaptation matches
+    their resting drive (it otherwise remembers the last few seconds of babbling or of the previous trial)."""
+    if brain.motor_baseline is None:
+        return
+    body.reset("stand")
+    brain.v[:] = 0.0
+    for _ in range(int(seconds / BRAIN_DT)):
+        brain.step(body.feel(), np.zeros(len(brain.motor)))
+        brain.command(brain.rates())
+        body.step(np.zeros(len(body.joint)))
+    brain.rest_baseline = brain.motor_baseline.copy()
+
+
 def control_test(body, brain, scores, log, label, seconds=1.5):
     """Ask the brain to drive each joint to each end, using only its own body map."""
+    settle_at_rest(body, brain)
     J = len(body.joint)
     best = np.abs(scores).argmax(1)
     rows = []
     for j in range(J):
         for d in (1.0, -1.0):
             body.reset()
-            brain.v[:] = 0.0
+            brain.fresh()
             mine = best == j
             drive = np.where(mine, np.maximum(d * scores[:, j], 0.0), 0.0)
             drive = 3.0 * drive / (drive.max() + 1e-12)
@@ -394,7 +416,7 @@ def ground_tests(body, brain, log, label, rng):
     got = []
     for name, (roll, pitch) in tilts.items():
         body.reset("stand")
-        brain.v[:] = 0.0
+        brain.fresh()
         g = np.array([np.sin(pitch), -np.sin(roll), -np.cos(roll) * np.cos(pitch)])
         r0, p0 = body.tilt()
         traj = steer(body, brain, S, dict(zip(nerve["gravity"].tolist(), g.tolist())), 2.0)
@@ -410,7 +432,7 @@ def ground_tests(body, brain, log, label, rng):
     shares = []
     for k, foot in enumerate(("FL", "FR", "RL", "RR")):
         body.reset("stand")
-        brain.v[:] = 0.0
+        brain.fresh()
         base = body.touch()
         traj = steer(body, brain, S, {int(nerve["touch"][k]): float(1.5 * base[k] + 1.0)}, 2.0)
         now = body.touch()
@@ -421,7 +443,7 @@ def ground_tests(body, brain, log, label, rng):
         + ", ".join(f"{f} {a:.0%}->{b:.0%}" for f, (a, b) in zip(("FL", "FR", "RL", "RR"), shares)))
     for key in ("weight, map switched off", "map off, brain's output cut", "map off, babbling on"):
         body.reset("stand")
-        brain.v[:] = 0.0
+        brain.fresh()
         start = body.target.copy() if body.tone else body.angles()
         baseline = None if brain.motor_baseline is None else brain.motor_baseline.copy()
         if key == "map off, brain's output cut":
@@ -460,7 +482,7 @@ def ground_tests(body, brain, log, label, rng):
         side = "left_side" if t % 2 == 0 else "right_side"
         for how in up:
             body.reset(side, np.random.default_rng(500 + t))
-            brain.v[:] = 0.0
+            brain.fresh()
             target = dict(zip(nerve["gravity"].tolist(), [0.0, 0.0, -1.0]))
             if how == "its map":
                 steer(body, brain, S, target, 6.0)
