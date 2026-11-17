@@ -43,6 +43,13 @@ HELD_AT = 0.6            # m: the trunk is held in the air at this height, as a 
 REPOSITION_S = 15.0      # s: on the ground, a parent sets the dog down somewhere new this often (as babies get moved)
 POSES = ("stand", "belly", "left_side", "right_side")
 FOOT_LOADED_N = 5.0      # N: a foot counts as bearing weight above this (the dog weighs ~150 N)
+STANDING_HEIGHT = 0.2    # m: trunk at least this high counts as up on its legs (set down standing: 0.27; lying: ~0.09-0.14)
+# --tone: muscle tone. Each joint springs toward a set point (the Go2's standard stiffness and damping); the motor
+# neurons move the set point; when the dog is set down, the set points take the posture it is in.
+TONE_KP = 20.0           # N m / rad
+TONE_KD = 0.5            # N m s / rad
+SET_SPEED = 4.0          # rad/s: how fast a fully driven motor pool moves its joint's set point
+MOTOR_TAU = 3.0          # s: the motor pool adapts away its own steady resting drive, as the senses do
 
 
 def ensure_packages():
@@ -74,7 +81,7 @@ class Body:
     """The Go2: held in the air by its trunk, or free on the ground. Torque motors; every joint has a hard limit.
     On the ground it also has touch in each foot and an inner ear (which way gravity pulls, and how it is turning)."""
 
-    def __init__(self, go2: Path, held: bool = True):
+    def __init__(self, go2: Path, held: bool = True, tone: bool = False):
         import mujoco
         self.mj = mujoco
         self.m = mujoco.MjModel.from_xml_path(str(go2 / "scene.xml"))
@@ -87,6 +94,7 @@ class Body:
         self.tmax = self.m.actuator_ctrlrange[:, 1].copy()
         self.names = [self.m.joint(j).name.replace("_joint", "") for j in self.joint]
         self.held = held
+        self.tone = tone
         self.base = self.m.body("base").id
         self.feet = [self.m.geom(f).id for f in ("FL", "FR", "RL", "RR")]
         self._force = np.zeros(6)
@@ -98,6 +106,7 @@ class Body:
         if self.held:
             self.hold()
             self.mj.mj_forward(self.m, self.d)
+            self.target = self.angles()
             return
         q = self.d.qpos
         if pose != "stand":
@@ -112,18 +121,28 @@ class Body:
         self.d.ctrl[:] = 0.0
         if pose == "stand":                                              # set on its feet; holding itself up is its job
             self.mj.mj_forward(self.m, self.d)
+            self.target = self.angles()
             return
         for _ in range(int(0.5 / self.m.opt.timestep)):                 # let it settle onto the floor, limp
             self.mj.mj_step(self.m, self.d)
+        self.target = self.angles()                                      # the muscles take the posture it was set in
 
     def hold(self):
         self.d.qpos[0:3] = [0.0, 0.0, HELD_AT]
         self.d.qpos[3:7] = [1.0, 0.0, 0.0, 0.0]
         self.d.qvel[0:6] = 0.0
 
-    def step(self, torque):
-        self.d.ctrl[:] = np.clip(torque, -self.tmax, self.tmax)
+    def step(self, out):
+        """out: each motor pool's output in [-1, 1]. Without tone it is a torque (share of the motor's maximum); with
+        tone it moves the joint's set point, and the muscle pulls toward it."""
+        if self.tone:
+            self.target = np.clip(self.target + SET_SPEED * BRAIN_DT * out, self.lo - 0.1, self.hi + 0.1)
+        else:
+            self.d.ctrl[:] = np.clip(self.tmax * out, -self.tmax, self.tmax)
         for _ in range(self.subs):
+            if self.tone:
+                pull = TONE_KP * (self.target - self.d.qpos[self.qadr]) - TONE_KD * self.d.qvel[self.vadr]
+                self.d.ctrl[:] = np.clip(pull, -self.tmax, self.tmax)
             self.mj.mj_step(self.m, self.d)
             if self.held:
                 self.hold()
@@ -209,9 +228,15 @@ class Brain:
         self.v += ALPHA * (-self.v + self.W @ self.rates() + I)
         return self.rates()
 
-    def torque(self, r, tmax):
+    motor_baseline = None    # with tone: each motor pool's steady resting drive, adapted away
+
+    def command(self, r):
         net = np.bincount(self.drives, weights=self.push * r[self.motor], minlength=self.n_motors)
-        return tmax * np.tanh(1.5 * net / np.sqrt(np.bincount(self.drives, minlength=self.n_motors) + 1.0))
+        x = 1.5 * net / np.sqrt(np.bincount(self.drives, minlength=self.n_motors) + 1.0)
+        if self.motor_baseline is not None:
+            self.motor_baseline += BRAIN_DT / MOTOR_TAU * (x - self.motor_baseline)
+            x = x - self.motor_baseline
+        return np.tanh(x)
 
 
 def babble(body, brain, minutes, rng, log, label, diag=None):
@@ -235,14 +260,14 @@ def babble(body, brain, minutes, rng, log, label, diag=None):
         burst += BRAIN_DT / BABBLE_TAU * -burst + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(burst))
         felt = body.feel()
         r = brain.step(felt, BABBLE_SIZE * burst)
-        body.step(brain.torque(r, body.tmax))
+        body.step(brain.command(r))
         m = r[brain.motor]
         m_mean += 0.01 * (m - m_mean)
         s = r[brain.sense]
         brain.map += HEBB_RATE * np.outer(trace, s - s_prev)            # activity, then what was felt shortly after
         if diag is not None:                                              # measurement only; changes nothing
             loaded = int((felt[4 * J:4 * J + 4] > FOOT_LOADED_N).sum())
-            standing = int(loaded >= 3 and -felt[4 * J + 6] > 0.8)
+            standing = int(loaded >= 3 and -felt[4 * J + 6] > 0.8 and body.d.qpos[2] > STANDING_HEIGHT)
             diag["feet_loaded"][loaded] += 1
             diag["standing"] += standing
             diag["steps"] += 1
@@ -295,7 +320,7 @@ def control_test(body, brain, scores, log, label, seconds=1.5):
             q0 = body.angles()
             for _ in range(int(seconds / BRAIN_DT)):
                 r = brain.step(body.feel(), drive)
-                body.step(brain.torque(r, body.tmax))
+                body.step(brain.command(r))
             q1 = body.angles()
             end = body.hi[j] if d > 0 else body.lo[j]
             reach = (q1[j] - q0[j]) / (end - q0[j]) if abs(end - q0[j]) > 1e-6 else 0.0
@@ -333,7 +358,7 @@ def steer(body, brain, S, targets, seconds, flail=None):
             err = np.clip(z_goal - z_now, -3.0, 3.0)
             drive = np.clip(np.maximum(S[:, lines] @ err, 0.0) / scale, 0.0, 3.0)
         r = brain.step(felt, drive)
-        body.step(brain.torque(r, body.tmax))
+        body.step(brain.command(r))
         traj.append((float(body.d.qpos[2]), float(-body.gravity()[2]), body.touch()))
     return traj
 
@@ -407,9 +432,10 @@ def ground_tests(body, brain, log, label, rng):
             else:
                 e = end_state(steer(body, brain, np.zeros_like(S), target, 6.0))
                 out.setdefault("get_up_nothing_end", []).append(e)
-            up[how] += int(-body.gravity()[2] > 0.8)
+            up[how] += int(-body.gravity()[2] > 0.8 and body.d.qpos[2] > STANDING_HEIGHT
+                           and (body.touch() > FOOT_LOADED_N).sum() >= 3)
     out["get_up_from_side"] = {k: v / trials for k, v in up.items()}
-    log(f"[{label}] lying on its side, get upright (trunk within ~37 degrees of upright after 6 s), {trials} tries: "
+    log(f"[{label}] lying on its side, get up (after 6 s: trunk upright, above {STANDING_HEIGHT:g} m, 3-4 feet bearing weight), {trials} tries: "
         + ", ".join(f"{k} {v}/{trials}" for k, v in up.items()))
     log(f"[{label}]   doing nothing from its side, where it ends: trunk height "
         + ", ".join(f"{e['end_height_m']:.2f}" for e in out["get_up_nothing_end"]) + " m; feet bearing weight "
@@ -433,10 +459,10 @@ def true_effects(body, pose):
         for sign in (1.0, -1.0):
             body.reset(pose)
             f0 = body.feel()[lines]
-            tq = np.zeros(J)
-            tq[a] = sign * 0.5 * body.tmax[a]
+            out = np.zeros(J)
+            out[a] = sign * 0.5                                          # half output (half torque, or half set-point speed)
             for _ in range(3):
-                body.step(tq)
+                body.step(out)
             d.append(body.feel()[lines] - f0)
         eff[a] = (d[0] - d[1]) / 2
     return eff
@@ -462,7 +488,7 @@ def diagnose(body, brain, diag, log, label, out_dir, dog):
     J = len(body.joint)
     n = max(diag["steps"], 1)
     log(f"[{label}] DIAG babbling time with 0/1/2/3/4 feet bearing weight (> {FOOT_LOADED_N:g} N): "
-        + "/".join(f"{c / n:.0%}" for c in diag["feet_loaded"]) + f"; standing upright on 3-4 feet: {diag['standing'] / n:.1%}")
+        + "/".join(f"{c / n:.0%}" for c in diag["feet_loaded"]) + f"; standing (upright, trunk above {STANDING_HEIGHT:g} m, on 3-4 feet): {diag['standing'] / n:.1%}")
     gains = brain.fibre_gain[4 * J:4 * J + 7]
     part = [np.einsum("mlf,lf->ml", p.reshape(len(brain.motor), 7, NERVE_FIBRES), gains) for p in diag["part"]]
     S = line_scores(brain)[:, 4 * J:4 * J + 7]
@@ -495,6 +521,7 @@ def main():
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
     ap.add_argument("--ground", action="store_true", help="free on the ground, with foot touch and an inner ear")
+    ap.add_argument("--tone", action="store_true", help="muscle tone: the motor neurons move each joint's set point")
     ap.add_argument("--diagnose", action="store_true", help="on the ground: record posture, the map, and the physical truth")
     ap.add_argument("--out", default="/kaggle/working" if Path("/kaggle/working").exists() else "results/babble")
     args = ap.parse_args([]) if JOB_ARGS else ap.parse_args()
@@ -510,16 +537,20 @@ def main():
         print(msg, flush=True)
         lines_out.append(msg)
 
-    body = Body(fetch_go2(Path(tempfile.gettempdir())), held=not args.ground)
+    body = Body(fetch_go2(Path(tempfile.gettempdir())), held=not args.ground, tone=bool(args.tone))
     core = load_core()
     where = f"held at {HELD_AT} m like a baby" if body.held else (
         f"free on the ground, with foot touch and an inner ear; set down somewhere new every {REPOSITION_S:g} s")
+    if body.tone:
+        where += f"; muscle tone (stiffness {TONE_KP:g} N m/rad, damping {TONE_KD:g}), the brain moves the set points"
     log(f"body: Go2, {len(body.joint)} joints ({', '.join(body.names)}); {where}; {len(body.feel())} nerves; "
         f"physics {body.subs} steps per brain step")
     log(f"brain: fly connectome, {len(core['role'])} neurons, {len(core['pre'])} connections; it is told nothing about the body")
     results = []
     for dog in range(args.dogs):
         brain = Brain(core, len(body.feel()), len(body.joint), np.random.default_rng(GENOME))     # same genome
+        if body.tone:
+            brain.motor_baseline = np.zeros(len(body.joint))
         label = f"dog {dog + 1}/{args.dogs}"
         body.reset()
         before = control_test(body, brain, joint_scores(brain, body), log, label + ", newborn (map empty)")
@@ -558,7 +589,9 @@ def main():
     (out / "babble.json").write_text(json.dumps({"minutes": args.minutes, "genome": GENOME, "dogs": results,
                                                  "settings": {k: globals()[k] for k in ("BRAIN_DT", "ALPHA", "GAIN",
                                                               "BABBLE_TAU", "BABBLE_SIZE", "NERVE_FIBRES", "TRACE",
-                                                              "HEBB_RATE", "HELD_AT")}}, indent=1))
+                                                              "HEBB_RATE", "HELD_AT", "REPOSITION_S", "FOOT_LOADED_N",
+                                                              "STANDING_HEIGHT", "TONE_KP", "TONE_KD", "SET_SPEED",
+                                                              "MOTOR_TAU")} | {"tone": bool(args.tone), "ground": bool(args.ground)}}, indent=1))
     (out / "babble_log.txt").write_text("\n".join(lines_out))
     print("DONE", flush=True)
 
