@@ -57,6 +57,14 @@ MOTOR_TAU = 3.0          # s: the motor pool adapts away its own steady resting 
 # reverse direction with the opposite sign: the same co-activity, learned once.
 REFLEX_GAINS = (0.0, 0.5, 1.0, 2.0, 4.0)   # reflex strength, in units of the map's own scale (0 = switched off)
 SETTLE_S = 30.0          # s: before tests, set down standing at rest while senses and motor pools settle (~3 time constants)
+# --practice: standing practice after babbling. Its reflex synapses keep learning while it stands, gated by a
+# dopamine-like signal it makes from its own senses: positive when what it feels returns toward how standing still
+# feels, negative when it moves away. Each synapse's eligibility is its recent pre (sensory change since rest) x post
+# (motor neuron above its usual rate) activity. The body map itself is not changed.
+PRACTICE_RATE = 1e-4     # reflex synapse change per step per unit of (standardised dopamine x eligibility)
+PRACTICE_TRACE = 0.9     # eligibility kept from step to step (~0.2 s)
+PRACTICE_NOISE = 0.5     # share of babbling's spontaneous motor activity kept while practising (to try variations)
+EPISODE_S = 5.0          # s: each time it is set down standing
 
 
 def ensure_packages():
@@ -225,6 +233,7 @@ class Brain:
     rest_sense = None        # how its sensory neurons fire when it stands still at rest
     rest_mean = None         # what its senses report at rest, standing
     reflex_cols = None       # diagnosis only: use the reflexes from these sensory neurons alone (None: all)
+    R = None                 # its reflex synapses once they learn on their own (standing practice); None: the twitch-tuned ones
 
     def zscore(self, felt):
         return np.clip((felt - self.mean) / np.sqrt(self.var + 1e-6), -4.0, 4.0)
@@ -242,11 +251,12 @@ class Brain:
         I[self.motor] += motor_drive
         if self.reflex and self.rest_sense is not None:      # its own reflexes: oppose what changed since rest
             change = self.rates()[self.sense] - self.rest_sense
+            Wr = self.map if self.R is None else self.R
             if self.reflex_cols is None:
-                I[self.motor] -= self.reflex / self.reflex_scale * (self.map @ change)
+                I[self.motor] -= self.reflex / self.reflex_scale * (Wr @ change)
             else:
                 c = self.reflex_cols
-                I[self.motor] -= self.reflex / self.reflex_scale * (self.map[:, c] @ change[c])
+                I[self.motor] -= self.reflex / self.reflex_scale * (Wr[:, c] @ change[c])
         self.v += ALPHA * (-self.v + self.W @ self.rates() + I)
         return self.rates()
 
@@ -817,6 +827,70 @@ def reflex_diag(body, brain, log, label, gain=1.0):
     return out
 
 
+def practice(body, brain, minutes, rng, log, label, gain=1.0):
+    """Standing practice: set down standing again and again; its reflex synapses learn from its own dopamine-like
+    signal. Height, feet and 'still up' are measured for the log only; the brain never receives them."""
+    J = len(body.joint)
+    groups = {"joint angle": range(0, J), "joint speed": range(J, 2 * J), "effort": range(2 * J, 3 * J),
+              "limit push-back": range(3 * J, 4 * J), "foot pressure": range(4 * J, 4 * J + 4),
+              "gravity": range(4 * J + 4, 4 * J + 7), "turning": range(4 * J + 7, 4 * J + 10)}
+    cols = {k: brain.fibre_col[list(v)].ravel() for k, v in groups.items()}
+    brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    brain.reflex = gain
+    settle_reflex(body, brain)
+    brain.R = brain.map.copy()
+    R0 = brain.R.copy()
+    steps, ep, report = int(minutes * 60 / BRAIN_DT), int(EPISODE_S / BRAIN_DT), int(2 * 60 / BRAIN_DT)
+    e = np.zeros_like(brain.R)
+    burst = np.zeros(len(brain.motor))
+    m_mean = np.zeros(len(brain.motor))
+    d_mean, d_var = 0.0, 1e-4
+    prev_dev = None
+    ups, heights, devs, history = [], [], [], []
+    t0 = time.time()
+    for t in range(steps):
+        if t % ep == 0:
+            if t:
+                ups.append(is_up(body))
+                heights.append(float(body.d.qpos[2]))
+            body.reset("stand")
+            brain.fresh()
+            e[:] = 0.0
+            prev_dev = None
+        burst += BRAIN_DT / BABBLE_TAU * -burst + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(burst))
+        felt = body.feel()
+        dev = float(np.sqrt(np.mean(brain.zscore(felt) ** 2)))           # how far what it feels is from standing still
+        pre = brain.rates()[brain.sense] - brain.rest_sense
+        r = brain.step(felt, PRACTICE_NOISE * BABBLE_SIZE * burst)
+        body.step(brain.command(r))
+        m = r[brain.motor]
+        m_mean += 0.01 * (m - m_mean)
+        e *= PRACTICE_TRACE
+        e += np.outer(m - m_mean, pre)
+        if prev_dev is not None:
+            D = prev_dev - dev                                            # dopamine: back toward standing still feels good
+            d_mean += 0.001 * (D - d_mean)
+            d_var += 0.001 * ((D - d_mean) ** 2 - d_var)
+            dz = float(np.clip((D - d_mean) / np.sqrt(d_var + 1e-12), -3.0, 3.0))
+            brain.R -= PRACTICE_RATE * dz * e                             # reflex input is -R: strengthen what preceded good
+        prev_dev = dev
+        devs.append(dev)
+        if (t + 1) % report == 0 or t == steps - 1:
+            k = max(1, int(report / ep))
+            change = float(np.linalg.norm(brain.R - R0) / np.linalg.norm(R0))
+            same = {g: float(np.corrcoef(brain.R[:, c].ravel(), R0[:, c].ravel())[0, 1]) for g, c in cols.items()}
+            history.append({"minute": (t + 1) * BRAIN_DT / 60, "up_share": float(np.mean(ups[-k:])) if ups else None,
+                            "mean_end_height": float(np.mean(heights[-k:])) if heights else None,
+                            "mean_felt_deviation": float(np.mean(devs[-report:])), "reflex_change": change,
+                            "corr_with_start": same})
+            log(f"[{label}] practice {(t + 1) * BRAIN_DT / 60:4.1f} min ({time.time() - t0:4.0f} s): still up after 5 s in "
+                f"{np.mean(ups[-k:]) if ups else float('nan'):.0%} of the last {min(k, len(ups))} set-downs (end height "
+                f"{np.mean(heights[-k:]) if heights else float('nan'):.2f} m); felt deviation from standing still "
+                f"{np.mean(devs[-report:]):.2f}; reflexes changed {change:.0%}; still like the twitch-tuned ones (corr): "
+                + ", ".join(f"{g} {v:+.2f}" for g, v in same.items()))
+    return history
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
@@ -825,6 +899,7 @@ def main():
     ap.add_argument("--tone", action="store_true", help="muscle tone: the motor neurons move each joint's set point")
     ap.add_argument("--reflex", action="store_true", help="after babbling, test with the brain's own reflexes only")
     ap.add_argument("--reflex_diag", action="store_true", help="after babbling: which reflexes knock it over, and how")
+    ap.add_argument("--practice", type=float, default=0.0, help="minutes of standing practice (reflexes learn) before the tests")
     ap.add_argument("--diagnose", action="store_true", help="on the ground: record posture, the map, and the physical truth")
     ap.add_argument("--out", default="/kaggle/working" if Path("/kaggle/working").exists() else "results/babble")
     args = ap.parse_args([]) if JOB_ARGS else ap.parse_args()
@@ -870,10 +945,16 @@ def main():
         scores = joint_scores(brain, body)
         after = None if args.reflex else control_test(body, brain, scores, log, label + f", after {args.minutes:g} min of babbling")
         ground_after = ground_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling", None) if args.ground and not args.reflex else None
+        practised = None
+        if args.practice:
+            practised = practice(body, brain, args.practice, np.random.default_rng(2000 + dog), log, label)
         if args.reflex_diag:
             reflex = {f"x{g:g}": reflex_diag(body, brain, log, label, g) for g in (0.5, 1.0)}
+            if args.reflex:
+                reflex["tests"] = reflex_tests(body, brain, log, label + f", after babbling and {args.practice:g} min of practice")
         else:
-            reflex = reflex_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling") if args.reflex else None
+            reflex = reflex_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling"
+                                  + (f" and {args.practice:g} min of practice" if args.practice else "")) if args.reflex else None
         acc = map_accuracy(brain, body)
         per_joint = []
         for j, name in enumerate(body.names):
@@ -889,7 +970,7 @@ def main():
                 f"{np.mean(best == j):.0%}")
         results.append({"dog": dog + 1, "map": acc, "per_joint": per_joint, "control_newborn": before, "control_after": after,
                         "ground_newborn": ground_before, "ground_after": ground_after, "diagnosis": diag_report,
-                        "reflex": reflex})
+                        "reflex": reflex, "practice": practised})
     reach = lambda rows: float(np.mean([np.clip(r_["reach"], -1, 1) for r_ in rows]))
     log("VERDICT babbling: " + "; ".join(
         f"dog {r_['dog']}: body map right joint {r_['map']['joint']:.0%} (direction too {r_['map']['both']:.0%}), "
@@ -901,7 +982,8 @@ def main():
                                                               "BABBLE_TAU", "BABBLE_SIZE", "NERVE_FIBRES", "TRACE",
                                                               "HEBB_RATE", "HELD_AT", "REPOSITION_S", "FOOT_LOADED_N",
                                                               "STANDING_HEIGHT", "TONE_KP", "TONE_KD", "SET_SPEED",
-                                                              "MOTOR_TAU", "REFLEX_GAINS", "SETTLE_S")} | {"tone": bool(args.tone),
+                                                              "MOTOR_TAU", "REFLEX_GAINS", "SETTLE_S", "PRACTICE_RATE",
+                                                              "PRACTICE_TRACE", "PRACTICE_NOISE", "EPISODE_S")} | {"tone": bool(args.tone),
                                                               "ground": bool(args.ground), "reflex": bool(args.reflex)}}, indent=1))
     (out / "babble_log.txt").write_text("\n".join(lines_out))
     print("DONE", flush=True)
