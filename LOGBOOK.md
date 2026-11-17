@@ -5615,6 +5615,32 @@ Conclusions (believed, from the numbers above):
 Next: Kenyon cells fed from the visual projection neurons (sparse random expansion, as in a fly), a far smaller rate, and
 far longer lives on the owner's PC.
 
+### 6.14 Lifetime learning v2 on the owner's PC: seeing Kenyon cells (16–17 Nov)
+
+v2 (commits `e5c5160`, `e229a1c`): 800 Kenyon cells fed by the cone eye, each with 6 claws around one eye point, adapting
+to what that point usually sees; the top 5% fire. One compartment per heard word. Rate 0.1.
+Run: the owner's RTX 4500 Ada, 512 dogs, 120 minutes of life each, Round 58's 262k brain. Output: `results/life_v2_long/`.
+- Bugs found on the way:
+  - the synapse reader shadowed the brain dict at minute 10 (crash; `c8e8aa0`);
+  - a blown-up body's fetch reward was NaN and made 1 of 512 dogs' synapses NaN (`854acb2`, `81e2c93`).
+- Learned direction, real but weak (511 dogs). Turn-left minus turn-right, cells looking left minus cells looking right:
+  - "come" +0.061 (13 SE); "ball" +0.015 (3 SE);
+  - a thing on the left made turn-left 1.06× / 1.015× as likely as turn-right.
+- Behaviour did not change. Nose closing stayed at about 0.00 m/s.
+- Fresh-life test (sampling its choices): "ball" 16/512 against 34/512 as it is (−2.6 SE); "come" 3/512 against 24/512
+  (−4.1 SE). The untaught mushroom body still picks a non-"as told" skill 60% of the time; that alone costs this much.
+- Calculation, not trial:
+  - Multiplying the population's mean synapses by 10–40 gives "ball": 100% "as told" (which drifts away) and "come":
+    "pace" everywhere. Strengthening what was learned is rejected.
+  - Why: per second, the body's costs that differ between skills (energy, posture, about −0.6) and falls (about −0.21)
+    outweigh goal progress (at most about 0.1) roughly 10×. The dopamine learned which skill is cheapest, not which
+    reaches the goal.
+- v3 (`0fa1819`, `a93887a`):
+  - a goal word's compartment gets goal-only dopamine (progress plus falls), as a fly's compartments get their own
+    dopamine neurons;
+  - rate 0.3 (from the signal-to-noise numbers above);
+  - at test, each dog does what it learned is best, so an untaught dog equals the brain as it is.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
