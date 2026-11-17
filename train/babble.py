@@ -224,6 +224,7 @@ class Brain:
     reflex_scale = 1.0       # the map's own scale (99th percentile of its links per nerve)
     rest_sense = None        # how its sensory neurons fire when it stands still at rest
     rest_mean = None         # what its senses report at rest, standing
+    reflex_cols = None       # diagnosis only: use the reflexes from these sensory neurons alone (None: all)
 
     def zscore(self, felt):
         return np.clip((felt - self.mean) / np.sqrt(self.var + 1e-6), -4.0, 4.0)
@@ -240,7 +241,12 @@ class Brain:
         np.add.at(I, self.fibre_neuron.ravel(), (self.fibre_gain * zf[:, None]).ravel())
         I[self.motor] += motor_drive
         if self.reflex and self.rest_sense is not None:      # its own reflexes: oppose what changed since rest
-            I[self.motor] -= self.reflex / self.reflex_scale * (self.map @ (self.rates()[self.sense] - self.rest_sense))
+            change = self.rates()[self.sense] - self.rest_sense
+            if self.reflex_cols is None:
+                I[self.motor] -= self.reflex / self.reflex_scale * (self.map @ change)
+            else:
+                c = self.reflex_cols
+                I[self.motor] -= self.reflex / self.reflex_scale * (self.map[:, c] @ change[c])
         self.v += ALPHA * (-self.v + self.W @ self.rates() + I)
         return self.rates()
 
@@ -769,6 +775,48 @@ def reflex_tests(body, brain, log, label):
     return results
 
 
+def reflex_diag(body, brain, log, label, gain=1.0):
+    """Which of its reflexes knock it over, and how: set down standing, nothing asked, 5 s, with one kind of reflex
+    at a time. Drift: pools push one way steadily (|mean| / mean |output| near 1). Wobble: they flip back and forth."""
+    J = len(body.joint)
+    groups = {"joint angle": range(0, J), "joint speed": range(J, 2 * J), "effort": range(2 * J, 3 * J),
+              "limit push-back": range(3 * J, 4 * J), "foot pressure": range(4 * J, 4 * J + 4),
+              "gravity": range(4 * J + 4, 4 * J + 7), "turning": range(4 * J + 7, 4 * J + 10)}
+    cols = {k: brain.fibre_col[list(v)].ravel() for k, v in groups.items()}
+    reached = np.zeros(len(brain.sense), bool)
+    reached[brain.fibre_col.ravel()] = True
+    cols["no nerve (connectome only)"] = np.where(~reached)[0]
+    cols["none"] = np.zeros(0, int)
+    cols["all"] = np.arange(len(brain.sense))
+    brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    brain.reflex = gain
+    settle_reflex(body, brain)
+    out = {}
+    for name, c in cols.items():
+        brain.reflex_cols = c
+        body.reset("stand")
+        brain.fresh()
+        start = body.target.copy() if body.tone else body.angles()
+        traj = intend(body, brain, {}, 5.0)
+        h = np.array([t_[0] for t_ in traj])
+        cmd = np.array([t_[3] for t_ in traj])
+        fell = float((np.argmax(h < STANDING_HEIGHT) + 1) * BRAIN_DT) if (h < STANDING_HEIGHT).any() else None
+        drift = float(np.mean(np.abs(cmd.mean(0)) / (np.abs(cmd).mean(0) + 1e-9)))
+        flips = float(np.mean((np.diff(np.sign(cmd), axis=0) != 0).sum(0)) / 5.0)
+        moved = (body.target if body.tone else body.angles()) - start
+        e = end_state(traj)
+        out[name] = {"fell_s": fell, "end": e, "drift": drift, "flips_per_s": flips, "mean_abs_output": float(np.abs(cmd).mean()),
+                     "set_point_moved_rad": moved.tolist(), "height": h[::5].round(3).tolist(),
+                     "reflex_neurons": int(len(c))}
+        log(f"[{label}] DIAG reflexes from {name:26s} ({len(c):4d} sensory neurons), x{gain:g}, standing, nothing asked: "
+            f"fell at {fell} s; after 5 s trunk {e['end_height_m']:.2f} m, {e['end_feet_loaded']}/4 feet; pools' mean |output| "
+            f"{np.abs(cmd).mean():.2f}, one-way {drift:.2f}, flips {flips:.1f}/s; set points moved mean {np.abs(moved).mean():.2f} rad; "
+            f"height at 0.5/1/2/5 s " + "/".join(f"{h[int(t / BRAIN_DT) - 1]:.2f}" for t in (0.5, 1.0, 2.0, 5.0)))
+    brain.reflex_cols = None
+    brain.reflex = 0.0
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
@@ -776,6 +824,7 @@ def main():
     ap.add_argument("--ground", action="store_true", help="free on the ground, with foot touch and an inner ear")
     ap.add_argument("--tone", action="store_true", help="muscle tone: the motor neurons move each joint's set point")
     ap.add_argument("--reflex", action="store_true", help="after babbling, test with the brain's own reflexes only")
+    ap.add_argument("--reflex_diag", action="store_true", help="after babbling: which reflexes knock it over, and how")
     ap.add_argument("--diagnose", action="store_true", help="on the ground: record posture, the map, and the physical truth")
     ap.add_argument("--out", default="/kaggle/working" if Path("/kaggle/working").exists() else "results/babble")
     args = ap.parse_args([]) if JOB_ARGS else ap.parse_args()
@@ -821,7 +870,10 @@ def main():
         scores = joint_scores(brain, body)
         after = None if args.reflex else control_test(body, brain, scores, log, label + f", after {args.minutes:g} min of babbling")
         ground_after = ground_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling", None) if args.ground and not args.reflex else None
-        reflex = reflex_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling") if args.reflex else None
+        if args.reflex_diag:
+            reflex = {f"x{g:g}": reflex_diag(body, brain, log, label, g) for g in (0.5, 1.0)}
+        else:
+            reflex = reflex_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling") if args.reflex else None
         acc = map_accuracy(brain, body)
         per_joint = []
         for j, name in enumerate(body.names):
