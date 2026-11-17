@@ -802,9 +802,10 @@ def make_brain(core: dict, key, bias0: float = 0.0, goal_scale: float = 0.3, gai
 # ============================================================================ lifetime learning (Embodiogenesis)
 MB_EVERY = 30            # control steps one choice lasts (0.6 s: long enough for a gait to show what it earns)
 MB_OBEY = 2.0            # the "as told" output's head start: untaught, it does as it is told about 4 times in 10
-MB_RATE = 0.1            # how far one unit of dopamine moves a marked synapse (v1 used 2.0: its synapses random-walked
-                         # to sd 5-6 and drowned the signal; LOGBOOK 8.34)
-MB_EXPECT_RATE = 0.05    # the same for what it expects (the dopamine neurons' own forecast)
+MB_RATE = 0.3            # how far one unit of dopamine moves a marked synapse. v1 used 2.0 (synapses random-walked to
+                         # sd 5-6; LOGBOOK 8.34); v2 used 0.1 (a learned preference of 0.06 in 120 min, chance spread 0.045).
+                         # With goal-only dopamine (~10x the signal) 0.3 should reach ~1-2 in 120 min, chance spread ~0.13.
+MB_EXPECT_RATE = 0.15    # the same for what it expects (the dopamine neurons' own forecast)
 MB_DOPAMINE = 1.0        # dopamine saturates at plus or minus this (one fall must not erase everything it has learned)
 MB_DISCOUNT = 0.9        # what it expects after a choice counts this much (per choice)
 MB_TRACE = 0.7           # a synapse's mark keeps this share from one choice to the next (same word heard)
@@ -883,7 +884,8 @@ def make_mushroom(n_words: int, programs, slots, eye_shape, seed: int = 20261116
         expect_w = mb["expect_w"] + MB_EXPECT_RATE * (settle[:, None] * was)[:, :, None] * mb["expect_mark"][:, None]
         # a new choice: the output neurons of the heard word's compartment compete; the synapses that took part are marked
         logits = jp.einsum("bs,bsok,bk->bo", at, w, drive).at[:, 0].add(MB_OBEY)
-        pick = jax.random.categorical(key, logits, -1)
+        # learning: it tries (samples its choice); not learning (a test): it does what it has learned is best
+        pick = jp.where(jp.asarray(plastic) > 0, jax.random.categorical(key, logits, -1), jp.argmax(logits, -1))
         keep = MB_DISCOUNT * MB_TRACE * ((slot == mb["slot"]) & (mb["over"] == 0) & ~first)    # a new word or body: clean marks
         mark = keep[:, None, None] * mb["mark"] + (jax.nn.one_hot(pick, n_out) - jax.nn.softmax(logits, -1))[:, :, None] * kc[:, None, :]
         expect_mark = keep[:, None] * mb["expect_mark"] + kc
