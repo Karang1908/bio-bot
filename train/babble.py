@@ -67,6 +67,10 @@ PRACTICE_RATE = 1e-5     # reflex synapse change per step per unit of (standardi
 PRACTICE_TRACE = 0.9     # eligibility kept from step to step (~0.2 s)
 PRACTICE_NOISE = 0.5     # share of babbling's spontaneous motor activity kept while practising (to try variations)
 EPISODE_S = 5.0          # s: each time it is set down standing
+SUPPORT_FADE_SHARE = 2 / 3   # --support: a parent's hands hold the trunk (springs toward standing height and level)
+                             # during practice; the help fades linearly to zero over this share of practice, after
+                             # which it practises alone. Physical help only: the brain is never told about it.
+SUPPORT_SAG = 0.05       # m: at full support the hands carry its whole weight with this much sag
 PRACTICE_GAIN0 = 0.25    # reflexes start weak in practice (they knock it over within ~1 s at x0.5 and above) ...
 PRACTICE_GAIN_STEP = 1.25  # ... and the trainer strengthens them by this factor after each 2 min with it still up in
                            # at least half the set-downs, up to x1. The brain is never told whether it is up.
@@ -118,11 +122,14 @@ class Body:
         self.base = self.m.body("base").id
         self.feet = [self.m.geom(f).id for f in ("FL", "FR", "RL", "RR")]
         self._force = np.zeros(6)
+        self.support = 0.0                         # a parent's hands on the trunk: 0 (none) .. 1 (carries its weight)
+        self.mass = float(self.m.body_subtreemass[self.base])
         self.reset()
 
     def reset(self, pose: str = "stand", rng=None):
         """Held: back in the parent's hands. On the ground: set down standing, on its belly, or on one side."""
         self.mj.mj_resetDataKeyframe(self.m, self.d, self.m.keyframe("home").id)
+        self.d.xfrc_applied[:] = 0.0                                     # no hands left on it from before
         if self.held:
             self.hold()
             self.mj.mj_forward(self.m, self.d)
@@ -160,12 +167,27 @@ class Body:
         else:
             self.d.ctrl[:] = np.clip(self.tmax * out, -self.tmax, self.tmax)
         for _ in range(self.subs):
+            self.d.xfrc_applied[self.base] = self.hands() if self.support > 0 else 0.0
             if self.tone:
                 pull = TONE_KP * (self.target - self.d.qpos[self.qadr]) - TONE_KD * self.d.qvel[self.vadr]
                 self.d.ctrl[:] = np.clip(pull, -self.tmax, self.tmax)
             self.mj.mj_step(self.m, self.d)
             if self.held:
                 self.hold()
+
+    def hands(self):
+        """The parent's hands: a spring-damper up toward standing height (0.27 m) and a spring-damper turning the
+        trunk back to level (yaw free), scaled by how much help is left."""
+        mg = self.mass * 9.81
+        kz = mg / SUPPORT_SAG
+        cz = np.sqrt(kz * self.mass)
+        fz = np.clip(kz * (0.27 - self.d.qpos[2]) - cz * self.d.qvel[2], -mg, mg)
+        R = self.d.xmat[self.base].reshape(3, 3)
+        kr = 2.0 * mg * 0.27                                   # twice the tipping torque per radian of tilt
+        cr = 2.0 * np.sqrt(kr * 0.1)
+        w = R @ self.d.qvel[3:6]                               # trunk turning, world frame
+        tq = kr * np.cross(R[:, 2], [0.0, 0.0, 1.0]) - cr * np.array([w[0], w[1], 0.0])
+        return self.support * np.array([0.0, 0.0, fz, tq[0], tq[1], tq[2]])
 
     def angles(self):
         return self.d.qpos[self.qadr].copy()
@@ -832,7 +854,7 @@ def reflex_diag(body, brain, log, label, gain=1.0):
     return out
 
 
-def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0):
+def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0, support=False):
     """Standing practice: set down standing again and again; its reflex synapses learn from its own dopamine-like
     signal. Height, feet and 'still up' are measured for the log only; the brain never receives them."""
     J = len(body.joint)
@@ -853,7 +875,10 @@ def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0):
     prev_dev = None
     ups, heights, devs, history = [], [], [], []
     first = int(1.0 / BRAIN_DT)                                           # premise test: the first second of each set-down
+    if support:
+        first = ep                                                        # with help it does not fall: use every step
     push_by_group, dopamine = [], []
+    fade = SUPPORT_FADE_SHARE * steps
     t0 = time.time()
     for t in range(steps):
         if t % ep == 0:
@@ -864,6 +889,7 @@ def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0):
             brain.fresh()
             e[:] = 0.0
             prev_dev = None
+        body.support = max(0.0, 1.0 - t / fade) if support else 0.0
         burst += BRAIN_DT / BABBLE_TAU * -burst + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(burst))
         felt = body.feel()
         dev = float(np.sqrt(np.mean(brain.zscore(felt) ** 2)))           # how far what it feels is from standing still
@@ -894,16 +920,25 @@ def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0):
             same = {g: float(np.corrcoef(brain.R[:, c].ravel(), R0[:, c].ravel())[0, 1]) for g, c in cols.items()}
             if ups and np.mean(ups[-k:]) >= 0.5 and brain.reflex < 1.0:
                 brain.reflex = min(1.0, brain.reflex * PRACTICE_GAIN_STEP)
-            history.append({"minute": (t + 1) * BRAIN_DT / 60, "gain": brain.reflex,
+            credit = None
+            if len(dopamine) > 3 * first:
+                Pw, Dw = np.array(push_by_group[-report:]), np.array(dopamine[-report:])
+                credit = {g: float(np.corrcoef(Pw[:-3, i], Dw[3:])[0, 1]) for i, g in enumerate(cols)}
+            history.append({"minute": (t + 1) * BRAIN_DT / 60, "gain": brain.reflex, "support": body.support,
+                            "credit_last_2min": credit,
                             "up_share": float(np.mean(ups[-k:])) if ups else None,
                             "mean_end_height": float(np.mean(heights[-k:])) if heights else None,
                             "mean_felt_deviation": float(np.mean(devs[-report:])), "reflex_change": change,
                             "corr_with_start": same})
-            log(f"[{label}] practice {(t + 1) * BRAIN_DT / 60:4.1f} min ({time.time() - t0:4.0f} s), reflexes now x{brain.reflex:.2f}: still up after 5 s in "
+            log(f"[{label}] practice {(t + 1) * BRAIN_DT / 60:4.1f} min ({time.time() - t0:4.0f} s), reflexes now x{brain.reflex:.2f}, "
+                f"help {body.support:.0%}: still up after 5 s in "
                 f"{np.mean(ups[-k:]) if ups else float('nan'):.0%} of the last {min(k, len(ups))} set-downs (end height "
                 f"{np.mean(heights[-k:]) if heights else float('nan'):.2f} m); felt deviation from standing still "
                 f"{np.mean(devs[-report:]):.2f}; reflexes changed {change:.0%}; still like the twitch-tuned ones (corr): "
-                + ", ".join(f"{g} {v:+.2f}" for g, v in same.items()))
+                + ", ".join(f"{g} {v:+.2f}" for g, v in same.items())
+                + ("" if credit is None else "; credit (push vs dopamine 60 ms later): "
+                   + ", ".join(f"{g} {v:+.3f}" for g, v in credit.items())))
+    body.support = 0.0
     # premise: in the first second of a set-down, does each kind of reflex's push line up with the dopamine 60 ms later?
     P, Dd = np.array(push_by_group), np.array(dopamine)
     lag = 3
@@ -925,6 +960,7 @@ def main():
     ap.add_argument("--tone", action="store_true", help="muscle tone: the motor neurons move each joint's set point")
     ap.add_argument("--reflex", action="store_true", help="after babbling, test with the brain's own reflexes only")
     ap.add_argument("--reflex_diag", action="store_true", help="after babbling: which reflexes knock it over, and how")
+    ap.add_argument("--support", action="store_true", help="practice with a parent's hands on the trunk, fading to none")
     ap.add_argument("--practice", type=float, default=0.0, help="minutes of standing practice (reflexes learn) before the tests")
     ap.add_argument("--diagnose", action="store_true", help="on the ground: record posture, the map, and the physical truth")
     ap.add_argument("--out", default="/kaggle/working" if Path("/kaggle/working").exists() else "results/babble")
@@ -973,7 +1009,8 @@ def main():
         ground_after = ground_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling", None) if args.ground and not args.reflex else None
         practised = None
         if args.practice:
-            practised = practice(body, brain, args.practice, np.random.default_rng(2000 + dog), log, label)
+            practised = practice(body, brain, args.practice, np.random.default_rng(2000 + dog), log, label,
+                                 support=bool(args.support))
         if args.reflex_diag:
             reflex = {f"x{g:g}": reflex_diag(body, brain, log, label, g) for g in (0.5, 1.0)}
             if args.reflex:
@@ -1010,7 +1047,8 @@ def main():
                                                               "STANDING_HEIGHT", "TONE_KP", "TONE_KD", "SET_SPEED",
                                                               "MOTOR_TAU", "REFLEX_GAINS", "SETTLE_S", "PRACTICE_RATE",
                                                               "PRACTICE_TRACE", "PRACTICE_NOISE", "EPISODE_S",
-                                                              "PRACTICE_GAIN0", "PRACTICE_GAIN_STEP")} | {"tone": bool(args.tone),
+                                                              "PRACTICE_GAIN0", "PRACTICE_GAIN_STEP",
+                                                              "SUPPORT_FADE_SHARE", "SUPPORT_SAG")} | {"tone": bool(args.tone),
                                                               "ground": bool(args.ground), "reflex": bool(args.reflex)}}, indent=1))
     (out / "babble_log.txt").write_text("\n".join(lines_out))
     print("DONE", flush=True)
