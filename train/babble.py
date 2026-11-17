@@ -233,6 +233,7 @@ class Brain:
     def command(self, r):
         net = np.bincount(self.drives, weights=self.push * r[self.motor], minlength=self.n_motors)
         x = 1.5 * net / np.sqrt(np.bincount(self.drives, minlength=self.n_motors) + 1.0)
+        self.last_raw = x
         if self.motor_baseline is not None:
             self.motor_baseline += BRAIN_DT / MOTOR_TAU * (x - self.motor_baseline)
             x = x - self.motor_baseline
@@ -255,12 +256,18 @@ def babble(body, brain, minutes, rng, log, label, diag=None):
     every = int(REPOSITION_S / BRAIN_DT)
     for t in range(steps):
         if not body.held and t % every == 0:
-            body.reset(POSES[rng.integers(len(POSES))], rng)
+            pose = POSES[rng.integers(len(POSES))]
+            body.reset(pose, rng)
             trace[:] = 0.0                                                # being moved is not something it did
+            if diag is not None:
+                if diag["up_since"] is not None:
+                    diag["stand_lasted_s"].append((t - diag["up_since"]) * BRAIN_DT)
+                diag["up_since"] = t if pose == "stand" else None
         burst += BRAIN_DT / BABBLE_TAU * -burst + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(burst))
         felt = body.feel()
         r = brain.step(felt, BABBLE_SIZE * burst)
-        body.step(brain.command(r))
+        out_cmd = brain.command(r)
+        body.step(out_cmd)
         m = r[brain.motor]
         m_mean += 0.01 * (m - m_mean)
         s = r[brain.sense]
@@ -272,6 +279,10 @@ def babble(body, brain, minutes, rng, log, label, diag=None):
             diag["standing"] += standing
             diag["steps"] += 1
             diag["part"][standing] += HEBB_RATE * np.outer(trace, (s - s_prev)[diag["cols"]])
+            diag["abs_command"] += np.abs(out_cmd)
+            if diag["up_since"] is not None and not standing and t > diag["up_since"] + 1:
+                diag["stand_lasted_s"].append((t - diag["up_since"]) * BRAIN_DT)
+                diag["up_since"] = None
         trace = TRACE * trace + (1 - TRACE) * (m - m_mean)
         s_prev = s
         q = body.angles()
@@ -358,8 +369,9 @@ def steer(body, brain, S, targets, seconds, flail=None):
             err = np.clip(z_goal - z_now, -3.0, 3.0)
             drive = np.clip(np.maximum(S[:, lines] @ err, 0.0) / scale, 0.0, 3.0)
         r = brain.step(felt, drive)
-        body.step(brain.command(r))
-        traj.append((float(body.d.qpos[2]), float(-body.gravity()[2]), body.touch()))
+        out_cmd = brain.command(r)
+        body.step(out_cmd)
+        traj.append((float(body.d.qpos[2]), float(-body.gravity()[2]), body.touch(), out_cmd, brain.last_raw.copy()))
     return traj
 
 
@@ -407,10 +419,35 @@ def ground_tests(body, brain, log, label, rng):
         out[f"weight on {foot}"] = {"share_before": float(s0), "share_after": float(s1), "end": end_state(traj)}
     log(f"[{label}] shift its weight onto one foot as asked: that foot's share of the weight "
         + ", ".join(f"{f} {a:.0%}->{b:.0%}" for f, (a, b) in zip(("FL", "FR", "RL", "RR"), shares)))
-    body.reset("stand")
-    brain.v[:] = 0.0
-    out["weight, map switched off"] = {"end": end_state(steer(body, brain, np.zeros_like(S),
-                                                              {int(nerve["touch"][0]): 0.0}, 2.0))}
+    for key in ("weight, map switched off", "map off, brain's output cut", "map off, babbling on"):
+        body.reset("stand")
+        brain.v[:] = 0.0
+        start = body.target.copy() if body.tone else body.angles()
+        baseline = None if brain.motor_baseline is None else brain.motor_baseline.copy()
+        if key == "map off, brain's output cut":
+            traj = []
+            for _ in range(int(2.0 / BRAIN_DT)):
+                brain.step(body.feel(), np.zeros(len(brain.motor)))
+                brain.command(brain.rates())
+                body.step(np.zeros(len(body.joint)))
+                traj.append((float(body.d.qpos[2]), float(-body.gravity()[2]), body.touch(), np.zeros(len(body.joint)),
+                             brain.last_raw.copy()))
+        else:
+            traj = steer(body, brain, np.zeros_like(S), {int(nerve["touch"][0]): 0.0}, 2.0,
+                         flail=np.random.default_rng(77) if key == "map off, babbling on" else None)
+        cmd = np.array([t_[3] for t_ in traj])
+        raw = np.array([t_[4] for t_ in traj])
+        moved = (body.target if body.tone else body.angles()) - start
+        if baseline is not None:
+            brain.motor_baseline[:] = baseline                            # each trial starts from the same brain
+        out[key] = {"end": end_state(traj), "mean_output": cmd.mean(0).tolist(), "mean_raw_drive": raw.mean(0).tolist(),
+                    "baseline_at_start": None if baseline is None else baseline.tolist(), "set_point_moved_rad": moved.tolist()}
+        e = out[key]["end"]
+        log(f"[{label}] DIAG set down standing, {key}: after 2 s trunk {e['end_height_m']:.2f} m, feet bearing weight "
+            f"{e['end_feet_loaded']}/4; each pool's mean output " + " ".join(f"{x:+.2f}" for x in cmd.mean(0))
+            + "; raw resting drive " + " ".join(f"{x:+.2f}" for x in raw.mean(0))
+            + ("" if baseline is None else "; what it learned to cancel " + " ".join(f"{x:+.2f}" for x in baseline))
+            + f"; {'set points' if body.tone else 'joints'} moved " + " ".join(f"{x:+.2f}" for x in moved) + " rad")
     for key in [f"weight on {f}" for f in ("FL", "FR", "RL", "RR")] + ["weight, map switched off"]:
         e = out[key]["end"]
         log(f"[{label}]   {key}: after 2 s, feet bearing weight {e['end_feet_loaded']}/4 (forces "
@@ -489,6 +526,12 @@ def diagnose(body, brain, diag, log, label, out_dir, dog):
     n = max(diag["steps"], 1)
     log(f"[{label}] DIAG babbling time with 0/1/2/3/4 feet bearing weight (> {FOOT_LOADED_N:g} N): "
         + "/".join(f"{c / n:.0%}" for c in diag["feet_loaded"]) + f"; standing (upright, trunk above {STANDING_HEIGHT:g} m, on 3-4 feet): {diag['standing'] / n:.1%}")
+    lasted = np.array(diag["stand_lasted_s"]) if diag["stand_lasted_s"] else np.zeros(1)
+    log(f"[{label}] DIAG set down standing {len(diag['stand_lasted_s'])} times while babbling; it stayed up for "
+        f"median {np.median(lasted):.2f} s (10th-90th percentile {np.percentile(lasted, 10):.2f}-{np.percentile(lasted, 90):.2f} s, "
+        f"set down for 15 s each time); motor pools' mean |output| while babbling "
+        + " ".join(f"{a / n:.2f}" for a in diag["abs_command"])
+        + (f" (with tone: set points move {SET_SPEED * diag['abs_command'].mean() / n:.2f} rad/s on average)" if body.tone else ""))
     gains = brain.fibre_gain[4 * J:4 * J + 7]
     part = [np.einsum("mlf,lf->ml", p.reshape(len(brain.motor), 7, NERVE_FIBRES), gains) for p in diag["part"]]
     S = line_scores(brain)[:, 4 * J:4 * J + 7]
@@ -558,7 +601,8 @@ def main():
         body.reset()
         diag = None
         if args.ground and args.diagnose:
-            diag = {"feet_loaded": [0] * 5, "standing": 0, "steps": 0,
+            diag = {"feet_loaded": [0] * 5, "standing": 0, "steps": 0, "up_since": None, "stand_lasted_s": [],
+                    "abs_command": np.zeros(len(body.joint)),
                     "cols": brain.fibre_col[4 * len(body.joint):4 * len(body.joint) + 7].ravel(),
                     "part": np.zeros((2, len(brain.motor), 7 * NERVE_FIBRES))}
         explored = babble(body, brain, args.minutes, np.random.default_rng(1000 + dog), log, label, diag)
