@@ -5733,6 +5733,48 @@ Believed from the code, not measured: why it is limp at rest. Each motor is driv
 push sign, so the net torque at rest is near zero. The Go2's joints have only damping and friction, nothing that holds
 them against gravity, and the babbling bursts are zero-mean.
 
+### 6.18 Muscle tone, a test bug, and why steering still fails: measured (17 Nov)
+
+`babble.py --ground --tone --diagnose`. Muscle tone: each joint springs toward a set point with stiffness 20 N·m/rad
+and damping 0.5. The motor pools move the set point at up to 4 rad/s, and their steady resting drive is adapted away
+(time constant 3 s). Jobs and commits:
+
+- `babble-tone1`: run with the old 0.20 m standing threshold; only the threshold-free numbers are used.
+- `babble-tone2` (3 dogs, `f7a8e68`): standing threshold 0.16 m; with tone the dog stands crouched at 0.19 m, and lying
+  measures 0.07–0.14 m.
+- `babble-tone-diag1` (`f3b4691`), `babble-tone-diag2` (`5411c15`), `babble-tone-diag3` (`56f0c92`): one dog each.
+
+1. **Tone holds a newborn up.** Set down standing, map off, it is crouched at 0.19 m on 4 feet after 2 s. Without
+   tone it lay at 0.09 m.
+2. **Learning with tone (3 dogs):** body map 100%, joint control 99%. The map's links to standing foot pressure are
+   right 63–98% (17–63% without tone).
+3. **Test bug: carry-over.** After babbling, it collapsed even with its map off (0.10–0.11 m, 0 feet). Measured:
+   - each pool's resting drive was −0.09 to +0.15, but its adaptation held up to +0.96;
+   - the adaptation remembers only ~3 s, so it held the previous trial's steering push, not babbling;
+   - with the brain's output cut, it stood (0.20 m, 4 feet).
+
+   Fix (`5411c15`): settle 15 s at rest with output cut, and start every trial from that state. Verified: map off
+   after babbling, it stands at 0.19 m on 4 feet, each pool's output ≈ 0.00. Isolation in joint control improved
+   (other joints move 0.17 rad, from 0.37).
+4. **Steering still fails.** In 6 of 8 tilt/weight trials it reaches the asked change at 0.04–0.9 s, then cannot stop
+   and falls (trunk < 0.16 m) at 0.4–1.7 s. Measured step by step (`babble-tone-diag3`):
+   - **Roll left:** almost no roll for 0.6 s while the steering drive is 53–70. It passes the target at 0.74 s. The
+     reversed error then drives 141–197, and the roll keeps growing to 3.5–4.7 × the asked angle.
+   - **Weight on FL:** reached at 0.12 s. It lost it at 0.5 s; FL left the ground, the trunk sank to 0.12 m, and the
+     drive stayed saturated (164) for the rest of the trial with no effect.
+
+   The steering law is test code, not the brain: each motor neuron is driven by its learned link times the remaining
+   error. With tone, that drive moves the set points, so the posture keeps moving after the target is reached. The
+   map mostly describes the first ~60 ms of a motor's effect in one posture: standing foot links are right 63–83% at
+   60 ms, 46–75% at 0.2 s and 50–61% at 0.5 s. So the corrections are wrong once the posture has changed.
+5. **The "time standing while babbling" measure is invalid** (median 0.06 s, faster than a free fall of 0.15 s). The
+   jiggled set-down pose starts some feet off the floor.
+6. **Babbling posture drifts fast.** Set points move 1.45 rad/s on average while babbling, and standing is 1.1% of
+   babbling time.
+
+Open: the brain does not yet use its own map; the tests do. Tilt and weight results measure that test controller as
+much as the brain.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
