@@ -5641,6 +5641,38 @@ Run: the owner's RTX 4500 Ada, 512 dogs, 120 minutes of life each, Round 58's 26
   - rate 0.3 (from the signal-to-noise numbers above);
   - at test, each dog does what it learned is best, so an untaught dog equals the brain as it is.
 
+### 6.15 Embodiogenesis from scratch: the brain learns its body by babbling (17 Nov)
+
+The owner reset the direction: no goals and no prediction. A brain in the dog babbles, feels every joint to its limits,
+and learns its own body. New standalone script `train/babble.py` (`83a4320`), Kaggle CPU (no GPU).
+
+- **Brain:** the fly connectome core v2, 7,019 neurons, rate model.
+- **Wiring:** each of its 370 motor neurons drives one of the 12 motors, pushing one way or the other. Each of 48
+  anonymous nerves (joint angle, speed, effort, and the push-back at a limit) reaches 16 sensory neurons. The draw is
+  fixed (`GENOME = 20261117`) and never told to the brain.
+- **Babbling:** spontaneous motor bursts; the trunk is held in the air like a baby's. Plastic motor → sensory synapses
+  grow by a local Hebbian rule (motor activity, then the change felt). No reward, no backprop, no prediction.
+- **Test:** the brain drives each joint to each end using only its learned map. "Map" means the share of motor neurons
+  whose strongest learned link is to the joint they really move, in the right direction.
+
+Results (3 dogs, same genome, each its own babbling; `results/babble1/`):
+
+| | dog 1 | dog 2 | dog 3 |
+|---|---|---|---|
+| body map after 5 / 10 / 15 / 30 min of babbling | 88 / 96 / 99 / 100% | 85 / 97 / 99 / 100% | 85 / 97 / 99 / 100% |
+| joint limits felt (of 24) at 30 min | 24 | 24 | 24 |
+| range explored, least-explored joint | 102% | 103% | 103% |
+| control: share of the way to the asked limit, newborn → after | 0% → 100% | 0% → 100% | 0% → 100% |
+| control: moves reaching ≥ 80% of the way, newborn → after | 25% → 100% | 25% → 100% | 25% → 100% |
+| other joints' movement during a command, newborn → after | 0.73 → 0.39 rad | 0.73 → 0.38 rad | 0.73 → 0.39 rad |
+
+Chance for the map is 8% (right joint) or 4% (right joint and direction). Above 100% range: MuJoCo's joint limits are
+slightly soft; the push past is what the brain feels as the limit. Each dog took about 6.7 min of Kaggle CPU.
+
+Not yet: joints are not moved in isolation (others move ~0.38 rad from gravity on hanging legs and activity spreading in
+the connectome); the body is held in the air; only joint senses are used. Next, in the owner's order: the whole body
+(standing, contact with the ground, balance), still learned by itself.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
