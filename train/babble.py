@@ -43,7 +43,7 @@ HELD_AT = 0.6            # m: the trunk is held in the air at this height, as a 
 REPOSITION_S = 15.0      # s: on the ground, a parent sets the dog down somewhere new this often (as babies get moved)
 POSES = ("stand", "belly", "left_side", "right_side")
 FOOT_LOADED_N = 5.0      # N: a foot counts as bearing weight above this (the dog weighs ~150 N)
-STANDING_HEIGHT = 0.2    # m: trunk at least this high counts as up on its legs (set down standing: 0.27; lying: ~0.09-0.14)
+STANDING_HEIGHT = 0.16   # m: trunk above this counts as up on its legs (measured: lying 0.07-0.14; with tone it stands at 0.19)
 # --tone: muscle tone. Each joint springs toward a set point (the Go2's standard stiffness and damping); the motor
 # neurons move the set point; when the dog is set down, the set points take the posture it is in.
 TONE_KP = 20.0           # N m / rad
