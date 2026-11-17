@@ -26,8 +26,8 @@ Do not treat historical plans or pending-status notes as current authorization o
 - The fly brain is the decision-making layer. Actions, goals, plans and self-reports must come from it. Do not add
   an external LLM or a hand-written runtime controller that thinks or chooses movements for the dog.
 - **Body first (owner, 17 Nov).** Embodiogenesis means the brain learns its whole body. Train and judge body mastery
-  first: every skill against the real dog (gaits, turns, back, jump, sit, lie-down, getting up, few falls) and the
-  brain's own prediction of its senses. No goal tasks (ball, come, fetch) until the owner says the body is mastered.
+  first, by what the dog does: every skill against the real dog (gaits, turns, back, jump, sit, lie-down, getting up,
+  few falls). Not by a prediction score. No goal tasks (ball, come, fetch) until the owner says the body is mastered.
   Goal training eroded the gaits twice (long run 1, fetch3).
 - **Nothing hard-coded (owner, 15 Nov).** Do not set by hand which situation leads to which action, even from the
   brain's own learned parts: a hand-set "ball-left → turn-left" table was rejected. Build the learning mechanism
