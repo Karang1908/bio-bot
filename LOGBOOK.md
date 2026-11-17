@@ -5673,6 +5673,38 @@ Not yet: joints are not moved in isolation (others move ~0.38 rad from gravity o
 the connectome); the body is held in the air; only joint senses are used. Next, in the owner's order: the whole body
 (standing, contact with the ground, balance), still learned by itself.
 
+### 6.16 Babbling on the ground: joints and roll learned; pitch, weight shift and getting up not yet (17 Nov)
+
+Same script with `--ground` (`def3aad`), Kaggle CPU job `babble-ground1`, 3 dogs × 30 min, same genome.
+
+- **Ground mode:** the dog is free on the floor and is set down every 15 s in one of four poses: standing, on its belly,
+  or on either side.
+- **Senses:** 10 nerves are appended to the 48 joint nerves (58 in all): pressure under each foot (4), the inner ear's
+  gravity direction (3) and turning (3). The existing wiring draws are unchanged.
+- **Tests:** these use only the learned map. Each step drives the motor neurons whose learned link moves a sense toward
+  the asked value.
+
+Results (newborn baseline identical for all three dogs; `results/babble-ground1/`):
+
+| | newborn | dog 1 | dog 2 | dog 3 |
+|---|---|---|---|---|
+| body map (right joint and direction) | — | 100% | 100% | 100% |
+| joint control: share of the way to the asked end | 0% | 100% | 100% | 100% |
+| tilt: roll left / roll right (share of asked 0.25 rad) | −70 / +70% | +78 / +86% | +85 / +119% | +181 / +102% |
+| tilt: nose down / nose up | −19 / +19% | +5 / +56% | −60 / +46% | +39 / +44% |
+| weight onto FL / FR / RL / RR (that foot's share, from 26/26/24/24%) | 0 / 20 / 43 / 38% | 5 / 0 / 0 / 56% | 0 / 0 / 0 / 100% | 0 / 0 / 0 / 100% |
+| from its side to upright: its map / flailing / doing nothing | 5/8, 6/8, 5/8 | 4/8, 6/8, 8/8 | 6/8, 7/8, 8/8 | 8/8, 7/8, 8/8 |
+
+- **Learned:** the body map and joint control (as held), and roll in both directions in all three dogs.
+- **Not learned:**
+  - Pitch is inconsistent: nose-down went the wrong way in dog 2.
+  - Weight shift fails: whichever foot is asked, the weight ends on RR. RR's 56–100% is that lean, not control.
+- **Get-up test invalid:** doing nothing scores 8/8, because the folded-leg side pose tips onto the belly by itself
+  and the test only checks trunk orientation. A valid test needs a stable start pose and standing height.
+- **Hypothesis (unverified):** 3 of the 4 placements are lying down, and the dog folds within about a second when set
+  standing. So it rarely babbled with its feet loaded, and its map hardly links its legs to foot pressure or pitch.
+  The next run should measure the share of babbling time spent with the feet loaded before changing anything.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
