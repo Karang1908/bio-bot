@@ -40,6 +40,8 @@ NERVE_FIBRES = 16        # sensory neurons per nerve (half excited by an increas
 TRACE = 0.7              # motor activity trace kept from step to step (60 ms): what the body felt shortly after
 HEBB_RATE = 1e-3         # how fast a motor-to-sensory synapse strengthens
 HELD_AT = 0.6            # m: the trunk is held in the air at this height, as a parent holds a baby
+REPOSITION_S = 15.0      # s: on the ground, a parent sets the dog down somewhere new this often (as babies get moved)
+POSES = ("stand", "belly", "left_side", "right_side")
 
 
 def ensure_packages():
@@ -68,9 +70,10 @@ def load_core():
 
 
 class Body:
-    """The Go2, held in the air by its trunk. Torque motors; every joint has a hard limit."""
+    """The Go2: held in the air by its trunk, or free on the ground. Torque motors; every joint has a hard limit.
+    On the ground it also has touch in each foot and an inner ear (which way gravity pulls, and how it is turning)."""
 
-    def __init__(self, go2: Path):
+    def __init__(self, go2: Path, held: bool = True):
         import mujoco
         self.mj = mujoco
         self.m = mujoco.MjModel.from_xml_path(str(go2 / "scene.xml"))
@@ -82,12 +85,35 @@ class Body:
         self.lo, self.hi = self.m.jnt_range[self.joint, 0].copy(), self.m.jnt_range[self.joint, 1].copy()
         self.tmax = self.m.actuator_ctrlrange[:, 1].copy()
         self.names = [self.m.joint(j).name.replace("_joint", "") for j in self.joint]
+        self.held = held
+        self.base = self.m.body("base").id
+        self.feet = [self.m.geom(f).id for f in ("FL", "FR", "RL", "RR")]
+        self._force = np.zeros(6)
         self.reset()
 
-    def reset(self):
+    def reset(self, pose: str = "stand", rng=None):
+        """Held: back in the parent's hands. On the ground: set down standing, on its belly, or on one side."""
         self.mj.mj_resetDataKeyframe(self.m, self.d, self.m.keyframe("home").id)
-        self.hold()
-        self.mj.mj_forward(self.m, self.d)
+        if self.held:
+            self.hold()
+            self.mj.mj_forward(self.m, self.d)
+            return
+        q = self.d.qpos
+        if pose != "stand":
+            q[self.qadr] = np.tile([0.0, 1.3, -2.6], 4)                 # legs folded
+            q[2] = 0.14
+            if pose != "belly":
+                a = (1.0 if pose == "left_side" else -1.0) * np.pi / 2
+                q[2], q[3:7] = 0.2, [np.cos(a / 2), np.sin(a / 2), 0.0, 0.0]
+        if rng is not None:
+            q[self.qadr] += rng.uniform(-0.2, 0.2, len(self.qadr))
+        self.d.qvel[:] = 0.0
+        self.d.ctrl[:] = 0.0
+        if pose == "stand":                                              # set on its feet; holding itself up is its job
+            self.mj.mj_forward(self.m, self.d)
+            return
+        for _ in range(int(0.5 / self.m.opt.timestep)):                 # let it settle onto the floor, limp
+            self.mj.mj_step(self.m, self.d)
 
     def hold(self):
         self.d.qpos[0:3] = [0.0, 0.0, HELD_AT]
@@ -98,15 +124,38 @@ class Body:
         self.d.ctrl[:] = np.clip(torque, -self.tmax, self.tmax)
         for _ in range(self.subs):
             self.mj.mj_step(self.m, self.d)
-            self.hold()
+            if self.held:
+                self.hold()
 
     def angles(self):
         return self.d.qpos[self.qadr].copy()
 
     def feel(self):
-        """What the joints' own sense organs report: angle, speed, effort, and the push-back at a limit."""
-        return np.concatenate([self.d.qpos[self.qadr], self.d.qvel[self.vadr],
-                               self.d.actuator_force, self.d.qfrc_constraint[self.vadr]])
+        """What the joints' own sense organs report: angle, speed, effort, and the push-back at a limit. On the
+        ground also: the pressure under each foot, and the inner ear."""
+        joints = [self.d.qpos[self.qadr], self.d.qvel[self.vadr], self.d.actuator_force, self.d.qfrc_constraint[self.vadr]]
+        if self.held:
+            return np.concatenate(joints)
+        return np.concatenate([*joints, self.touch(), self.gravity(), self.d.qvel[3:6]])
+
+    def touch(self):
+        f = np.zeros(4)
+        for i in range(self.d.ncon):
+            c = self.d.contact[i]
+            for k, g in enumerate(self.feet):
+                if c.geom1 == g or c.geom2 == g:
+                    self.mj.mj_contactForce(self.m, self.d, i, self._force)
+                    f[k] += abs(self._force[0])
+        return f
+
+    def gravity(self):
+        """Which way gravity pulls, in the trunk's own frame: (0, 0, -1) when upright."""
+        return self.d.xmat[self.base].reshape(3, 3).T @ np.array([0.0, 0.0, -1.0])
+
+    def tilt(self):
+        """True roll and pitch of the trunk (rad), for the tests only."""
+        g = self.gravity()
+        return float(np.arctan2(-g[1], -g[2])), float(np.arcsin(np.clip(g[0], -1.0, 1.0)))
 
 
 class Brain:
@@ -141,12 +190,18 @@ class Brain:
     def rates(self):
         return np.tanh(np.maximum(self.v, 0.0))
 
+    adapting = True
+
+    def zscore(self, felt):
+        return np.clip((felt - self.mean) / np.sqrt(self.var + 1e-6), -4.0, 4.0)
+
     def step(self, felt, motor_drive):
-        self.seen += 1
-        a = max(1.0 / self.seen, 0.002)                                  # adapts within ~10 s
-        self.mean += a * (felt - self.mean)
-        self.var += a * ((felt - self.mean) ** 2 - self.var)
-        zf = np.clip((felt - self.mean) / np.sqrt(self.var + 1e-6), -4.0, 4.0)
+        if self.adapting:
+            self.seen += 1
+            a = max(1.0 / self.seen, 0.002)                              # adapts within ~10 s
+            self.mean += a * (felt - self.mean)
+            self.var += a * ((felt - self.mean) ** 2 - self.var)
+        zf = self.zscore(felt)
         I = np.zeros(self.N)
         np.add.at(I, self.fibre_neuron.ravel(), (self.fibre_gain * zf[:, None]).ravel())
         I[self.motor] += motor_drive
@@ -171,7 +226,11 @@ def babble(body, brain, minutes, rng, log, label):
     seen_lo, seen_hi = body.angles(), body.angles()
     limit_felt = np.zeros((J, 2), int)                                    # steps pressed against each end
     t0 = time.time()
+    every = int(REPOSITION_S / BRAIN_DT)
     for t in range(steps):
+        if not body.held and t % every == 0:
+            body.reset(POSES[rng.integers(len(POSES))], rng)
+            trace[:] = 0.0                                                # being moved is not something it did
         burst += BRAIN_DT / BABBLE_TAU * -burst + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(burst))
         r = brain.step(body.feel(), BABBLE_SIZE * burst)
         body.step(brain.torque(r, body.tmax))
@@ -241,10 +300,96 @@ def control_test(body, brain, scores, log, label, seconds=1.5):
     return rows
 
 
+def line_scores(brain):
+    """[motor neurons, nerves]: each motor neuron's learned link to each nerve (sign: which way it moves it)."""
+    return np.einsum("mlf,lf->ml", brain.map[:, brain.fibre_col], brain.fibre_gain)
+
+
+def steer(body, brain, S, targets, seconds, flail=None):
+    """Use only its own body map to make chosen senses go where asked. targets: {nerve: value in its own units}.
+    Each step: how far each targeted sense is from where it should be (in its adapted units), times each motor
+    neuron's learned link to that sense, drives that neuron. flail: babbling instead (a baseline), no map."""
+    lines = np.array(list(targets))
+    goal = np.array([targets[l] for l in lines])
+    scale = max(float(np.percentile(np.abs(S[:, lines]), 99)), 1e-12)
+    burst = np.zeros(len(brain.motor))
+    for _ in range(int(seconds / BRAIN_DT)):
+        felt = body.feel()
+        if flail is not None:
+            burst += BRAIN_DT / BABBLE_TAU * -burst + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * flail.standard_normal(len(burst))
+            drive = BABBLE_SIZE * burst
+        else:
+            z_now, z_goal = brain.zscore(felt)[lines], (goal - brain.mean[lines]) / np.sqrt(brain.var[lines] + 1e-6)
+            err = np.clip(z_goal - z_now, -3.0, 3.0)
+            drive = np.clip(np.maximum(S[:, lines] @ err, 0.0) / scale, 0.0, 3.0)
+        r = brain.step(felt, drive)
+        body.step(brain.torque(r, body.tmax))
+
+
+def ground_tests(body, brain, log, label, rng):
+    """On the ground, using only its own map: tilt its trunk, put weight on one foot, get up from its side."""
+    J = len(body.joint)
+    S = line_scores(brain)
+    nerve = {"touch": 4 * J + np.arange(4), "gravity": 4 * J + 4 + np.arange(3)}
+    brain.adapting = False
+    out = {}
+    # tilt: ask its inner ear to feel the trunk rolled or pitched by 0.25 rad
+    tilts = {"roll left": (0.25, 0.0), "roll right": (-0.25, 0.0), "nose down": (0.0, 0.25), "nose up": (0.0, -0.25)}
+    got = []
+    for name, (roll, pitch) in tilts.items():
+        body.reset("stand")
+        brain.v[:] = 0.0
+        g = np.array([np.sin(pitch), -np.sin(roll), -np.cos(roll) * np.cos(pitch)])
+        r0, p0 = body.tilt()
+        steer(body, brain, S, dict(zip(nerve["gravity"].tolist(), g.tolist())), 2.0)
+        r1, p1 = body.tilt()
+        want = np.array([roll, pitch])
+        moved = np.array([r1 - r0, p1 - p0])
+        got.append(float(moved @ want / (want @ want)))                  # share of the asked tilt achieved
+        out[f"tilt {name}"] = {"asked_rad": want.tolist(), "moved_rad": moved.tolist(), "share": got[-1]}
+    log(f"[{label}] tilt its trunk 0.25 rad as asked (roll left/right, nose down/up): achieved "
+        + ", ".join(f"{v:.0%}" for v in got) + " of the asked tilt")
+    # weight: ask for more pressure under one foot (one and a half times what it feels standing)
+    shares = []
+    for k, foot in enumerate(("FL", "FR", "RL", "RR")):
+        body.reset("stand")
+        brain.v[:] = 0.0
+        base = body.touch()
+        steer(body, brain, S, {int(nerve["touch"][k]): float(1.5 * base[k] + 1.0)}, 2.0)
+        now = body.touch()
+        s0, s1 = base[k] / max(base.sum(), 1e-6), now[k] / max(now.sum(), 1e-6)
+        shares.append((s0, s1))
+        out[f"weight on {foot}"] = {"share_before": float(s0), "share_after": float(s1)}
+    log(f"[{label}] shift its weight onto one foot as asked: that foot's share of the weight "
+        + ", ".join(f"{f} {a:.0%}->{b:.0%}" for f, (a, b) in zip(("FL", "FR", "RL", "RR"), shares)))
+    # getting up: lying on its side, ask its inner ear to feel upright; against flailing and doing nothing
+    trials = 8
+    up = {"its map": 0, "flailing": 0, "nothing": 0}
+    for t in range(trials):
+        side = "left_side" if t % 2 == 0 else "right_side"
+        for how in up:
+            body.reset(side, np.random.default_rng(500 + t))
+            brain.v[:] = 0.0
+            target = dict(zip(nerve["gravity"].tolist(), [0.0, 0.0, -1.0]))
+            if how == "its map":
+                steer(body, brain, S, target, 6.0)
+            elif how == "flailing":
+                steer(body, brain, S, target, 6.0, flail=np.random.default_rng(900 + t))
+            else:
+                steer(body, brain, np.zeros_like(S), target, 6.0)
+            up[how] += int(-body.gravity()[2] > 0.8)
+    out["get_up_from_side"] = {k: v / trials for k, v in up.items()}
+    log(f"[{label}] lying on its side, get upright (trunk within ~37 degrees of upright after 6 s), {trials} tries: "
+        + ", ".join(f"{k} {v}/{trials}" for k, v in up.items()))
+    brain.adapting = True
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
+    ap.add_argument("--ground", action="store_true", help="free on the ground, with foot touch and an inner ear")
     ap.add_argument("--out", default="/kaggle/working" if Path("/kaggle/working").exists() else "results/babble")
     args = ap.parse_args([]) if JOB_ARGS else ap.parse_args()
     for k, v in JOB_ARGS.items():
@@ -259,9 +404,11 @@ def main():
         print(msg, flush=True)
         lines_out.append(msg)
 
-    body = Body(fetch_go2(Path(tempfile.gettempdir())))
+    body = Body(fetch_go2(Path(tempfile.gettempdir())), held=not args.ground)
     core = load_core()
-    log(f"body: Go2, {len(body.joint)} joints ({', '.join(body.names)}); held at {HELD_AT} m like a baby; "
+    where = f"held at {HELD_AT} m like a baby" if body.held else (
+        f"free on the ground, with foot touch and an inner ear; set down somewhere new every {REPOSITION_S:g} s")
+    log(f"body: Go2, {len(body.joint)} joints ({', '.join(body.names)}); {where}; {len(body.feel())} nerves; "
         f"physics {body.subs} steps per brain step")
     log(f"brain: fly connectome, {len(core['role'])} neurons, {len(core['pre'])} connections; it is told nothing about the body")
     results = []
@@ -270,10 +417,12 @@ def main():
         label = f"dog {dog + 1}/{args.dogs}"
         body.reset()
         before = control_test(body, brain, joint_scores(brain, body), log, label + ", newborn (map empty)")
+        ground_before = ground_tests(body, brain, log, label + ", newborn (map empty)", None) if args.ground else None
         body.reset()
         explored = babble(body, brain, args.minutes, np.random.default_rng(1000 + dog), log, label)
         scores = joint_scores(brain, body)
         after = control_test(body, brain, scores, log, label + f", after {args.minutes:g} min of babbling")
+        ground_after = ground_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling", None) if args.ground else None
         acc = map_accuracy(brain, body)
         per_joint = []
         for j, name in enumerate(body.names):
@@ -287,7 +436,8 @@ def main():
                 f"{explored['seen_hi'][j]:+.2f} ({explored['coverage'][j]:.0%}); limits felt (low/high, steps) "
                 f"{explored['limit_felt_steps'][j][0]}/{explored['limit_felt_steps'][j][1]}; its motor neurons mapped to it "
                 f"{np.mean(best == j):.0%}")
-        results.append({"dog": dog + 1, "map": acc, "per_joint": per_joint, "control_newborn": before, "control_after": after})
+        results.append({"dog": dog + 1, "map": acc, "per_joint": per_joint, "control_newborn": before, "control_after": after,
+                        "ground_newborn": ground_before, "ground_after": ground_after})
     reach = lambda rows: float(np.mean([np.clip(r_["reach"], -1, 1) for r_ in rows]))
     log("VERDICT babbling: " + "; ".join(
         f"dog {r_['dog']}: body map right joint {r_['map']['joint']:.0%} (direction too {r_['map']['both']:.0%}), "
