@@ -383,6 +383,7 @@ def steer(body, brain, S, targets, seconds, flail=None):
     traj = []
     for _ in range(int(seconds / BRAIN_DT)):
         felt = body.feel()
+        err = np.zeros(len(lines))
         if flail is not None:
             burst += BRAIN_DT / BABBLE_TAU * -burst + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * flail.standard_normal(len(burst))
             drive = BABBLE_SIZE * burst
@@ -393,8 +394,32 @@ def steer(body, brain, S, targets, seconds, flail=None):
         r = brain.step(felt, drive)
         out_cmd = brain.command(r)
         body.step(out_cmd)
-        traj.append((float(body.d.qpos[2]), float(-body.gravity()[2]), body.touch(), out_cmd, brain.last_raw.copy()))
+        traj.append((float(body.d.qpos[2]), float(-body.gravity()[2]), body.touch(), out_cmd, brain.last_raw.copy(),
+                     err.copy(), body.tilt(), float(np.abs(drive).sum())))
     return traj
+
+
+def story(traj, progress):
+    """Step by step: progress toward the asked change (1 = reached), pools' mean |output|, height; when it first
+    reached the target, and when it fell (trunk below standing height)."""
+    h = np.array([t[0] for t in traj])
+    cmd = np.array([np.abs(t[3]).mean() for t in traj])
+    fell = int(np.argmax(h < STANDING_HEIGHT)) if (h < STANDING_HEIGHT).any() else None
+    reached = int(np.argmax(progress >= 1.0)) if (progress >= 1.0).any() else None
+    return {"progress": progress.round(3).tolist(), "mean_abs_output": cmd.round(3).tolist(), "height": h.round(3).tolist(),
+            "drive_sum": [round(t[7], 2) for t in traj], "reached_s": None if reached is None else (reached + 1) * BRAIN_DT,
+            "fell_s": None if fell is None else (fell + 1) * BRAIN_DT,
+            "output_when_reached": None if reached is None else float(cmd[reached]),
+            "output_when_fell": None if fell is None else float(cmd[fell]),
+            "progress_when_fell": None if fell is None else float(progress[fell]),
+            "peak_output": float(cmd.max()), "peak_output_s": (int(cmd.argmax()) + 1) * BRAIN_DT}
+
+
+def tell(log, label, name, st):
+    log(f"[{label}]   DIAG {name}: reached the target at {st['reached_s']} s (output then {st['output_when_reached']}), "
+        f"fell at {st['fell_s']} s (progress then {st['progress_when_fell']}, output then {st['output_when_fell']}); "
+        f"pools' mean |output| peaked at {st['peak_output']:.2f} at {st['peak_output_s']:.2f} s; progress at 0.2/0.5/1/2 s: "
+        + "/".join(f"{st['progress'][min(int(t / BRAIN_DT) - 1, len(st['progress']) - 1)]:+.2f}" for t in (0.2, 0.5, 1.0, 2.0)))
 
 
 def end_state(traj):
@@ -424,8 +449,10 @@ def ground_tests(body, brain, log, label, rng):
         want = np.array([roll, pitch])
         moved = np.array([r1 - r0, p1 - p0])
         got.append(float(moved @ want / (want @ want)))                  # share of the asked tilt achieved
+        prog = np.array([(np.array(t[6]) - np.array([r0, p0])) @ want / (want @ want) for t in traj])
         out[f"tilt {name}"] = {"asked_rad": want.tolist(), "moved_rad": moved.tolist(), "share": got[-1],
-                               "end": end_state(traj)}
+                               "end": end_state(traj), "story": story(traj, prog)}
+        tell(log, label, f"tilt {name}", out[f"tilt {name}"]["story"])
     log(f"[{label}] tilt its trunk 0.25 rad as asked (roll left/right, nose down/up): achieved "
         + ", ".join(f"{v:.0%}" for v in got) + " of the asked tilt")
     # weight: ask for more pressure under one foot (one and a half times what it feels standing)
@@ -438,7 +465,11 @@ def ground_tests(body, brain, log, label, rng):
         now = body.touch()
         s0, s1 = base[k] / max(base.sum(), 1e-6), now[k] / max(now.sum(), 1e-6)
         shares.append((s0, s1))
-        out[f"weight on {foot}"] = {"share_before": float(s0), "share_after": float(s1), "end": end_state(traj)}
+        want_share = 1.5 * base[k] / max(base.sum(), 1e-6)
+        prog = np.array([(t[2][k] / max(t[2].sum(), 1e-6) - s0) / max(want_share - s0, 1e-6) for t in traj])
+        out[f"weight on {foot}"] = {"share_before": float(s0), "share_after": float(s1), "end": end_state(traj),
+                                    "story": story(traj, prog)}
+        tell(log, label, f"weight on {foot}", out[f"weight on {foot}"]["story"])
     log(f"[{label}] shift its weight onto one foot as asked: that foot's share of the weight "
         + ", ".join(f"{f} {a:.0%}->{b:.0%}" for f, (a, b) in zip(("FL", "FR", "RL", "RR"), shares)))
     for key in ("weight, map switched off", "map off, brain's output cut", "map off, babbling on"):
@@ -453,7 +484,7 @@ def ground_tests(body, brain, log, label, rng):
                 brain.command(brain.rates())
                 body.step(np.zeros(len(body.joint)))
                 traj.append((float(body.d.qpos[2]), float(-body.gravity()[2]), body.touch(), np.zeros(len(body.joint)),
-                             brain.last_raw.copy()))
+                             brain.last_raw.copy(), np.zeros(1), body.tilt(), 0.0))
         else:
             traj = steer(body, brain, np.zeros_like(S), {int(nerve["touch"][0]): 0.0}, 2.0,
                          flail=np.random.default_rng(77) if key == "map off, babbling on" else None)
@@ -507,7 +538,7 @@ GROUND_LINES = ("FL pressure", "FR pressure", "RL pressure", "RR pressure", "gra
                 "gravity z (upright)")
 
 
-def true_effects(body, pose):
+def true_effects(body, pose, steps=3):
     """[motors, ground lines]: what each motor really does, in this pose, to foot pressures and the inner ear's gravity
     within 60 ms (3 brain steps, the span its Hebbian trace covers). Half the difference between pushing each way."""
     J = len(body.joint)
@@ -520,7 +551,7 @@ def true_effects(body, pose):
             f0 = body.feel()[lines]
             out = np.zeros(J)
             out[a] = sign * 0.5                                          # half output (half torque, or half set-point speed)
-            for _ in range(3):
+            for _ in range(steps):
                 body.step(out)
             d.append(body.feel()[lines] - f0)
         eff[a] = (d[0] - d[1]) / 2
@@ -575,6 +606,17 @@ def diagnose(body, brain, diag, log, label, out_dir, dog):
             log(f"[{label}] DIAG {what:20s} vs what the motors really do {pose:10s}: sign right "
                 + ", ".join(f"{nm.split()[0] if 'pressure' in nm else nm.split()[2]} {a['sign_right']:.0%}"
                             for nm, a in zip(GROUND_LINES, ag)))
+    if body.tone:                                                     # the muscle needs time to move the joint
+        for steps in (10, 25):
+            for pose in POSES:
+                tr = true_effects(body, pose, steps)
+                truth[f"{pose}_{steps * BRAIN_DT:g}s"] = tr
+                ag = agreement(learned["whole map"], tr)
+                report["compare"][f"whole map vs truth {pose} over {steps * BRAIN_DT:g} s"] = ag
+                log(f"[{label}] DIAG whole map vs what the motors really do {pose:10s} over {steps * BRAIN_DT:g} s "
+                    f"(size of effect {np.abs(tr).mean():.1e}): sign right "
+                    + ", ".join(f"{nm.split()[0] if 'pressure' in nm else nm.split()[2]} {a['sign_right']:.0%}"
+                                for nm, a in zip(GROUND_LINES, ag)))
     np.savez_compressed(out_dir / f"babble_diag_dog{dog}.npz", map=brain.map, line_scores=line_scores(brain),
                         drives=brain.drives, push=brain.push, part_other=part[0], part_standing=part[1],
                         **{f"truth_{p}": t for p, t in truth.items()})
