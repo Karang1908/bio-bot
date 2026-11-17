@@ -1624,7 +1624,8 @@ def practice(args, bd, out: Path) -> dict:
                 going = is_task[ins] & ~there
                 # asked for no speed, the body pays for standing still and not turning; on the way to a goal that must not count
                 stand_pay = jp.exp(-(st["v_fwd"] ** 2 + st["v_side"] ** 2) / 0.05) - 0.1 * jp.abs(st["wz"])
-                r = r + (is_task[ins] * GOAL_CLOSER * closer + GOAL_THERE * there - going * stand_pay) * bd.CTRL_DT
+                # a body whose physics blew up has non-finite speeds: it earns nothing here (as the body's own reward)
+                r = r + jp.where(done, 0.0, is_task[ins] * GOAL_CLOSER * closer + GOAL_THERE * there - going * stand_pay) * bd.CTRL_DT
                 goal = {"goal_on": is_task[ins].astype(jp.float32), "goal_there": there.astype(jp.float32),
                         "goal_going": going.astype(jp.float32), "goal_closer": going * closer}
             if tasks and not fetch:                      # going to what was asked: getting closer, and getting there
