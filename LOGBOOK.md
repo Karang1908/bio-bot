@@ -5705,6 +5705,34 @@ Results (newborn baseline identical for all three dogs; `results/babble-ground1/
   standing. So it rarely babbled with its feet loaded, and its map hardly links its legs to foot pressure or pitch.
   The next run should measure the share of babbling time spent with the feet loaded before changing anything.
 
+### 6.17 Why pitch, weight shift and getting up failed on the ground: measured (17 Nov)
+
+Diagnosis rerun of dog 1: `babble.py --ground --diagnose` (`d6760b3`), Kaggle CPU job `babble-diag1`, 30 min.
+It reproduced §6.16 dog 1 exactly: map 100%, tilt +78/+86/+5/+56%, weight FL 5%, FR 0%, RL 0%, RR 56%.
+Outputs, including the learned map, are in `results/babble-diag1/` (`babble_diag_dog1.npz`).
+
+1. **It cannot stand, newborn or after babbling.** When set down standing at a trunk height of 0.27 m, it is lying on
+   its belly at 0.09 m within 2 s, with or without its map. After babbling, every ground test ends collapsed, with the
+   trunk at 0.07–0.13 m.
+2. **So it almost never babbled while bearing weight.** The share of babbling time with 0/1/2/3/4 feet loaded (> 5 N)
+   was 43% / 40% / 14% / 2% / 0%. It stood upright on 3–4 feet 0.4% of the time, so 9% of its foot and inner-ear links
+   came from standing.
+3. **What a motor does to foot pressure depends on posture**, measured by pushing each motor both ways in each pose.
+   The map is learned mostly lying down, so its foot links are wrong for standing. The share of standing foot effects
+   whose sign the map has right is FL 42%, FR 31%, RL 17%, RR 63%, where 50% is chance.
+4. **Its pitch and roll links are right** (sign right against standing: pitch 96%, roll 81%). The tilt failures come
+   from the collapse, not the map. Asked for nose down, it rolled 0.56 rad onto its side and pitched +0.01. Asked for
+   nose up, it pitched 0.14 rad the right way, lying at 0.08 m. Asked for roll, it rolled 0.19–0.21 rad the right way,
+   lying on its belly.
+5. **"All the weight on RR" was the collapse.** After 2 s, one or two feet touched (e.g. 0/0/0/19 N), with the trunk
+   at 0.07–0.13 m. In the RR trial it ended on its back (upright −0.80).
+6. **The get-up test counted lying on the belly as upright.** Doing nothing from its side, it always ends on its belly,
+   with the trunk at 0.13–0.14 m and 1–3 feet touching.
+
+Believed from the code, not measured: why it is limp at rest. Each motor is driven by about 30 motor neurons of random
+push sign, so the net torque at rest is near zero. The Go2's joints have only damping and friction, nothing that holds
+them against gravity, and the babbling bursts are zero-mean.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
