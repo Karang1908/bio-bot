@@ -5818,6 +5818,47 @@ learn that, and the reflexes were tuned mostly lying down (standing was 1.1% of 
 
 Not brain size: the same brain learns a 100% map and moves joints at 99% when steered.
 
+### 6.20 Standing practice with dopamine-gated reflex learning: two flat rounds, premise fails (18 Nov)
+
+`babble.py --practice 30`. After babbling, the dog is set down standing every 5 s with its reflexes on and
+spontaneous movement at half babbling strength.
+
+- **Reflex synapses:** they start as the twitch-tuned ones (a copy of the map, which itself is never changed).
+- **Rule:** eligibility (sensory change since rest × motor neuron above its usual rate, kept ~0.2 s) times a
+  standardised dopamine-like signal.
+- **Dopamine:** the fall in the felt deviation from standing still, over all 58 nerves.
+
+Jobs:
+
+- `babble-practice1` (`423d593`, rate 1e-4, reflexes ×1).
+- `babble-practice2` (`1835976`, rate 1e-5, reflexes starting ×0.25 and raised ×1.25 after each 2 min with it up in
+  ≥ 50% of set-downs).
+
+| | practice1 dog 1 | practice2 dog 1 |
+|---|---|---|
+| still up after 5 s, every 2 min of practice | 0% throughout (360 set-downs) | 0% throughout; strength never raised |
+| end height of set-downs | 0.12 m | 0.11 m |
+| reflexes changed (‖R−R0‖/‖R0‖) after 30 min | 142% | 100% (my estimate was 26%: wrong) |
+| effort / limit reflexes after practice, alone ×0.5 | shove up to 0.33–0.36 m at 0.5 s, fall at 1.1 s | up to 0.34–0.35 m, fall at 0.74–0.76 s |
+| reflexes off (×0) after practice | stands 0.19 m, 4 feet; joints 1% | same |
+
+**Premise test (practice2, first second of 360 set-downs).** Correlation of each kind of reflex's push with the
+dopamine 60 ms later:
+
+| joint angle | joint speed | effort | limit push-back | foot pressure | gravity | turning |
+|---|---|---|---|---|---|---|
+| +0.10 | +0.05 | +0.06 | +0.10 | +0.08 | −0.02 | +0.11 |
+
+The culprit reflexes are not singled out (not negative), so this signal carries no usable credit for which reflexes
+to reverse.
+
+**Own mistake (inferred, not measured at half strength).** Half-strength babbling noise probably topples it on its
+own: at full strength, babbling noise toppled a standing dog with its map off in 2 s (§6.18). If so, it never stood
+during practice in either run.
+
+Stopped tuning here, per the flat-rounds rule. Options put to the owner: supported standing practice (a fading
+teacher holds the trunk), per-posture reflexes via growth, or a narrower comfort signal.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
