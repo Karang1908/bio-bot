@@ -93,8 +93,11 @@ BRAKE_SCALE = 1.4        # "ball" / "come": braking radius multiplier relative t
 BRAKE_FLOOR = 0.5        # "ball" / "come": minimum forward drive multiplier inside the braking transition zone
 # the fetch lesson (Embodiogenesis Phase 0): one outcome reward and a distance curriculum. Nothing tells the dog how
 # to approach: no speed or turn command, no alignment gates. The sizes match the gaits' own rewards (about 1 per second).
-GOAL_CLOSER = 2.0        # reward per metre its nose gets nearer the goal (walking to it at 0.5 m/s earns 1.0 per second)
-GOAL_THERE = 1.0         # reward per second with its nose at the goal (standing calmly there also earns "stand")
+GOAL_CLOSER = 8.0        # reward per metre its nose gets nearer the goal. At 2.0 (fetch run 1, 17 Nov) the dogs' real
+                         # closing (~0.05 m/s) was worth ~0.1/s against the body's ~0.6-0.8/s swings: no trend in 575
+                         # updates (-0.010 +- 0.037 m/s per 1000). At 8.0, approaching at 0.3-0.5 m/s earns 2.4-4/s, about
+                         # the body's own reward; still ~100x below Rounds 3-68's 250-350 that erased the walk.
+GOAL_THERE = 4.0         # reward per second with its nose at the goal (scaled with GOAL_CLOSER)
 GOAL_START = {"ball": ((0.8, 1.3), (1.0, 4.0)), "come": ((1.6, 2.2), (2.0, 5.0))}   # m from the trunk, where the goal
                          # appears when its word is spoken: (nearest, farthest) at level 0, and at level 1 (the park's own range)
 GOAL_VIEW = (0.4, 3.1416)   # rad: it appears within this bearing of straight ahead, at level 0 and at level 1
