@@ -896,6 +896,7 @@ def make_mushroom(n_words: int, programs, slots, eye_shape, seed: int = 20261116
         return new, jp.where((new["choice"] == 0)[:, None], heard, tells[new["choice"]])
 
     def pay(mb, reward, over):
+        reward = jp.where(jp.isfinite(reward), reward, 0.0)          # a non-finite reward must never reach a synapse
         return {**mb, "paid": mb["paid"] + reward, "clock": mb["clock"] + 1, "over": jp.maximum(mb["over"], over.astype(jp.float32))}
 
     return {"init": init, "step": step, "pay": pay, "cells": n_cell, "outputs": n_out, "tells": [-1, *programs],
