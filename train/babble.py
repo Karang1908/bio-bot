@@ -80,6 +80,9 @@ SUPPORT_FADE_SHARE = 2 / 3   # --support: a parent's hands hold the trunk (sprin
                              # during practice; the help fades linearly to zero over this share of practice, after
                              # which it practises alone. Physical help only: the brain is never told about it.
 SUPPORT_SAG = 0.05       # m: at full support the hands carry its whole weight with this much sag
+HELD_BABBLE_SHARE = 0.5  # --held_babble: share of babbling set-downs where a parent holds it standing (like holding a
+HELD_BABBLE_HELP = 0.5   # baby upright on its feet), carrying this share of its weight; it babbled standing only
+                         # 0.6% of the time otherwise (§6.25). Never during tests.
 PRACTICE_GAIN0 = 0.25    # reflexes start weak in practice (they knock it over within ~1 s at x0.5 and above) ...
 PRACTICE_GAIN_STEP = 1.25  # ... and the trainer strengthens them by this factor after each 2 min with it still up in
                            # at least half the set-downs, up to x1. The brain is never told whether it is up.
@@ -325,7 +328,7 @@ class Brain:
         return np.tanh(x)
 
 
-def babble(body, brain, minutes, rng, log, label, diag=None):
+def babble(body, brain, minutes, rng, log, label, diag=None, held=False):
     """Spontaneous movement; the body map grows by Hebbian learning. Returns what was explored and felt."""
     steps = int(minutes * 60 / BRAIN_DT)
     lines = len(body.feel())
@@ -342,6 +345,10 @@ def babble(body, brain, minutes, rng, log, label, diag=None):
     for t in range(steps):
         if not body.held and t % every == 0:
             pose = POSES[rng.integers(len(POSES))]
+            body.support = 0.0
+            if held and rng.random() < HELD_BABBLE_SHARE:
+                pose = "stand"
+                body.support = HELD_BABBLE_HELP
             body.reset(pose, rng)
             trace[:] = 0.0                                                # being moved is not something it did
             if diag is not None:
@@ -382,6 +389,7 @@ def babble(body, brain, minutes, rng, log, label, diag=None):
                 f"{cov.mean():.0%} (least {cov.min():.0%}); limits felt {int((limit_felt > 0).sum())}/{2 * J}; "
                 f"body map: right joint {acc['joint']:.0%}, right joint and direction {acc['both']:.0%} (chance {1 / J:.0%}, "
                 f"{1 / (2 * J):.0%})")
+    body.support = 0.0
     return {"coverage": ((seen_hi - seen_lo) / (body.hi - body.lo)).tolist(), "seen_lo": seen_lo.tolist(),
             "seen_hi": seen_hi.tolist(), "limit_felt_steps": limit_felt.tolist()}
 
@@ -1002,6 +1010,7 @@ def main():
                          "set_speed x leak_s, and the thighs' far ends are up to 3.6 rad away")
     ap.add_argument("--reflex_gains", default=",".join(f"{g:g}" for g in REFLEX_GAINS),
                     help="reflex strengths to test, comma-separated (0 = switched off)")
+    ap.add_argument("--held_babble", action="store_true", help="babble held standing by a parent in half the set-downs")
     ap.add_argument("--tilt_xy", action="store_true", help="diagnosis: also ask tilts on the two directional lines only")
     ap.add_argument("--babble_tau", type=float, default=BABBLE_TAU,
                     help="how long a spontaneous burst lasts (s); infants' general movements are slow sweeps of seconds")
@@ -1058,7 +1067,8 @@ def main():
                     "abs_command": np.zeros(len(body.joint)),
                     "cols": brain.fibre_col[4 * len(body.joint):4 * len(body.joint) + 7].ravel(),
                     "part": np.zeros((2, len(brain.motor), 7 * NERVE_FIBRES))}
-        explored = babble(body, brain, args.minutes, np.random.default_rng(1000 + dog), log, label, diag)
+        explored = babble(body, brain, args.minutes, np.random.default_rng(1000 + dog), log, label, diag,
+                          held=bool(args.held_babble))
         diag_report = diagnose(body, brain, diag, log, label, out, dog + 1) if diag is not None else None
         scores = joint_scores(brain, body)
         after = None if args.reflex else control_test(body, brain, scores, log, label + f", after {args.minutes:g} min of babbling")
@@ -1109,7 +1119,10 @@ def main():
                                                               "leak": bool(args.leak),
                                                               "fair_dopamine": bool(args.fair_dopamine),
                                                               "leak_s": float(args.leak_s),
-                                                              "set_speed": float(args.set_speed)}}, indent=1))
+                                                              "set_speed": float(args.set_speed),
+                                                              "held_babble": bool(args.held_babble),
+                                                              "HELD_BABBLE_SHARE": HELD_BABBLE_SHARE,
+                                                              "HELD_BABBLE_HELP": HELD_BABBLE_HELP}}, indent=1))
     (out / "babble_log.txt").write_text("\n".join(lines_out))
     print("DONE", flush=True)
 
