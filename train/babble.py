@@ -128,6 +128,7 @@ class Body:
         self.held = held
         self.tone = tone
         self.leak = leak
+        self.leak_s = TONE_LEAK_S
         self.base = self.m.body("base").id
         self.feet = [self.m.geom(f).id for f in ("FL", "FR", "RL", "RR")]
         self._force = np.zeros(6)
@@ -175,7 +176,7 @@ class Body:
         """out: each motor pool's output in [-1, 1]. Without tone it is a torque (share of the motor's maximum); with
         tone it moves the joint's set point, and the muscle pulls toward it."""
         if self.tone:
-            relax = (self.target - self.rest_q) * BRAIN_DT / TONE_LEAK_S if self.leak else 0.0
+            relax = (self.target - self.rest_q) * BRAIN_DT / self.leak_s if self.leak else 0.0
             self.target = np.clip(self.target + SET_SPEED * BRAIN_DT * out - relax, self.lo - 0.1, self.hi + 0.1)
         else:
             self.d.ctrl[:] = np.clip(self.tmax * out, -self.tmax, self.tmax)
@@ -981,6 +982,7 @@ def main():
     ap.add_argument("--ground", action="store_true", help="free on the ground, with foot touch and an inner ear")
     ap.add_argument("--tone", action="store_true", help="muscle tone: the motor neurons move each joint's set point")
     ap.add_argument("--leak", action="store_true", help="with tone: set points relax back to the set-down posture")
+    ap.add_argument("--leak_s", type=float, default=TONE_LEAK_S, help="relaxation time of the set points (s)")
     ap.add_argument("--reflex", action="store_true", help="after babbling, test with the brain's own reflexes only")
     ap.add_argument("--reflex_diag", action="store_true", help="after babbling: which reflexes knock it over, and how")
     ap.add_argument("--fair_dopamine", action="store_true", help="practice: dopamine relative to the usual settling; synaptic scaling")
@@ -1002,13 +1004,14 @@ def main():
         lines_out.append(msg)
 
     body = Body(fetch_go2(Path(tempfile.gettempdir())), held=not args.ground, tone=bool(args.tone), leak=bool(args.leak))
+    body.leak_s = float(args.leak_s)
     core = load_core()
     where = f"held at {HELD_AT} m like a baby" if body.held else (
         f"free on the ground, with foot touch and an inner ear; set down somewhere new every {REPOSITION_S:g} s")
     if body.tone:
         where += f"; muscle tone (stiffness {TONE_KP:g} N m/rad, damping {TONE_KD:g}), the brain moves the set points"
         if body.leak:
-            where += f", which relax back to the set-down posture over {TONE_LEAK_S:g} s"
+            where += f", which relax back to the set-down posture over {body.leak_s:g} s"
     log(f"body: Go2, {len(body.joint)} joints ({', '.join(body.names)}); {where}; {len(body.feel())} nerves; "
         f"physics {body.subs} steps per brain step")
     log(f"brain: fly connectome, {len(core['role'])} neurons, {len(core['pre'])} connections; it is told nothing about the body")
@@ -1077,7 +1080,8 @@ def main():
                                                               "SUPPORT_FADE_SHARE", "SUPPORT_SAG", "TONE_LEAK_S")} | {"tone": bool(args.tone),
                                                               "ground": bool(args.ground), "reflex": bool(args.reflex),
                                                               "leak": bool(args.leak),
-                                                              "fair_dopamine": bool(args.fair_dopamine)}}, indent=1))
+                                                              "fair_dopamine": bool(args.fair_dopamine),
+                                                              "leak_s": float(args.leak_s)}}, indent=1))
     (out / "babble_log.txt").write_text("\n".join(lines_out))
     print("DONE", flush=True)
 
