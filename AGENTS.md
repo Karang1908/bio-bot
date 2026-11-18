@@ -76,7 +76,9 @@ Do not treat historical plans or pending-status notes as current authorization o
 - **No checks or training on the owner's laptop, including light checks.** Do not run local tests, syntax checks,
   lint/type checks, neural forward passes, simulations, benchmarks or training. Do not create local JAX/MJX
   environments to work around this restriction. All validation and training belong on free remote compute.
-- **The owner's GPU PC (RTX 4500 Ada, authorized 12 Nov) is the main training machine.** It is not the laptop. Reach
+- **Kaggle only (owner, 18 Nov): train on free Kaggle, not the PC, because Kaggle is always free.** The notes below
+  on the owner's GPU PC are kept for reference; use it only if the owner asks again.
+- The owner's GPU PC (RTX 4500 Ada, authorized 12 Nov) was the main training machine. It is not the laptop. Reach
   it by SSH over Tailscale into WSL2 Ubuntu (details and measurements in `Embodiogenesis.md` §5.1). Run jobs from
   `~/bio-bot` with its `.venv`, write outputs under `~/runs/`, and launch long jobs detached (`nohup setsid`).
   - Keep everything on D: (the WSL disk and swap live there); C: is almost full, and a full C: corrupted WSL once.
