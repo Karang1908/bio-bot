@@ -5882,6 +5882,33 @@ full weight at 5 cm sag, fading linearly to none over 30 min, then 15 min alone.
 - **Next:** `--leak` (`c4e349a`, job `babble-leak1`). The set point relaxes back to the set-down posture with a
   0.5 s time constant. A steady push then gives a bounded offset (≤ 2 rad), and the noise wander drops to ~0.27 rad.
 
+### 6.22 Leaky set point: its own reflexes stop knocking it over (18 Nov)
+
+`babble.py --ground --tone --leak --reflex --reflex_diag --diagnose` (`c4e349a`, job `babble-leak1`, 2 dogs). The
+set point relaxes back to the set-down posture with a 0.5 s time constant. Everything else is as in §6.19: reflexes
+twitch-tuned, no practice, and the test only shifts a felt reference.
+
+| own reflexes (dog 1 / dog 2) | without leak (×1, §6.19) | leak ×0.5 | leak ×1 | leak ×2 |
+|---|---|---|---|---|
+| standing, nothing asked (5 s) | 0.10 m | 0.25 / 0.19 m | 0.17 / 0.18 m | 0.19 / 0.12 m |
+| one joint to an end | 15% | 27 / 26% | 39 / 31% | 41 / 33% |
+| still standing after the 24 joint moves | 0/24 | 22 / 22 | 21 / 22 | 21 / 22 |
+| tilt, roll L/R and nose down/up (dog 1) | all fell | +2/+39/+62/−41% | +28/+52/+37/+15% | +23/+50/+26/+42% |
+| tilt (dog 2) | all fell | −26/+32/+75/−61% | −41/+27/+87/−64% | −33/+18/+80/−58% |
+| get up from its side | 0/8 | 0/8 | 0/8 | 0/8 |
+
+- **×0 reference:** standing 0.20 m; tilt −1/+2/−38/+39%. That is the passive sag pitching it nose up whatever it is
+  asked.
+- **Weight shift is mixed.** Dog 2 puts weight on FL when asked (26 → 48–54%), but RL drops to 0%.
+- **Alone, the effort or limit push-back reflexes still fall** (×0.5–×1, ~1 s). With all reflexes together it stays
+  up at ×1 (0.18 m on both dogs); dog 2 falls at 2.4 s at ×0.5.
+- **Regression in babbling exploration.** Limits felt 15–17/24 (24/24 without leak), range explored 87–90% (least
+  joint 55–60%). The body map is still 100%.
+- **Babbling bore more weight:** 3–4 feet loaded 15–17% of the time (6% without leak), standing 2.5% (1.1%).
+
+The first change where the brain's own reflexes give directional control without falling: dog 1 tilts in all four
+directions at ×1 and ×2. Next: standing practice and the credit test on the leak body, then the exploration regression.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
