@@ -60,6 +60,7 @@ TONE_LEAK_S = 0.5        # --leak: the set point relaxes back to the posture it 
 # silent while babbling (as reflexes are tuned during sleep twitches) and act afterwards. They are the body map's
 # reverse direction with the opposite sign: the same co-activity, learned once.
 REFLEX_GAINS = (0.0, 0.25, 0.5, 1.0, 2.0)   # reflex strength, in units of the map's own scale (0 = switched off)
+TILT_XY_TOO = False      # --tilt_xy: also ask each tilt naming only the two directional gravity lines (diagnosis)
 SETTLE_S = 30.0          # s: before tests, set down standing at rest while senses and motor pools settle (~3 time constants)
 # --practice: standing practice after babbling. Its reflex synapses keep learning while it stands, gated by a
 # dopamine-like signal it makes from its own senses: positive when what it feels returns toward how standing still
@@ -795,8 +796,19 @@ def reflex_tests(body, brain, log, label):
             st = story(traj, prog)
             got.append((float(prog[-1]), is_up(body)))
             res[f"tilt {name}"] = {"share": got[-1][0], "up_after": got[-1][1], "end": end_state(traj), "story": st}
+            if TILT_XY_TOO:                                               # diagnosis: name only the two directional lines
+                body.reset("stand")
+                brain.fresh()
+                traj = intend(body, brain, dict(zip(grav[:2].tolist(), g[:2].tolist())), 2.0)
+                prog = np.array([(np.array(t_[6]) - np.array([r0, p0])) @ want / (want @ want) for t_ in traj])
+                res[f"tilt {name}, directional lines only"] = {"share": float(prog[-1]), "up_after": is_up(body)}
         log(f"[{tag}] tilt 0.25 rad as asked (roll left/right, nose down/up): "
             + ", ".join(f"{a:+.0%}{'' if u else ' (fell)'}" for a, u in got) + " of the asked tilt")
+        if TILT_XY_TOO:
+            log(f"[{tag}]   DIAG same tilts, naming only the two directional gravity lines (not 'how straight down'): "
+                + ", ".join(f"{res[f'tilt {n}, directional lines only']['share']:+.0%}"
+                            f"{'' if res[f'tilt {n}, directional lines only']['up_after'] else ' (fell)'}"
+                            for n in ("roll left", "roll right", "nose down", "nose up")))
         # weight
         shares = []
         for k, foot in enumerate(("FL", "FR", "RL", "RR")):
@@ -977,7 +989,7 @@ def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0, support
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -990,6 +1002,7 @@ def main():
                          "set_speed x leak_s, and the thighs' far ends are up to 3.6 rad away")
     ap.add_argument("--reflex_gains", default=",".join(f"{g:g}" for g in REFLEX_GAINS),
                     help="reflex strengths to test, comma-separated (0 = switched off)")
+    ap.add_argument("--tilt_xy", action="store_true", help="diagnosis: also ask tilts on the two directional lines only")
     ap.add_argument("--babble_tau", type=float, default=BABBLE_TAU,
                     help="how long a spontaneous burst lasts (s); infants' general movements are slow sweeps of seconds")
     ap.add_argument("--reflex", action="store_true", help="after babbling, test with the brain's own reflexes only")
@@ -1004,6 +1017,7 @@ def main():
         setattr(args, k, v)
     BABBLE_TAU = float(args.babble_tau)
     REFLEX_GAINS = tuple(float(g) for g in str(args.reflex_gains).split(","))
+    TILT_XY_TOO = bool(args.tilt_xy)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
