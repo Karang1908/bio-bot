@@ -71,6 +71,10 @@ PRACTICE_RATE = 1e-5     # reflex synapse change per step per unit of (standardi
 PRACTICE_TRACE = 0.9     # eligibility kept from step to step (~0.2 s)
 PRACTICE_NOISE = 0.5     # share of babbling's spontaneous motor activity kept while practising (to try variations)
 EPISODE_S = 5.0          # s: each time it is set down standing
+# --fair_dopamine: dopamine relative to what is usual at the current level of upset. After any jolt, what it feels
+# drifts back on its own; without this, whatever pushed hardest while it was upset gets the credit, grows, upsets it
+# more, and runs away (leak-practice1: up 58% at 8 min -> 0% at 18 min, reflexes changing 2% -> 12% per 2 min).
+# And synaptic scaling: the reflex synapses' total strength stays at its start, so they can turn but not run away.
 SUPPORT_FADE_SHARE = 2 / 3   # --support: a parent's hands hold the trunk (springs toward standing height and level)
                              # during practice; the help fades linearly to zero over this share of practice, after
                              # which it practises alone. Physical help only: the brain is never told about it.
@@ -863,7 +867,7 @@ def reflex_diag(body, brain, log, label, gain=1.0):
     return out
 
 
-def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0, support=False):
+def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0, support=False, fair=False):
     """Standing practice: set down standing again and again; its reflex synapses learn from its own dopamine-like
     signal. Height, feet and 'still up' are measured for the log only; the brain never receives them."""
     J = len(body.joint)
@@ -881,6 +885,8 @@ def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0, support
     burst = np.zeros(len(brain.motor))
     m_mean = np.zeros(len(brain.motor))
     d_mean, d_var = 0.0, 1e-4
+    dev_mean, dev_var, cov = 1.0, 1e-2, 0.0                               # for the usual settling at this level of upset
+    R0_norm = float(np.linalg.norm(R0))
     prev_dev = None
     ups, heights, devs, history = [], [], [], []
     first = int(1.0 / BRAIN_DT)                                           # premise test: the first second of each set-down
@@ -913,14 +919,21 @@ def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0, support
         e += np.outer(m - m_mean, pre)
         if prev_dev is not None:
             D = prev_dev - dev                                            # dopamine: back toward standing still feels good
+            if fair:                                                      # minus what usually happens at this level of upset
+                dev_mean += 0.001 * (prev_dev - dev_mean)
+                dev_var += 0.001 * ((prev_dev - dev_mean) ** 2 - dev_var)
+                cov += 0.001 * ((prev_dev - dev_mean) * (D - d_mean) - cov)
+                D = D - cov / dev_var * (prev_dev - dev_mean)
             d_mean += 0.001 * (D - d_mean)
             d_var += 0.001 * ((D - d_mean) ** 2 - d_var)
             dz = float(np.clip((D - d_mean) / np.sqrt(d_var + 1e-12), -3.0, 3.0))
             brain.R -= PRACTICE_RATE * dz * e                             # reflex input is -R: strengthen what preceded good
+            if fair:
+                brain.R *= R0_norm / float(np.linalg.norm(brain.R))       # synaptic scaling
         else:
             D = 0.0
         if t % ep < first:
-            dopamine.append(D)
+            dopamine.append(D - d_mean if fair else D)
         prev_dev = dev
         devs.append(dev)
         if (t + 1) % report == 0 or t == steps - 1:
@@ -970,6 +983,7 @@ def main():
     ap.add_argument("--leak", action="store_true", help="with tone: set points relax back to the set-down posture")
     ap.add_argument("--reflex", action="store_true", help="after babbling, test with the brain's own reflexes only")
     ap.add_argument("--reflex_diag", action="store_true", help="after babbling: which reflexes knock it over, and how")
+    ap.add_argument("--fair_dopamine", action="store_true", help="practice: dopamine relative to the usual settling; synaptic scaling")
     ap.add_argument("--support", action="store_true", help="practice with a parent's hands on the trunk, fading to none")
     ap.add_argument("--practice", type=float, default=0.0, help="minutes of standing practice (reflexes learn) before the tests")
     ap.add_argument("--diagnose", action="store_true", help="on the ground: record posture, the map, and the physical truth")
@@ -1022,7 +1036,7 @@ def main():
         practised = None
         if args.practice:
             practised = practice(body, brain, args.practice, np.random.default_rng(2000 + dog), log, label,
-                                 support=bool(args.support))
+                                 support=bool(args.support), fair=bool(args.fair_dopamine))
         if args.reflex_diag:
             reflex = {f"x{g:g}": reflex_diag(body, brain, log, label, g) for g in (0.5, 1.0)}
             if args.reflex:
@@ -1062,7 +1076,8 @@ def main():
                                                               "PRACTICE_GAIN0", "PRACTICE_GAIN_STEP",
                                                               "SUPPORT_FADE_SHARE", "SUPPORT_SAG", "TONE_LEAK_S")} | {"tone": bool(args.tone),
                                                               "ground": bool(args.ground), "reflex": bool(args.reflex),
-                                                              "leak": bool(args.leak)}}, indent=1))
+                                                              "leak": bool(args.leak),
+                                                              "fair_dopamine": bool(args.fair_dopamine)}}, indent=1))
     (out / "babble_log.txt").write_text("\n".join(lines_out))
     print("DONE", flush=True)
 
