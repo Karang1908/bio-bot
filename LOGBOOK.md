@@ -5940,6 +5940,29 @@ Next, measured rather than guessed: the leak cut babbling exploration (limits fe
 `babble-leaks1` and `babble-leaks2` (`5d60649`, 1 dog each) compare relaxation times of 0.5, 1 and 2 s for exploration
 against standing with its own reflexes.
 
+### 6.24 Set-point relaxation time: 0.5 s is the only one that keeps it standing (18 Nov)
+
+`babble-leaks05`, `babble-leaks1`, `babble-leaks2` (`5d60649`, 1 dog each, same seeds): `--leak_s` 0.5 / 1 / 2 s,
+reflex tests, no practice. 0.5 s reproduced §6.22 dog 1 number for number.
+
+| relaxation | limits felt | range explored (least) | ×1 standing, nothing asked | ×1 tilt roll L/R, nose down/up | ×1 up after joint moves |
+|---|---|---|---|---|---|
+| 0.5 s | 17/24 | 90% (60%) | 0.17 m, 4 feet | +28 / +52 / +37 / +15% | 21/24 |
+| 1 s | 20/24 | 96% (73%) | 0.12 m | +2 / −80 (fell) / +118 / −151% (fell) | 20/24 |
+| 2 s | 22/24 | 102% (94%) | 0.12 m | −103 / +145 / +70 / −82%, fell 3 of 4 | 18/24 |
+
+- **Babbling time standing:** 2.6% / 1.6% / 1.2%.
+- **×0.5:** 0.25 / 0.14 / 0.12 m.
+- **Get-up from its side:** 0/8 everywhere.
+
+Longer relaxation recovers exploration but loses standing and tilt control. Keep 0.5 s. Recover exploration instead
+with slower babbling sweeps (`--babble_tau 1.0`, `f5da7c2`, job `babble-sweep1`), like infants' general movements of
+seconds. Tests do not use babbling.
+
+Also, fair1 premise test (§6.23) after 30 min: the fair dopamine did carry negative credit (joint speed −0.20,
+turning −0.17, joint angle −0.11, effort −0.06, limit −0.05). The learning still ruined standing (0% at 30 min,
+reflexes changed 78%).
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
