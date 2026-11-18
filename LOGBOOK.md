@@ -5963,6 +5963,39 @@ Also, fair1 premise test (§6.23) after 30 min: the fair dopamine did carry nega
 turning −0.17, joint angle −0.11, effort −0.06, limit −0.05). The learning still ruined standing (0% at 30 min,
 reflexes changed 78%).
 
+### 6.25 Why the leak lost exploration, and faster set points: exploration back, balance traded for joint control (18 Nov)
+
+**Slow sweeps** (`babble-sweep1`, `--babble_tau 1.0`, `f5da7c2`): limits felt 17/24 and range 92%, no better than
+0.3 s bursts. The per-joint breakdown gives the exact cause:
+
+- hips and calves reach 101–104% and feel both limits;
+- the thighs reach 60–70% and feel almost none.
+
+With the leak, a set point can get at most set_speed × leak_s = 4 rad/s × 0.5 s = 2 rad from the set-down posture.
+The thighs' far ends are 2.2–3.6 rad from any set-down posture (thigh 0.9 rad standing, 1.3 rad folded). So 7 of the
+8 thigh limits are unreachable by construction.
+
+**Faster set points** (`babble-speed9`, `--set_speed 9`, reach 4.5 rad, `27b6f45`, 2 dogs):
+
+- **Exploration is back:** limits felt 22/24 on both dogs (only the back thighs' +4.54 rad end missing; reached
+  4.18–4.51), range 103%, least joint 94–96%. Body map 100%.
+- **Babbling time standing:** 0.6–0.7% (2.6% at 4 rad/s).
+
+Reflex tests, dog 1 / dog 2 (faster set points act like a stronger reflex loop):
+
+| own reflexes | ×0.25 | ×0.5 | ×1 |
+|---|---|---|---|
+| one joint to an end | 52 / 47% | 72 / 70% | 73 / 75% |
+| still up after the 24 joint moves | 20 / 21 | 14 / 16 | 12 / 14 |
+| standing, nothing asked (5 s) | 0.17 / 0.17 m, 3 feet, upright 0.82–0.87 | 0.12 / 0.12 m | on its side (upright 0.16–0.20) |
+| tilt roll L/R, nose down/up | −109/+54/+82/−74 · −100/−6/+100/−102% | −51/+50/+21/−9 · −151/+21/+69 (fell)/−141% | falls 1–2 of 4 |
+
+- **Get-up from its side:** 0/8 everywhere.
+- **Dog 2's tilt at ×0.25 is a fixed lean, not control:** its nose-down and nose-up results mirror each other.
+
+**Best joint control so far** is 75% of the way, by its own reflexes. Balance and tilt are worse than at 4 rad/s ×1
+(§6.22). Next: `babble-speed9-low` (`1649103`), reflexes ×0, ×0.0625, ×0.125 and ×0.25 on the faster body.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
