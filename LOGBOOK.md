@@ -5859,6 +5859,29 @@ during practice in either run.
 Stopped tuning here, per the flat-rounds rule. Options put to the owner: supported standing practice (a fading
 teacher holds the trunk), per-posture reflexes via growth, or a narrower comfort signal.
 
+### 6.21 Supported standing practice: also flat; the drifting set point is the common cause (18 Nov)
+
+`babble.py --practice 45 --support` (`daf54bc`, job `babble-support1`, 2 dogs). Practice was as in §6.20 (rate 1e-5,
+reflexes from ×0.25), with a parent's hands added on the trunk: a spring-damper toward 0.27 m and level, carrying its
+full weight at 5 cm sag, fading linearly to none over 30 min, then 15 min alone.
+
+| | dog 1 | dog 2 |
+|---|---|---|
+| end height of set-downs, help 93 / 87 / 80 / ≤73% | 0.22 / 0.18 / 0.14 / 0.11 m | similar |
+| still up after 5 s, with no help (last 15 min) | 0/24 per 2 min | 0/24 |
+| credit (premise, 540 set-downs): effort / limit push-back | +0.062 / +0.059 | +0.049 / +0.040 |
+| after practice, ×1 effort / limit reflexes alone | fall at 0.76 / 0.74 s | fall at 0.78 / 0.76 s |
+| reflexes off (×0) | stands 0.19 m, 4 feet | 0.18 m, 4 feet |
+
+- **The legs folded under the hands from minute ~6** (height 0.11 m, the hands still carrying 60–80%).
+- **Credit while held** (2-min windows): effort and limit push-back were +0.15 to +0.23, joint speed −0.16 to +0.02.
+  The credit measure compares push size, not direction, so it is only a rough proxy for what the signed rule can use.
+- **Common cause, calculated (not measured directly).** The set point integrates every push. At half babbling noise
+  it moves ~0.7 rad/s, i.e. ~1.2 rad of random walk per 5 s set-down. That folds the legs whatever the reflexes
+  learn. It is the same drift as the 1.45 rad/s while babbling (§6.18) and the one-way collapses (§6.19).
+- **Next:** `--leak` (`c4e349a`, job `babble-leak1`). The set point relaxes back to the set-down posture with a
+  0.5 s time constant. A steady push then gives a bounded offset (≤ 2 rad), and the noise wander drops to ~0.27 rad.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
