@@ -50,6 +50,10 @@ TONE_KP = 20.0           # N m / rad
 TONE_KD = 0.5            # N m s / rad
 SET_SPEED = 4.0          # rad/s: how fast a fully driven motor pool moves its joint's set point
 MOTOR_TAU = 3.0          # s: the motor pool adapts away its own steady resting drive, as the senses do
+TONE_LEAK_S = 0.5        # --leak: the set point relaxes back to the posture it was set down in with this time constant,
+                         # so a steady push gives a bounded offset (up to SET_SPEED x TONE_LEAK_S = 2 rad) instead of
+                         # endless drift. Measured drift without it: 1.45 rad/s while babbling (§6.18), one-way
+                         # collapses of the load reflexes (§6.19), and legs folding under practice noise (§6.20+).
 # --reflex: the brain's own feedback. While babbling, synapses from sensory back to motor neurons are tuned by the
 # twitches themselves (as in newborn rats' spinal reflexes, Petersson et al. 2003): a link grows when the motor
 # neuron's activity is followed by a FALL in that sensory neuron, so the finished reflex opposes change. They stay
@@ -105,7 +109,7 @@ class Body:
     """The Go2: held in the air by its trunk, or free on the ground. Torque motors; every joint has a hard limit.
     On the ground it also has touch in each foot and an inner ear (which way gravity pulls, and how it is turning)."""
 
-    def __init__(self, go2: Path, held: bool = True, tone: bool = False):
+    def __init__(self, go2: Path, held: bool = True, tone: bool = False, leak: bool = False):
         import mujoco
         self.mj = mujoco
         self.m = mujoco.MjModel.from_xml_path(str(go2 / "scene.xml"))
@@ -119,6 +123,7 @@ class Body:
         self.names = [self.m.joint(j).name.replace("_joint", "") for j in self.joint]
         self.held = held
         self.tone = tone
+        self.leak = leak
         self.base = self.m.body("base").id
         self.feet = [self.m.geom(f).id for f in ("FL", "FR", "RL", "RR")]
         self._force = np.zeros(6)
@@ -134,6 +139,7 @@ class Body:
             self.hold()
             self.mj.mj_forward(self.m, self.d)
             self.target = self.angles()
+            self.rest_q = self.target.copy()
             return
         q = self.d.qpos
         if pose != "stand":
@@ -149,10 +155,12 @@ class Body:
         if pose == "stand":                                              # set on its feet; holding itself up is its job
             self.mj.mj_forward(self.m, self.d)
             self.target = self.angles()
+            self.rest_q = self.target.copy()
             return
         for _ in range(int(0.5 / self.m.opt.timestep)):                 # let it settle onto the floor, limp
             self.mj.mj_step(self.m, self.d)
         self.target = self.angles()                                      # the muscles take the posture it was set in
+        self.rest_q = self.target.copy()
 
     def hold(self):
         self.d.qpos[0:3] = [0.0, 0.0, HELD_AT]
@@ -163,7 +171,8 @@ class Body:
         """out: each motor pool's output in [-1, 1]. Without tone it is a torque (share of the motor's maximum); with
         tone it moves the joint's set point, and the muscle pulls toward it."""
         if self.tone:
-            self.target = np.clip(self.target + SET_SPEED * BRAIN_DT * out, self.lo - 0.1, self.hi + 0.1)
+            relax = (self.target - self.rest_q) * BRAIN_DT / TONE_LEAK_S if self.leak else 0.0
+            self.target = np.clip(self.target + SET_SPEED * BRAIN_DT * out - relax, self.lo - 0.1, self.hi + 0.1)
         else:
             self.d.ctrl[:] = np.clip(self.tmax * out, -self.tmax, self.tmax)
         for _ in range(self.subs):
@@ -958,6 +967,7 @@ def main():
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
     ap.add_argument("--ground", action="store_true", help="free on the ground, with foot touch and an inner ear")
     ap.add_argument("--tone", action="store_true", help="muscle tone: the motor neurons move each joint's set point")
+    ap.add_argument("--leak", action="store_true", help="with tone: set points relax back to the set-down posture")
     ap.add_argument("--reflex", action="store_true", help="after babbling, test with the brain's own reflexes only")
     ap.add_argument("--reflex_diag", action="store_true", help="after babbling: which reflexes knock it over, and how")
     ap.add_argument("--support", action="store_true", help="practice with a parent's hands on the trunk, fading to none")
@@ -977,12 +987,14 @@ def main():
         print(msg, flush=True)
         lines_out.append(msg)
 
-    body = Body(fetch_go2(Path(tempfile.gettempdir())), held=not args.ground, tone=bool(args.tone))
+    body = Body(fetch_go2(Path(tempfile.gettempdir())), held=not args.ground, tone=bool(args.tone), leak=bool(args.leak))
     core = load_core()
     where = f"held at {HELD_AT} m like a baby" if body.held else (
         f"free on the ground, with foot touch and an inner ear; set down somewhere new every {REPOSITION_S:g} s")
     if body.tone:
         where += f"; muscle tone (stiffness {TONE_KP:g} N m/rad, damping {TONE_KD:g}), the brain moves the set points"
+        if body.leak:
+            where += f", which relax back to the set-down posture over {TONE_LEAK_S:g} s"
     log(f"body: Go2, {len(body.joint)} joints ({', '.join(body.names)}); {where}; {len(body.feel())} nerves; "
         f"physics {body.subs} steps per brain step")
     log(f"brain: fly connectome, {len(core['role'])} neurons, {len(core['pre'])} connections; it is told nothing about the body")
@@ -1048,8 +1060,9 @@ def main():
                                                               "MOTOR_TAU", "REFLEX_GAINS", "SETTLE_S", "PRACTICE_RATE",
                                                               "PRACTICE_TRACE", "PRACTICE_NOISE", "EPISODE_S",
                                                               "PRACTICE_GAIN0", "PRACTICE_GAIN_STEP",
-                                                              "SUPPORT_FADE_SHARE", "SUPPORT_SAG")} | {"tone": bool(args.tone),
-                                                              "ground": bool(args.ground), "reflex": bool(args.reflex)}}, indent=1))
+                                                              "SUPPORT_FADE_SHARE", "SUPPORT_SAG", "TONE_LEAK_S")} | {"tone": bool(args.tone),
+                                                              "ground": bool(args.ground), "reflex": bool(args.reflex),
+                                                              "leak": bool(args.leak)}}, indent=1))
     (out / "babble_log.txt").write_text("\n".join(lines_out))
     print("DONE", flush=True)
 
