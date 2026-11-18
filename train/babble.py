@@ -976,6 +976,7 @@ def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0, support
 
 
 def main():
+    global BABBLE_TAU
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -983,6 +984,8 @@ def main():
     ap.add_argument("--tone", action="store_true", help="muscle tone: the motor neurons move each joint's set point")
     ap.add_argument("--leak", action="store_true", help="with tone: set points relax back to the set-down posture")
     ap.add_argument("--leak_s", type=float, default=TONE_LEAK_S, help="relaxation time of the set points (s)")
+    ap.add_argument("--babble_tau", type=float, default=BABBLE_TAU,
+                    help="how long a spontaneous burst lasts (s); infants' general movements are slow sweeps of seconds")
     ap.add_argument("--reflex", action="store_true", help="after babbling, test with the brain's own reflexes only")
     ap.add_argument("--reflex_diag", action="store_true", help="after babbling: which reflexes knock it over, and how")
     ap.add_argument("--fair_dopamine", action="store_true", help="practice: dopamine relative to the usual settling; synaptic scaling")
@@ -993,6 +996,7 @@ def main():
     args = ap.parse_args([]) if JOB_ARGS else ap.parse_args()
     for k, v in JOB_ARGS.items():
         setattr(args, k, v)
+    BABBLE_TAU = float(args.babble_tau)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
