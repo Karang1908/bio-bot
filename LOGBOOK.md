@@ -5996,6 +5996,45 @@ Reflex tests, dog 1 / dog 2 (faster set points act like a stronger reflex loop):
 **Best joint control so far** is 75% of the way, by its own reflexes. Balance and tilt are worse than at 4 rad/s ×1
 (§6.22). Next: `babble-speed9-low` (`1649103`), reflexes ×0, ×0.0625, ×0.125 and ×0.25 on the faster body.
 
+### 6.26 Weaker reflexes on the faster body; the tilt result is a fixed lean; babbling held standing (18 Nov)
+
+**`babble-speed9-low`** (`1649103`, 2 dogs, set points 9 rad/s, leak 0.5 s). Dog 1 / dog 2:
+
+| own reflexes | ×0 | ×0.0625 | ×0.125 | ×0.25 |
+|---|---|---|---|---|
+| standing, nothing asked | 0.19 / 0.20 m | 0.20 / 0.22 m, 4 feet | 0.23 / 0.24 m, 4 feet | 0.17 / 0.16 m, 3 feet |
+| one joint to an end | 1 / 1% | 19 / 18% | 34 / 33% | 52 / 47% |
+| still up after the joint moves | 24 / 24 | 24 / 24 | 22 / 23 | 20 / 21 |
+| tilt roll L/R, nose down/up (dog 1) | −4/+4/−41/+40 | −40/+8/+49/−25 | −62/+18/+86/−55 | −109/+54/+82/−74 |
+
+Limits felt 22/24 on both dogs. At every strength the "tilt" is roll right and nose down whatever is asked: a fixed
+lean, not control.
+
+**`babble-tiltxy`** (`bb817cb`): the same tilts asked on only the two directional gravity lines gave identical
+results within 1% (×0.125: −64/+21/+87/−57 against −64/+20/+87/−57). The "how straight down" line was not the cause.
+The request barely registers: standing with nothing asked already ends at upright 0.97, a lean of ~0.24 rad.
+
+**`babble-held1`** (`ae2cc93`, `--held_babble`): in half the babbling set-downs a parent holds it standing, carrying
+half its weight. Tests have no help. Dog 1:
+
+- **Babbling:** standing (3–4 feet, above 0.16 m) 5.5% of the time (0.6% without; I predicted ≥ 20%, wrong). The
+  legs still swing off the floor: 0–1 feet loaded 67% of the time. Limits felt 23/24.
+- **Map sign right vs standing truth at 60 ms:** foot pressure 83/84/100/88%, pitch 92%, roll 47%, upright 51%.
+- **Tests:**
+
+  | own reflexes | ×0.125 | ×0.25 | ×0.5 |
+  |---|---|---|---|
+  | standing, nothing asked | 0.22 m, 4 feet | 0.18 m | 0.12 m |
+  | one joint to an end | 33% | 47% | 64% (up after 15/24) |
+  | tilt roll L/R, nose down/up | −40/+37/+53/−28% | −171/+143/+105/−71% | −110/+106/+115/−74% |
+
+  Weight shift barely changes; at ×0.5 it slides onto the back feet. Get-up 0/8.
+
+**Conclusion.** These twitch-tuned, posture-independent linear reflexes give joint control and passive standing, but
+not balance (tilt, weight shift, getting up). That held across 4 rad/s and 9 rad/s, every reflex strength, and
+babbling held standing. Balance is a whole-body, posture-dependent effect; one global reflex table cannot express it.
+The next mechanism (posture-dependent reflexes via growth, or a posture-local learning rule) is for the owner to choose.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
