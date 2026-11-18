@@ -5909,6 +5909,37 @@ twitch-tuned, no practice, and the test only shifts a felt reference.
 The first change where the brain's own reflexes give directional control without falling: dog 1 tilts in all four
 directions at ×1 and ×2. Next: standing practice and the credit test on the leak body, then the exploration regression.
 
+### 6.23 Practice on the leak body: early gain, then the reflexes are ruined; the dopamine line is stopped (18 Nov)
+
+Practice (§6.20 rule, rate 1e-5, reflexes from ×0.25, half-strength noise, 5 s set-downs) on the leaky body:
+
+- `babble-leak-practice1` (`a5d67ee` code, 2 dogs).
+- `babble-fair1` (`0d2b509`, 2 dogs), adding two fixes:
+  - dopamine minus the change usual at that level of upset (an online regression of the dopamine on the felt
+    deviation);
+  - synaptic scaling (the reflex synapses' total strength held at its start).
+
+| practice (dog 1) | 2 min | 8 min | 12 min | 16 min | 20 min | 24 min |
+|---|---|---|---|---|---|---|
+| leak-practice1: still up after 5 s | 43% | 58% | 29% | 4% | 0% | 0% |
+| leak-practice1: reflexes changed | 6% | 12% | 14% | 29% | 56% | 67%+ |
+| fair1: still up after 5 s | — | 46% | 29% | 4% | 0% | 0% |
+| fair1: reflexes changed | — | 14% | 19% | 27% | 40% | 59% |
+
+- **leak-practice1 after practice, ×1** (both dogs): standing with nothing asked 0.11 m; one joint −3 to −4% and still
+  up after 0/24; tilt fell 4/4; get-up 0/8. Before practice it was 0.17 m, 39%, 21/24, and +28/+52/+37/+15% tilt.
+  Reflexes off (×0) are unchanged (stands 0.20 m).
+- **The credit measure** in fair1 marked joint angle (−0.19 to −0.23) and joint speed (−0.09 to −0.18) as followed by
+  worse, and effort slightly negative from 12 min. Standing still collapsed on the same schedule.
+
+Conclusion: four rounds of dopamine-gated reflex practice (§6.20, §6.21, here twice) made standing worse or no better.
+Per the flat-rounds rule this line is stopped. The best brain remains the leaky body with twitch-tuned reflexes and no
+practice (§6.22).
+
+Next, measured rather than guessed: the leak cut babbling exploration (limits felt 15–17/24). Runs `babble-leaks05`,
+`babble-leaks1` and `babble-leaks2` (`5d60649`, 1 dog each) compare relaxation times of 0.5, 1 and 2 s for exploration
+against standing with its own reflexes.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
