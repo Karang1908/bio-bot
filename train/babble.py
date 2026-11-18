@@ -59,7 +59,7 @@ TONE_LEAK_S = 0.5        # --leak: the set point relaxes back to the posture it 
 # neuron's activity is followed by a FALL in that sensory neuron, so the finished reflex opposes change. They stay
 # silent while babbling (as reflexes are tuned during sleep twitches) and act afterwards. They are the body map's
 # reverse direction with the opposite sign: the same co-activity, learned once.
-REFLEX_GAINS = (0.0, 0.5, 1.0, 2.0, 4.0)   # reflex strength, in units of the map's own scale (0 = switched off)
+REFLEX_GAINS = (0.0, 0.25, 0.5, 1.0, 2.0)   # reflex strength, in units of the map's own scale (0 = switched off)
 SETTLE_S = 30.0          # s: before tests, set down standing at rest while senses and motor pools settle (~3 time constants)
 # --practice: standing practice after babbling. Its reflex synapses keep learning while it stands, gated by a
 # dopamine-like signal it makes from its own senses: positive when what it feels returns toward how standing still
@@ -129,6 +129,7 @@ class Body:
         self.tone = tone
         self.leak = leak
         self.leak_s = TONE_LEAK_S
+        self.set_speed = SET_SPEED
         self.base = self.m.body("base").id
         self.feet = [self.m.geom(f).id for f in ("FL", "FR", "RL", "RR")]
         self._force = np.zeros(6)
@@ -177,7 +178,7 @@ class Body:
         tone it moves the joint's set point, and the muscle pulls toward it."""
         if self.tone:
             relax = (self.target - self.rest_q) * BRAIN_DT / self.leak_s if self.leak else 0.0
-            self.target = np.clip(self.target + SET_SPEED * BRAIN_DT * out - relax, self.lo - 0.1, self.hi + 0.1)
+            self.target = np.clip(self.target + self.set_speed * BRAIN_DT * out - relax, self.lo - 0.1, self.hi + 0.1)
         else:
             self.d.ctrl[:] = np.clip(self.tmax * out, -self.tmax, self.tmax)
         for _ in range(self.subs):
@@ -660,7 +661,7 @@ def diagnose(body, brain, diag, log, label, out_dir, dog):
         f"median {np.median(lasted):.2f} s (10th-90th percentile {np.percentile(lasted, 10):.2f}-{np.percentile(lasted, 90):.2f} s, "
         f"set down for 15 s each time); motor pools' mean |output| while babbling "
         + " ".join(f"{a / n:.2f}" for a in diag["abs_command"])
-        + (f" (with tone: set points move {SET_SPEED * diag['abs_command'].mean() / n:.2f} rad/s on average)" if body.tone else ""))
+        + (f" (with tone: set points move {body.set_speed * diag['abs_command'].mean() / n:.2f} rad/s on average)" if body.tone else ""))
     gains = brain.fibre_gain[4 * J:4 * J + 7]
     part = [np.einsum("mlf,lf->ml", p.reshape(len(brain.motor), 7, NERVE_FIBRES), gains) for p in diag["part"]]
     S = line_scores(brain)[:, 4 * J:4 * J + 7]
@@ -984,6 +985,9 @@ def main():
     ap.add_argument("--tone", action="store_true", help="muscle tone: the motor neurons move each joint's set point")
     ap.add_argument("--leak", action="store_true", help="with tone: set points relax back to the set-down posture")
     ap.add_argument("--leak_s", type=float, default=TONE_LEAK_S, help="relaxation time of the set points (s)")
+    ap.add_argument("--set_speed", type=float, default=SET_SPEED,
+                    help="fastest set-point speed (rad/s); with --leak the farthest reach from the set-down posture is "
+                         "set_speed x leak_s, and the thighs' far ends are up to 3.6 rad away")
     ap.add_argument("--babble_tau", type=float, default=BABBLE_TAU,
                     help="how long a spontaneous burst lasts (s); infants' general movements are slow sweeps of seconds")
     ap.add_argument("--reflex", action="store_true", help="after babbling, test with the brain's own reflexes only")
@@ -1009,13 +1013,15 @@ def main():
 
     body = Body(fetch_go2(Path(tempfile.gettempdir())), held=not args.ground, tone=bool(args.tone), leak=bool(args.leak))
     body.leak_s = float(args.leak_s)
+    body.set_speed = float(args.set_speed)
     core = load_core()
     where = f"held at {HELD_AT} m like a baby" if body.held else (
         f"free on the ground, with foot touch and an inner ear; set down somewhere new every {REPOSITION_S:g} s")
     if body.tone:
         where += f"; muscle tone (stiffness {TONE_KP:g} N m/rad, damping {TONE_KD:g}), the brain moves the set points"
         if body.leak:
-            where += f", which relax back to the set-down posture over {body.leak_s:g} s"
+            where += (f", which relax back to the set-down posture over {body.leak_s:g} s (set points move up to "
+                      f"{body.set_speed:g} rad/s, reach up to {body.set_speed * body.leak_s:g} rad)")
     log(f"body: Go2, {len(body.joint)} joints ({', '.join(body.names)}); {where}; {len(body.feel())} nerves; "
         f"physics {body.subs} steps per brain step")
     log(f"brain: fly connectome, {len(core['role'])} neurons, {len(core['pre'])} connections; it is told nothing about the body")
@@ -1085,7 +1091,8 @@ def main():
                                                               "ground": bool(args.ground), "reflex": bool(args.reflex),
                                                               "leak": bool(args.leak),
                                                               "fair_dopamine": bool(args.fair_dopamine),
-                                                              "leak_s": float(args.leak_s)}}, indent=1))
+                                                              "leak_s": float(args.leak_s),
+                                                              "set_speed": float(args.set_speed)}}, indent=1))
     (out / "babble_log.txt").write_text("\n".join(lines_out))
     print("DONE", flush=True)
 
