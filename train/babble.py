@@ -977,7 +977,7 @@ def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0, support
 
 
 def main():
-    global BABBLE_TAU
+    global BABBLE_TAU, REFLEX_GAINS
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -988,6 +988,8 @@ def main():
     ap.add_argument("--set_speed", type=float, default=SET_SPEED,
                     help="fastest set-point speed (rad/s); with --leak the farthest reach from the set-down posture is "
                          "set_speed x leak_s, and the thighs' far ends are up to 3.6 rad away")
+    ap.add_argument("--reflex_gains", default=",".join(f"{g:g}" for g in REFLEX_GAINS),
+                    help="reflex strengths to test, comma-separated (0 = switched off)")
     ap.add_argument("--babble_tau", type=float, default=BABBLE_TAU,
                     help="how long a spontaneous burst lasts (s); infants' general movements are slow sweeps of seconds")
     ap.add_argument("--reflex", action="store_true", help="after babbling, test with the brain's own reflexes only")
@@ -1001,6 +1003,7 @@ def main():
     for k, v in JOB_ARGS.items():
         setattr(args, k, v)
     BABBLE_TAU = float(args.babble_tau)
+    REFLEX_GAINS = tuple(float(g) for g in str(args.reflex_gains).split(","))
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
