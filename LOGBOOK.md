@@ -6035,6 +6035,42 @@ not balance (tilt, weight shift, getting up). That held across 4 rad/s and 9 rad
 babbling held standing. Balance is a whole-body, posture-dependent effect; one global reflex table cannot express it.
 The next mechanism (posture-dependent reflexes via growth, or a posture-local learning rule) is for the owner to choose.
 
+### 6.27 Posture neurons (growth): three versions, none separates standing from lying (20 Nov)
+
+**Option chosen by the owner:** posture-dependent reflexes through growth (`--contexts`, `7f4b3d1`).
+
+- **Posture neurons** are grown append-only, up to 24.
+- **Each is tuned to a pattern** in the slowly smoothed senses: all 58 nerves in adapted units, smoothed over 0.5 s.
+- **A new neuron starts** as a copy of the nearest existing one (prototype and reflex synapses), then diverges.
+- **Each has its own twitch-tuned reflex synapses,** learned and used only while it is active, and scaled to their own
+  size at test.
+- **Body and babbling** as in §6.26: 9 rad/s, leak 0.5 s, held standing in half the set-downs.
+
+| run | grown | stand / belly / side: top neuron (its share) | standing neuron's links, sign right: pitch / roll / upright |
+|---|---|---|---|
+| ctx1, soft learning, grow at 1.0, width 0.5 | 12 and 19 | 8 / 7 / 7 (10%); dog 2: 0 / 0 / 0 (8%) | 92 / 33 / 35%; dog 2: 96 / 40 / 52% |
+| ctx2, winner-only learning (`4c97bdb`) | 3 (0.98–1.44 apart) | 0 / 0 / 0 (72–77%) | 92 / 30 / 31% |
+| ctx3, winner-only, grow at 0.5, width 0.25 (`fd8bc1f`) | 24 (0.32–1.14 apart) | 7 / 7 / 7 (14–18%); the standing posture 1.12 / 1.12 / 1.13 from its nearest three | 32 / 16 / 17% |
+
+The single global table, for comparison: pitch 92%, roll 32–47%, upright 51–64%.
+
+- **ctx1:** soft competition let every neuron drift to the average posture, so they collapsed together.
+- **ctx2:** with winner-only learning, the first neuron sat central and took everything; only 3 grew.
+- **ctx3:** the smaller sizes used up all 24 neurons, yet the test postures sat about equally far from many of them.
+
+Tests matched §6.26 or were worse, at every strength:
+
+- **ctx1:** dog 1 at ×0.125 rolled the asked way in both directions (+17%, +11%), but dog 2 did not (−10%, +41%).
+- **ctx3:** at ×0.125, joints 19% and tilt near zero. It still stands (×0.5: 0.18 m on 4 feet, up after 20/24).
+- **All:** weight shift absent; get-up 0/8.
+
+**Diagnosis.** Reading posture from all 58 senses equally drowns the few that tell standing from lying (inner ear,
+foot load) among the many that change with every movement (joint speeds, efforts, angles). Size changes cannot fix
+that, so the adjustments are stopped.
+
+**Proposed, still learned rather than hand-set:** weight each sense by how slowly it changes (slow-feature learning),
+so steady senses carry posture. Awaiting the owner.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
