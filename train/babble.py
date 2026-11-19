@@ -90,6 +90,8 @@ CTX_SIGMA = 0.5          # how broadly a posture neuron is tuned (same units)
 CTX_TAU = 0.5            # s: the senses are smoothed over this long to tell posture
 CTX_LEARN = 0.01         # how fast a posture neuron's preferred posture follows what it sees while active
 CTX_ACTIVE = 0.05        # a posture neuron learns and acts only above this share of the activity
+CTX_WINNER = False       # --ctx_winner: only the best-matching posture neuron moves its preferred posture (lateral
+                         # inhibition); without it they all drift to the average posture (ctx1: 12 grown, top one 10%)
 CTX_START = int(30.0 / BRAIN_DT)   # no posture neurons in the first 30 s of life, while its senses calibrate
 HELD_BABBLE_SHARE = 0.5  # --held_babble: share of babbling set-downs where a parent holds it standing (like holding a
 HELD_BABBLE_HELP = 0.5   # baby upright on its feet), carrying this share of its weight; it babbled standing only
@@ -318,7 +320,11 @@ class Brain:
             a, d = self.ctx_activity()
         for k in np.where(a > CTX_ACTIVE)[0]:
             self.ctx_map[k] += (a[k] * update).astype(np.float32)
-            self.ctx_p[k] += CTX_LEARN * a[k] * (self.slow - self.ctx_p[k])
+            if not CTX_WINNER:
+                self.ctx_p[k] += CTX_LEARN * a[k] * (self.slow - self.ctx_p[k])
+        if CTX_WINNER:
+            w = int(np.argmax(a))
+            self.ctx_p[w] += CTX_LEARN * (self.slow - self.ctx_p[w])
 
     def zscore(self, felt):
         return np.clip((felt - self.mean) / np.sqrt(self.var + 1e-6), -4.0, 4.0)
@@ -1072,20 +1078,27 @@ def ctx_diag(body, brain, log, label):
         truth = true_effects(body, pose)
         local = agreement(per_motor(brain, line_scores(brain, brain.ctx_map[k].astype(float))[:, 4 * J:4 * J + 7]), truth)
         glob = agreement(per_motor(brain, line_scores(brain)[:, 4 * J:4 * J + 7]), truth)
-        out[pose] = {"neuron": k, "share": float(a[k]), "distance": float(d[k]), "local": local, "global": glob}
-        log(f"[{label}] DIAG posture '{pose}': its posture neuron {k} ({a[k]:.0%} of the activity); that neuron's reflex "
+        out[pose] = {"neuron": k, "share": float(a[k]), "distance": float(d[k]), "local": local, "global": glob,
+                     "distances": np.sort(d)[:3].tolist()}
+        log(f"[{label}] DIAG posture '{pose}': its posture neuron {k} ({a[k]:.0%} of the activity; nearest three at "
+            + "/".join(f"{x:.2f}" for x in np.sort(d)[:3]) + "); that neuron's reflex "
             f"links vs what the motors really do here, sign right: "
             + ", ".join(f"{nm.split()[0] if 'pressure' in nm else nm.split()[2]} {x['sign_right']:.0%}"
                         for nm, x in zip(GROUND_LINES, local))
             + " | the single global table: "
             + ", ".join(f"{x['sign_right']:.0%}" for x in glob))
-    log(f"[{label}] DIAG grew {len(brain.ctx_p)} posture neurons")
+    P = np.array(brain.ctx_p)
+    pd = np.sqrt(((P[:, None, :] - P[None, :, :]) ** 2).mean(2))[np.triu_indices(len(P), 1)] if len(P) > 1 else np.zeros(1)
+    out["pairwise_distance"] = {"min": float(pd.min()), "median": float(np.median(pd)), "max": float(pd.max())}
+    log(f"[{label}] DIAG grew {len(brain.ctx_p)} posture neurons; how far apart their preferred postures are (RMS adapted "
+        f"units): min {pd.min():.2f}, median {np.median(pd):.2f}, max {pd.max():.2f} (they grow {CTX_GROW:g} apart, tuned "
+        f"{CTX_SIGMA:g} wide)")
     brain.adapting = adapting
     return out
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1099,6 +1112,7 @@ def main():
     ap.add_argument("--reflex_gains", default=",".join(f"{g:g}" for g in REFLEX_GAINS),
                     help="reflex strengths to test, comma-separated (0 = switched off)")
     ap.add_argument("--contexts", action="store_true", help="grow posture neurons, each with its own reflexes")
+    ap.add_argument("--ctx_winner", action="store_true", help="only the best-matching posture neuron moves its posture")
     ap.add_argument("--held_babble", action="store_true", help="babble held standing by a parent in half the set-downs")
     ap.add_argument("--tilt_xy", action="store_true", help="diagnosis: also ask tilts on the two directional lines only")
     ap.add_argument("--babble_tau", type=float, default=BABBLE_TAU,
@@ -1116,6 +1130,7 @@ def main():
     BABBLE_TAU = float(args.babble_tau)
     REFLEX_GAINS = tuple(float(g) for g in str(args.reflex_gains).split(","))
     TILT_XY_TOO = bool(args.tilt_xy)
+    CTX_WINNER = bool(args.ctx_winner)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
@@ -1213,7 +1228,7 @@ def main():
                                                               "leak_s": float(args.leak_s),
                                                               "set_speed": float(args.set_speed),
                                                               "held_babble": bool(args.held_babble),
-                                                              "contexts": bool(args.contexts),
+                                                              "contexts": bool(args.contexts), "ctx_winner": bool(args.ctx_winner),
                                                               "HELD_BABBLE_SHARE": HELD_BABBLE_SHARE,
                                                               "HELD_BABBLE_HELP": HELD_BABBLE_HELP}}, indent=1))
     (out / "babble_log.txt").write_text("\n".join(lines_out))
