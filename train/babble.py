@@ -80,6 +80,17 @@ SUPPORT_FADE_SHARE = 2 / 3   # --support: a parent's hands hold the trunk (sprin
                              # during practice; the help fades linearly to zero over this share of practice, after
                              # which it practises alone. Physical help only: the brain is never told about it.
 SUPPORT_SAG = 0.05       # m: at full support the hands carry its whole weight with this much sag
+# --contexts: posture neurons, grown as needed (append-only). Each is tuned to a posture: a pattern in its slowly
+# smoothed senses (all nerves, in their adapted units). A new one grows when no existing one matches; it starts as a
+# copy of the nearest (cell type copied, then diverges). Each has its own reflex synapses, tuned by the same twitch rule
+# but only while it is active, and scaled to their own size at test.
+CTX_MAX = 24             # most posture neurons it can grow
+CTX_GROW = 1.0           # grows one when the posture is this far (RMS, adapted units per nerve) from every existing one
+CTX_SIGMA = 0.5          # how broadly a posture neuron is tuned (same units)
+CTX_TAU = 0.5            # s: the senses are smoothed over this long to tell posture
+CTX_LEARN = 0.01         # how fast a posture neuron's preferred posture follows what it sees while active
+CTX_ACTIVE = 0.05        # a posture neuron learns and acts only above this share of the activity
+CTX_START = int(30.0 / BRAIN_DT)   # no posture neurons in the first 30 s of life, while its senses calibrate
 HELD_BABBLE_SHARE = 0.5  # --held_babble: share of babbling set-downs where a parent holds it standing (like holding a
 HELD_BABBLE_HELP = 0.5   # baby upright on its feet), carrying this share of its weight; it babbled standing only
                          # 0.6% of the time otherwise (§6.25). Never during tests.
@@ -280,6 +291,34 @@ class Brain:
     rest_mean = None         # what its senses report at rest, standing
     reflex_cols = None       # diagnosis only: use the reflexes from these sensory neurons alone (None: all)
     R = None                 # its reflex synapses once they learn on their own (standing practice); None: the twitch-tuned ones
+    use_ctx = False          # posture neurons (--contexts)
+
+    def ctx_init(self):
+        self.use_ctx = True
+        self.slow = np.zeros(len(self.mean))
+        self.ctx_p, self.ctx_map, self.ctx_scale = [], [], []
+
+    def ctx_activity(self):
+        """Each posture neuron's share of the activity, and how far the current posture is from each."""
+        if not self.ctx_p:
+            return np.zeros(0), np.zeros(0)
+        d = np.sqrt(((np.array(self.ctx_p) - self.slow) ** 2).mean(1))
+        a = np.exp(-d ** 2 / (2 * CTX_SIGMA ** 2)) + 1e-12
+        return a / a.sum(), d
+
+    def ctx_learn(self, update):
+        """Grow a posture neuron if none fits; the active ones learn the twitch-tuned update and drift to this posture."""
+        if self.seen < CTX_START:
+            return
+        a, d = self.ctx_activity()
+        if len(a) == 0 or (d.min() > CTX_GROW and len(self.ctx_p) < CTX_MAX):
+            near = int(np.argmin(d)) if len(d) else None
+            self.ctx_p.append(self.slow.copy())
+            self.ctx_map.append(self.ctx_map[near].copy() if near is not None else np.zeros(self.map.shape, np.float32))
+            a, d = self.ctx_activity()
+        for k in np.where(a > CTX_ACTIVE)[0]:
+            self.ctx_map[k] += (a[k] * update).astype(np.float32)
+            self.ctx_p[k] += CTX_LEARN * a[k] * (self.slow - self.ctx_p[k])
 
     def zscore(self, felt):
         return np.clip((felt - self.mean) / np.sqrt(self.var + 1e-6), -4.0, 4.0)
@@ -291,6 +330,8 @@ class Brain:
             self.mean += a * (felt - self.mean)
             if self.adapt_var:
                 self.var += a * ((felt - self.mean) ** 2 - self.var)
+        if self.use_ctx:
+            self.slow += BRAIN_DT / CTX_TAU * (self.zscore(felt) - self.slow)
         zf = self.zscore(felt) + self.intention
         I = np.zeros(self.N)
         np.add.at(I, self.fibre_neuron.ravel(), (self.fibre_gain * zf[:, None]).ravel())
@@ -298,7 +339,11 @@ class Brain:
         if self.reflex and self.rest_sense is not None:      # its own reflexes: oppose what changed since rest
             change = self.rates()[self.sense] - self.rest_sense
             Wr = self.map if self.R is None else self.R
-            if self.reflex_cols is None:
+            if self.use_ctx and self.ctx_map and self.ctx_scale:           # the active posture neurons' own reflexes
+                a, _ = self.ctx_activity()
+                for k in np.where(a > CTX_ACTIVE)[0]:
+                    I[self.motor] -= self.reflex * a[k] / self.ctx_scale[k] * (self.ctx_map[k] @ change)
+            elif self.reflex_cols is None:
                 I[self.motor] -= self.reflex / self.reflex_scale * (Wr @ change)
             else:
                 c = self.reflex_cols
@@ -363,7 +408,10 @@ def babble(body, brain, minutes, rng, log, label, diag=None, held=False):
         m = r[brain.motor]
         m_mean += 0.01 * (m - m_mean)
         s = r[brain.sense]
-        brain.map += HEBB_RATE * np.outer(trace, s - s_prev)            # activity, then what was felt shortly after
+        update = HEBB_RATE * np.outer(trace, s - s_prev)                # activity, then what was felt shortly after
+        brain.map += update
+        if brain.use_ctx:
+            brain.ctx_learn(update)
         if diag is not None:                                              # measurement only; changes nothing
             loaded = int((felt[4 * J:4 * J + 4] > FOOT_LOADED_N).sum())
             standing = int(loaded >= 3 and -felt[4 * J + 6] > 0.8 and body.d.qpos[2] > STANDING_HEIGHT)
@@ -453,9 +501,15 @@ def control_test(body, brain, scores, log, label, seconds=1.5):
     return rows
 
 
-def line_scores(brain):
+def line_scores(brain, M=None):
     """[motor neurons, nerves]: each motor neuron's learned link to each nerve (sign: which way it moves it)."""
-    return np.einsum("mlf,lf->ml", brain.map[:, brain.fibre_col], brain.fibre_gain)
+    M = brain.map if M is None else M
+    return np.einsum("mlf,lf->ml", M[:, brain.fibre_col], brain.fibre_gain)
+
+
+def ctx_scales(brain):
+    if brain.use_ctx:
+        brain.ctx_scale = [max(float(np.percentile(np.abs(line_scores(brain, M)), 99)), 1e-12) for M in brain.ctx_map]
 
 
 def steer(body, brain, S, targets, seconds, flail=None):
@@ -739,6 +793,8 @@ def intend(body, brain, targets, seconds):
     The brain's own reflexes move the body until the shift is cancelled. The test drives no motor neuron."""
     for l, g in targets.items():
         brain.intention[l] = -(g - brain.mean[l]) / np.sqrt(brain.var[l] + 1e-6)
+    if brain.use_ctx:                                                     # a fresh trial: posture as it is now
+        brain.slow = brain.zscore(body.feel())
     traj = []
     for _ in range(int(seconds / BRAIN_DT)):
         r = brain.step(body.feel(), np.zeros(len(brain.motor)))
@@ -758,6 +814,7 @@ def reflex_tests(body, brain, log, label):
     """Everything by its own reflexes, at each strength (x0 = reflexes switched off, the baseline)."""
     J = len(body.joint)
     brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    ctx_scales(brain)
     touch, grav = 4 * J + np.arange(4), 4 * J + 4 + np.arange(3)
     results = {}
     for gain in REFLEX_GAINS:
@@ -861,6 +918,7 @@ def reflex_diag(body, brain, log, label, gain=1.0):
     cols["none"] = np.zeros(0, int)
     cols["all"] = np.arange(len(brain.sense))
     brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    ctx_scales(brain)
     brain.reflex = gain
     settle_reflex(body, brain)
     out = {}
@@ -898,6 +956,7 @@ def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0, support
               "gravity": range(4 * J + 4, 4 * J + 7), "turning": range(4 * J + 7, 4 * J + 10)}
     cols = {k: brain.fibre_col[list(v)].ravel() for k, v in groups.items()}
     brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    ctx_scales(brain)
     brain.reflex = gain
     settle_reflex(body, brain)
     brain.R = brain.map.copy()
@@ -996,6 +1055,35 @@ def practice(body, brain, minutes, rng, log, label, gain=PRACTICE_GAIN0, support
     return history
 
 
+def ctx_diag(body, brain, log, label):
+    """How many posture neurons it grew, which one is active when it stands still or lies on its side, and whether
+    that one's reflex synapses know what its motors really do in that posture (against the single global table)."""
+    J = len(body.joint)
+    adapting, brain.adapting = brain.adapting, False
+    out = {"posture_neurons": len(brain.ctx_p)}
+    for pose in ("stand", "belly", "left_side"):
+        body.reset(pose)
+        brain.v[:] = 0.0
+        for _ in range(int(1.0 / BRAIN_DT)):                              # let the slow senses settle on this posture
+            brain.step(body.feel(), np.zeros(len(brain.motor)))
+            body.step(np.zeros(J))
+        a, d = brain.ctx_activity()
+        k = int(np.argmax(a))
+        truth = true_effects(body, pose)
+        local = agreement(per_motor(brain, line_scores(brain, brain.ctx_map[k].astype(float))[:, 4 * J:4 * J + 7]), truth)
+        glob = agreement(per_motor(brain, line_scores(brain)[:, 4 * J:4 * J + 7]), truth)
+        out[pose] = {"neuron": k, "share": float(a[k]), "distance": float(d[k]), "local": local, "global": glob}
+        log(f"[{label}] DIAG posture '{pose}': its posture neuron {k} ({a[k]:.0%} of the activity); that neuron's reflex "
+            f"links vs what the motors really do here, sign right: "
+            + ", ".join(f"{nm.split()[0] if 'pressure' in nm else nm.split()[2]} {x['sign_right']:.0%}"
+                        for nm, x in zip(GROUND_LINES, local))
+            + " | the single global table: "
+            + ", ".join(f"{x['sign_right']:.0%}" for x in glob))
+    log(f"[{label}] DIAG grew {len(brain.ctx_p)} posture neurons")
+    brain.adapting = adapting
+    return out
+
+
 def main():
     global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO
     ap = argparse.ArgumentParser()
@@ -1010,6 +1098,7 @@ def main():
                          "set_speed x leak_s, and the thighs' far ends are up to 3.6 rad away")
     ap.add_argument("--reflex_gains", default=",".join(f"{g:g}" for g in REFLEX_GAINS),
                     help="reflex strengths to test, comma-separated (0 = switched off)")
+    ap.add_argument("--contexts", action="store_true", help="grow posture neurons, each with its own reflexes")
     ap.add_argument("--held_babble", action="store_true", help="babble held standing by a parent in half the set-downs")
     ap.add_argument("--tilt_xy", action="store_true", help="diagnosis: also ask tilts on the two directional lines only")
     ap.add_argument("--babble_tau", type=float, default=BABBLE_TAU,
@@ -1056,6 +1145,8 @@ def main():
         brain = Brain(core, len(body.feel()), len(body.joint), np.random.default_rng(GENOME))     # same genome
         if body.tone:
             brain.motor_baseline = np.zeros(len(body.joint))
+        if args.contexts:
+            brain.ctx_init()
         label = f"dog {dog + 1}/{args.dogs}"
         body.reset()
         before = None if args.reflex else control_test(body, brain, joint_scores(brain, body), log, label + ", newborn (map empty)")
@@ -1070,6 +1161,7 @@ def main():
         explored = babble(body, brain, args.minutes, np.random.default_rng(1000 + dog), log, label, diag,
                           held=bool(args.held_babble))
         diag_report = diagnose(body, brain, diag, log, label, out, dog + 1) if diag is not None else None
+        ctx_report = ctx_diag(body, brain, log, label) if args.contexts else None
         scores = joint_scores(brain, body)
         after = None if args.reflex else control_test(body, brain, scores, log, label + f", after {args.minutes:g} min of babbling")
         ground_after = ground_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling", None) if args.ground and not args.reflex else None
@@ -1099,7 +1191,7 @@ def main():
                 f"{np.mean(best == j):.0%}")
         results.append({"dog": dog + 1, "map": acc, "per_joint": per_joint, "control_newborn": before, "control_after": after,
                         "ground_newborn": ground_before, "ground_after": ground_after, "diagnosis": diag_report,
-                        "reflex": reflex, "practice": practised})
+                        "reflex": reflex, "practice": practised, "contexts": ctx_report})
     reach = lambda rows: float(np.mean([np.clip(r_["reach"], -1, 1) for r_ in rows]))
     log("VERDICT babbling: " + "; ".join(
         f"dog {r_['dog']}: body map right joint {r_['map']['joint']:.0%} (direction too {r_['map']['both']:.0%}), "
@@ -1121,6 +1213,7 @@ def main():
                                                               "leak_s": float(args.leak_s),
                                                               "set_speed": float(args.set_speed),
                                                               "held_babble": bool(args.held_babble),
+                                                              "contexts": bool(args.contexts),
                                                               "HELD_BABBLE_SHARE": HELD_BABBLE_SHARE,
                                                               "HELD_BABBLE_HELP": HELD_BABBLE_HELP}}, indent=1))
     (out / "babble_log.txt").write_text("\n".join(lines_out))
