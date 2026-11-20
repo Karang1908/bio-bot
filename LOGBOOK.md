@@ -6071,6 +6071,26 @@ that, so the adjustments are stopped.
 **Proposed, still learned rather than hand-set:** weight each sense by how slowly it changes (slow-feature learning),
 so steady senses carry posture. Awaiting the owner.
 
+### 6.28 Slow-weighted posture neurons: still one neuron; the posture line is stopped (20 Nov)
+
+**Option chosen by the owner:** read posture mostly from slowly changing senses (`--ctx_slow`, `d7b4fd0`). While
+babbling, each nerve's slow variance (of its 0.5 s smoothed value) and fast variance (step to step) are tracked. Its
+weight is their ratio, capped at 10× the median and normalised to mean 1. Otherwise as ctx2 (winner-only, grow at 1.0,
+width 0.5).
+
+- **`babble-slow1`** (2 dogs): the top weights were all 12 joint angles, each at the cap (2.8–2.9); gravity and touch
+  were not in the top 10. It grew 1 posture neuron, which took 100% of the activity in every posture. Standing
+  neuron's links, sign right: pitch 92%, roll 30% (dog 2: 54%), upright 31% (64%). Tests as §6.26: ×0.125 joints
+  32–33%, tilt the fixed lean, no weight shift, get-up 0/8.
+- **Suspected cause:** the parent's instant set-downs make gravity and touch jump in one step, inflating their fast
+  variance.
+- **`babble-slow2`** (`85c6477`): skips the stats for 0.5 s after each set-down. Dog 1's output was identical to
+  slow1: the same top weights and 1 neuron. So that suspicion was wrong or did not matter, and the cause is not
+  pinned down. The 10-weight list only shows capped values, so gravity's actual weight is not known.
+
+Six posture-neuron runs (§6.27 and here) have not separated standing from lying. Per the flat-rounds rule the line is
+stopped, and the next direction goes back to the owner.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
