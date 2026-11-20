@@ -108,6 +108,8 @@ SKILL_NOISE = 0.3        # motor variation, as a share of babbling's
 SKILL_RATE = 1e-3        # skill synapse change per step per unit of (standardised dopamine x eligibility)
 SKILL_TRACE = 0.9        # eligibility kept per step (~0.2 s)
 SKILL_TRIAL_S = 2.0
+SKILL_MAX = 0.25         # synaptic scaling: skill synapses never exceed this share of the twitch map's size
+                         # (skills1 at rate 1e-3: 16x the map's size within 5 min, knocking it over every trial)
 HELD_BABBLE_SHARE = 0.5  # --held_babble: share of babbling set-downs where a parent holds it standing (like holding a
 HELD_BABBLE_HELP = 0.5   # baby upright on its feet), carrying this share of its weight; it babbled standing only
                          # 0.6% of the time otherwise (§6.25). Never during tests.
@@ -1229,6 +1231,9 @@ def practice_skills(body, brain, minutes, rng, log, label):
                 stats[kind] = [m, v]
                 dz = float(np.clip((D - m) / np.sqrt(v + 1e-12), -3.0, 3.0))
                 brain.Q += SKILL_RATE * dz * e
+                qn = float(np.linalg.norm(brain.Q))
+                if qn > SKILL_MAX * map_size:
+                    brain.Q *= SKILL_MAX * map_size / qn
             prev = dist
         brain.intention[:] = 0.0
         window.append((kind, skill_score(body, how, r0p0), is_up(body)))
@@ -1249,7 +1254,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1270,6 +1275,7 @@ def main():
     ap.add_argument("--ctx_slow", action="store_true", help="read posture mostly from the slowly changing senses")
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
+    ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
     ap.add_argument("--skills", type=float, default=0.0, help="minutes of reward-based skill practice (tested before and after)")
     ap.add_argument("--held_babble", action="store_true", help="babble held standing by a parent in half the set-downs")
     ap.add_argument("--tilt_xy", action="store_true", help="diagnosis: also ask tilts on the two directional lines only")
@@ -1292,6 +1298,7 @@ def main():
     CTX_GROW, CTX_SIGMA = float(args.ctx_grow), float(args.ctx_sigma)
     CTX_SLOW = bool(args.ctx_slow)
     CTX_LEARN = float(args.ctx_learn)
+    SKILL_RATE = float(args.skill_rate)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
@@ -1395,7 +1402,7 @@ def main():
                                                               "set_speed": float(args.set_speed),
                                                               "held_babble": bool(args.held_babble), "skills": float(args.skills),
                                                               "SKILL_REFLEX": SKILL_REFLEX, "SKILL_NOISE": SKILL_NOISE,
-                                                              "SKILL_RATE": SKILL_RATE, "SKILL_TRACE": SKILL_TRACE,
+                                                              "SKILL_RATE": SKILL_RATE, "SKILL_TRACE": SKILL_TRACE, "SKILL_MAX": SKILL_MAX,
                                                               "contexts": bool(args.contexts), "ctx_winner": bool(args.ctx_winner),
                                                               "CTX_GROW": CTX_GROW, "CTX_SIGMA": CTX_SIGMA, "ctx_slow": CTX_SLOW, "CTX_LEARN": CTX_LEARN,
                                                               "HELD_BABBLE_SHARE": HELD_BABBLE_SHARE,
