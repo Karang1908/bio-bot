@@ -108,6 +108,7 @@ SKILL_NOISE = 0.3        # motor variation, as a share of babbling's
 SKILL_RATE = 1e-3        # skill synapse change per step per unit of (standardised dopamine x eligibility)
 SKILL_TRACE = 0.9        # eligibility kept per step (~0.2 s)
 SKILL_TRIAL_S = 2.0
+SKILL_LIFT = False       # --skill_lift: also practise lifting a paw (take the weight off one foot); equal task mix
 SKILL_MAX = 0.25         # synaptic scaling: skill synapses never exceed this share of the twitch map's size
                          # (skills1 at rate 1e-3: 16x the map's size within 5 min, knocking it over every trial)
 HELD_BABBLE_SHARE = 0.5  # --held_babble: share of babbling set-downs where a parent holds it standing (like holding a
@@ -940,6 +941,17 @@ def reflex_tests(body, brain, log, label):
                                         "end": end_state(traj)}
         log(f"[{tag}] more weight on one foot as asked (its share, before -> after 2 s): "
             + ", ".join(f"{f} {a:.0%}->{b:.0%}{'' if u else ' (fell)'}" for f, a, b, u in shares))
+        lifts = []
+        for k, foot in enumerate(("FL", "FR", "RL", "RR")):
+            body.reset("stand")
+            brain.fresh()
+            f0 = float(body.touch()[k])
+            intend(body, brain, {int(touch[k]): 0.0}, 2.0)
+            f1 = float(body.touch()[k])
+            lifts.append((foot, f0, f1, is_up(body)))
+            res[f"lift {foot}"] = {"force_before_N": f0, "force_after_N": f1, "up_after": lifts[-1][3]}
+        log(f"[{tag}] lift one paw as asked (its force, before -> after 2 s): "
+            + ", ".join(f"{f} {a:.0f}->{b:.0f} N{'' if u else ' (fell)'}" for f, a, b, u in lifts))
         # lying on its side, nothing asked: its reflexes' reference is standing still
         ups = 0
         ends = []
@@ -1154,7 +1166,8 @@ def skill_task(body, brain, rng):
     """One practice request: {nerve: goal in its own units}, its kind, and the measure of success at the end."""
     J = len(body.joint)
     grav, touch = 4 * J + 4 + np.arange(3), 4 * J + np.arange(4)
-    kind = ("tilt", "tilt", "weight", "joint", "still")[rng.integers(5)]
+    kinds = ("tilt", "weight", "lift", "joint", "still") if SKILL_LIFT else ("tilt", "tilt", "weight", "joint", "still")
+    kind = kinds[rng.integers(len(kinds))]
     if kind == "tilt":
         a = rng.uniform(0.1, 0.3) * rng.choice([-1.0, 1.0])
         roll, pitch = (a, 0.0) if rng.random() < 0.5 else (0.0, a)
@@ -1164,6 +1177,10 @@ def skill_task(body, brain, rng):
         k = int(rng.integers(4))
         base = body.touch()
         return {int(touch[k]): float(1.5 * base[k])}, kind, ("weight", k, base[k] / max(base.sum(), 1e-6))
+    if kind == "lift":                                                    # take the weight off one paw
+        k = int(rng.integers(4))
+        base = body.touch()
+        return {int(touch[k]): 0.0}, kind, ("lift", k, float(base[k]))
     if kind == "joint":
         j = int(rng.integers(J))
         q0 = body.angles()[j]
@@ -1181,6 +1198,9 @@ def skill_score(body, how, r0p0):
         k, s0 = how[1], how[2]
         t = body.touch()
         return float((t[k] / max(t.sum(), 1e-6) - s0) / max(0.5 * s0, 1e-6))
+    if how[0] == "lift":
+        k, f0 = how[1], how[2]
+        return float((f0 - body.touch()[k]) / max(f0, 1e-6))
     if how[0] == "joint":
         j, q0, goal = how[1], how[2], how[3]
         return float((body.angles()[j] - q0) / (goal - q0)) if abs(goal - q0) > 1e-6 else 0.0
@@ -1196,7 +1216,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
     map_size = float(np.linalg.norm(brain.map)) / brain.reflex_scale
     trial = int(SKILL_TRIAL_S / BRAIN_DT)
     trials = int(minutes * 60 / SKILL_TRIAL_S)
-    stats = {k: [0.0, 1e-4] for k in ("tilt", "weight", "joint", "still")}     # usual progress per step, per kind
+    stats = {k: [0.0, 1e-4] for k in ("tilt", "weight", "lift", "joint", "still")}     # usual progress per step, per kind
     window, history = [], []
     t0 = time.time()
     for n in range(trials):
@@ -1238,7 +1258,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
         brain.intention[:] = 0.0
         window.append((kind, skill_score(body, how, r0p0), is_up(body)))
         if (n + 1) % int(5 * 60 / SKILL_TRIAL_S) == 0 or n == trials - 1:
-            by = {k: [w[1] for w in window if w[0] == k] for k in ("tilt", "weight", "joint", "still")}
+            by = {k: [w[1] for w in window if w[0] == k] for k in ("tilt", "weight", "lift", "joint", "still")}
             up = float(np.mean([w[2] for w in window]))
             qsize = float(np.linalg.norm(brain.Q)) / max(map_size, 1e-12)
             history.append({"minute": (n + 1) * SKILL_TRIAL_S / 60, "still_up": up, "Q_vs_map": qsize,
@@ -1246,7 +1266,8 @@ def practice_skills(body, brain, minutes, rng, log, label):
             log(f"[{label}] skill practice {(n + 1) * SKILL_TRIAL_S / 60:4.1f} min ({time.time() - t0:4.0f} s), last "
                 f"{len(window)} trials: median share of the asked change: tilt "
                 f"{np.median(by['tilt']) if by['tilt'] else float('nan'):+.0%}, weight "
-                f"{np.median(by['weight']) if by['weight'] else float('nan'):+.0%}, joint "
+                f"{np.median(by['weight']) if by['weight'] else float('nan'):+.0%}, lift a paw "
+                f"{np.median(by['lift']) if by['lift'] else float('nan'):+.0%}, joint "
                 f"{np.median(by['joint']) if by['joint'] else float('nan'):+.0%}; still up at the end {up:.0%}; "
                 f"skill synapses {qsize:.2f} of the twitch map's size")
             window = []
@@ -1254,7 +1275,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1276,6 +1297,7 @@ def main():
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
+    ap.add_argument("--skill_lift", action="store_true", help="also practise lifting a paw; equal task mix")
     ap.add_argument("--skill_noise", type=float, default=SKILL_NOISE,
                     help="motor variation in skill practice, share of babbling's (0.3 at 9 rad/s moves a set point "
                          "~0.45 rad and toppled it in 77% of trials)")
@@ -1303,6 +1325,7 @@ def main():
     CTX_LEARN = float(args.ctx_learn)
     SKILL_RATE = float(args.skill_rate)
     SKILL_NOISE = float(args.skill_noise)
+    SKILL_LIFT = bool(args.skill_lift)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
@@ -1407,6 +1430,7 @@ def main():
                                                               "held_babble": bool(args.held_babble), "skills": float(args.skills),
                                                               "SKILL_REFLEX": SKILL_REFLEX, "SKILL_NOISE": SKILL_NOISE,
                                                               "SKILL_RATE": SKILL_RATE, "SKILL_TRACE": SKILL_TRACE, "SKILL_MAX": SKILL_MAX,
+                                                              "SKILL_LIFT": SKILL_LIFT,
                                                               "contexts": bool(args.contexts), "ctx_winner": bool(args.ctx_winner),
                                                               "CTX_GROW": CTX_GROW, "CTX_SIGMA": CTX_SIGMA, "ctx_slow": CTX_SLOW, "CTX_LEARN": CTX_LEARN,
                                                               "HELD_BABBLE_SHARE": HELD_BABBLE_SHARE,
