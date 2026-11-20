@@ -6088,8 +6088,18 @@ width 0.5).
   slow1: the same top weights and 1 neuron. So that suspicion was wrong or did not matter, and the cause is not
   pinned down. The 10-weight list only shows capped values, so gravity's actual weight is not known.
 
-Six posture-neuron runs (§6.27 and here) have not separated standing from lying. Per the flat-rounds rule the line is
-stopped, and the next direction goes back to the owner.
+Six posture-neuron runs (§6.27 and here) have not separated standing from lying.
+
+**Correction (same day): the line was never fairly tested.** slow2 matched slow1 to the digit because only one posture
+neuron existed, and with one neuron the weights change nothing. Cause:
+
+- each neuron's preferred posture followed the current one at CTX_LEARN = 0.01 per step, a ~2 s time constant;
+- set-downs last 15 s, so the first neuron tracked the moment;
+- so no posture was ever "far from all" (ctx2, slow1, slow2), or, with a lower growth threshold, all 24 neurons
+  chased the moment (ctx3).
+
+Rerun with CTX_LEARN = 1e-4 (~200 s, `--ctx_learn`): `babble-ctxL` with all senses equal, `babble-slowL` with
+slow-weighted senses.
 
 ## 7. Open problems and next steps
 
