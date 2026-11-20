@@ -6159,6 +6159,7 @@ Tests at ×0.125, before → after 60 min of practice:
 | skills4 dog 1 | −40/+37/+53/−28 → **+47/+70/+58/+60**% | 33 → 28% | 22 → 24/24 |
 | skills4 dog 2 | −15/+29/+48/−4 → **+95/+41/+80/+57**% | 32 → 26% | 23 → 24/24 |
 | control dog 1 (learning off) | −40/+37/+53/−28 → −41/+36/+51/−26% | 33 → 34% | 22 → 22/24 |
+| control dog 2 (learning off) | −15/+29/+48/−4 → −15/+30/+47/−3% | — | — |
 
 - **Standing, nothing asked:** 0.19–0.20 m on 4 feet after practice.
 - **Weight shift:** not learned; after practice the weight still slides to the back feet.
