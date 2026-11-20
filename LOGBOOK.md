@@ -6157,18 +6157,20 @@ Tests at ×0.125, before → after 60 min of practice:
 | skills3 dog 1 | −40/+37/+53/−28 → −2/+51/+41/**+48**% | 33 → 29% | 22 → 24/24 |
 | skills3 dog 2 | −15/+29/+48/−4 → **+17/+42/+52/+53**% | 32 → 29% | 23 → 23/24 |
 | skills4 dog 1 | −40/+37/+53/−28 → **+47/+70/+58/+60**% | 33 → 28% | 22 → 24/24 |
+| skills4 dog 2 | −15/+29/+48/−4 → **+95/+41/+80/+57**% | 32 → 26% | 23 → 24/24 |
 | control dog 1 (learning off) | −40/+37/+53/−28 → −41/+36/+51/−26% | 33 → 34% | 22 → 22/24 |
 
 - **Standing, nothing asked:** 0.19–0.20 m on 4 feet after practice.
 - **Weight shift:** not learned; after practice the weight still slides to the back feet.
 - **Get-up:** 0/8.
-- **With reflexes off (×0), skills4 dog 1 after practice falls in every tilt.** The skill synapses work together with
-  the reflexes, not alone.
+- **With reflexes off (×0) after practice:** skills4 dog 1 falls in every tilt, so its skill synapses work only
+  together with the reflexes. skills4 dog 2 stands (24/24) and tilts the asked way in three directions on its skill
+  synapses alone: +74/+0/+65/+58%, against +0/+7/−40/+41% before.
 - **Practice tilt score at ~30 min:** control +10%, skills3 +28%, skills4 +44–49%, rising to +65–73% by 60 min.
 
 **Conclusion.** The control shows re-settling does not change the tilt. So reward-gated plasticity in the brain's own
 sensory-to-motor synapses turned the fixed one-way lean into tilting the asked way: four directions in two dogs, and
-nose up fixed in the third. This is the first whole-body balance skill learned by the brain itself. Costs and gaps:
+nose up fixed in the third; skills4 dog 2 is added below. This is the first whole-body balance skill learned by the brain itself. Costs and gaps:
 joint control dipped slightly (≈ 33 → 28–29%), weight shift is not learned, getting up is not learned, and the skill
 needs the weak reflexes on.
 
