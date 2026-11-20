@@ -92,6 +92,10 @@ CTX_LEARN = 0.01         # how fast a posture neuron's preferred posture follows
 CTX_ACTIVE = 0.05        # a posture neuron learns and acts only above this share of the activity
 CTX_WINNER = False       # --ctx_winner: only the best-matching posture neuron moves its preferred posture (lateral
                          # inhibition); without it they all drift to the average posture (ctx1: 12 grown, top one 10%)
+CTX_SLOW = False         # --ctx_slow: read posture mostly from the senses that change slowly. While babbling, each
+                         # nerve's slow variance (of its smoothed value) and fast variance (step to step) are tracked;
+                         # its weight is their ratio (capped at 10x the median). Posture is what stays steady.
+CTX_STATS_RATE = 1e-4    # how fast those variances are estimated (~200 s)
 CTX_START = int(30.0 / BRAIN_DT)   # no posture neurons in the first 30 s of life, while its senses calibrate
 HELD_BABBLE_SHARE = 0.5  # --held_babble: share of babbling set-downs where a parent holds it standing (like holding a
 HELD_BABBLE_HELP = 0.5   # baby upright on its feet), carrying this share of its weight; it babbled standing only
@@ -297,14 +301,30 @@ class Brain:
 
     def ctx_init(self):
         self.use_ctx = True
-        self.slow = np.zeros(len(self.mean))
+        n = len(self.mean)
+        self.slow = np.zeros(n)
         self.ctx_p, self.ctx_map, self.ctx_scale = [], [], []
+        self.slow_m, self.slow_v, self.fast_v = np.zeros(n), np.zeros(n), np.full(n, 1e-3)
+        self.prev_z = None
+        self.ctx_w = np.ones(n)
+
+    def ctx_stats(self, z):
+        """While babbling: how slowly each sense changes, and the weights posture is read with."""
+        r = CTX_STATS_RATE
+        self.slow_m += r * (self.slow - self.slow_m)
+        self.slow_v += r * ((self.slow - self.slow_m) ** 2 - self.slow_v)
+        if self.prev_z is not None:
+            self.fast_v += r * ((z - self.prev_z) ** 2 - self.fast_v)
+        if CTX_SLOW:
+            ratio = self.slow_v / np.maximum(self.fast_v, 1e-6)
+            ratio = np.minimum(ratio, 10.0 * max(float(np.median(ratio)), 1e-12))
+            self.ctx_w = ratio / max(float(ratio.mean()), 1e-12)
 
     def ctx_activity(self):
         """Each posture neuron's share of the activity, and how far the current posture is from each."""
         if not self.ctx_p:
             return np.zeros(0), np.zeros(0)
-        d = np.sqrt(((np.array(self.ctx_p) - self.slow) ** 2).mean(1))
+        d = np.sqrt((self.ctx_w * (np.array(self.ctx_p) - self.slow) ** 2).mean(1))
         a = np.exp(-d ** 2 / (2 * CTX_SIGMA ** 2)) + 1e-12
         return a / a.sum(), d
 
@@ -337,7 +357,11 @@ class Brain:
             if self.adapt_var:
                 self.var += a * ((felt - self.mean) ** 2 - self.var)
         if self.use_ctx:
-            self.slow += BRAIN_DT / CTX_TAU * (self.zscore(felt) - self.slow)
+            z = self.zscore(felt)
+            self.slow += BRAIN_DT / CTX_TAU * (z - self.slow)
+            if self.adapting:
+                self.ctx_stats(z)
+            self.prev_z = z
         zf = self.zscore(felt) + self.intention
         I = np.zeros(self.N)
         np.add.at(I, self.fibre_neuron.ravel(), (self.fibre_gain * zf[:, None]).ravel())
@@ -1090,6 +1114,13 @@ def ctx_diag(body, brain, log, label):
     P = np.array(brain.ctx_p)
     pd = np.sqrt(((P[:, None, :] - P[None, :, :]) ** 2).mean(2))[np.triu_indices(len(P), 1)] if len(P) > 1 else np.zeros(1)
     out["pairwise_distance"] = {"min": float(pd.min()), "median": float(np.median(pd)), "max": float(pd.max())}
+    names = ([f"angle {n}" for n in body.names] + [f"speed {n}" for n in body.names] + [f"effort {n}" for n in body.names]
+             + [f"limit {n}" for n in body.names] + [f"touch {f}" for f in ("FL", "FR", "RL", "RR")]
+             + [f"gravity {a}" for a in "xyz"] + [f"turning {a}" for a in "xyz"])
+    top = np.argsort(-brain.ctx_w)[:10]
+    out["posture_weights_top"] = [[names[i], float(brain.ctx_w[i])] for i in top]
+    log(f"[{label}] DIAG senses it reads posture from most (weight, mean 1; never told to the brain): "
+        + ", ".join(f"{names[i]} {brain.ctx_w[i]:.1f}" for i in top))
     log(f"[{label}] DIAG grew {len(brain.ctx_p)} posture neurons; how far apart their preferred postures are (RMS adapted "
         f"units): min {pd.min():.2f}, median {np.median(pd):.2f}, max {pd.max():.2f} (they grow {CTX_GROW:g} apart, tuned "
         f"{CTX_SIGMA:g} wide)")
@@ -1098,7 +1129,7 @@ def ctx_diag(body, brain, log, label):
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1113,6 +1144,7 @@ def main():
                     help="reflex strengths to test, comma-separated (0 = switched off)")
     ap.add_argument("--contexts", action="store_true", help="grow posture neurons, each with its own reflexes")
     ap.add_argument("--ctx_winner", action="store_true", help="only the best-matching posture neuron moves its posture")
+    ap.add_argument("--ctx_slow", action="store_true", help="read posture mostly from the slowly changing senses")
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
     ap.add_argument("--held_babble", action="store_true", help="babble held standing by a parent in half the set-downs")
@@ -1134,6 +1166,7 @@ def main():
     TILT_XY_TOO = bool(args.tilt_xy)
     CTX_WINNER = bool(args.ctx_winner)
     CTX_GROW, CTX_SIGMA = float(args.ctx_grow), float(args.ctx_sigma)
+    CTX_SLOW = bool(args.ctx_slow)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
@@ -1232,7 +1265,7 @@ def main():
                                                               "set_speed": float(args.set_speed),
                                                               "held_babble": bool(args.held_babble),
                                                               "contexts": bool(args.contexts), "ctx_winner": bool(args.ctx_winner),
-                                                              "CTX_GROW": CTX_GROW, "CTX_SIGMA": CTX_SIGMA,
+                                                              "CTX_GROW": CTX_GROW, "CTX_SIGMA": CTX_SIGMA, "ctx_slow": CTX_SLOW,
                                                               "HELD_BABBLE_SHARE": HELD_BABBLE_SHARE,
                                                               "HELD_BABBLE_HELP": HELD_BABBLE_HELP}}, indent=1))
     (out / "babble_log.txt").write_text("\n".join(lines_out))
