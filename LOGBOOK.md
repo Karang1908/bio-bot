@@ -6127,6 +6127,51 @@ Eight posture-neuron runs plus four practice runs have not produced tilt, weight
 the owner: reward what its own body achieves (reach the asked tilt), with practice searching over its 12 motor pools'
 coordination, as body skills not goal tasks; or pause and write up the joint stage.
 
+### 6.30 Reward-based skill practice: the brain learns to tilt on request in all four directions (20 Nov)
+
+**Option chosen by the owner:** reward what its own body achieves (`--skills`, `aae9e56`; cap `3f3982b`; noise option
+`fa7c36b`).
+
+- **Skill synapses:** plastic synapses from sensory to motor neurons, starting at zero, added to the twitch-tuned
+  reflexes (×0.125).
+- **Trials:** 2 s each from standing. Each asks for a tilt (roll or pitch, ±0.1–0.3 rad), more weight on a foot, a
+  joint move (rehearsal), or staying still, by shifting the felt reference.
+- **Exploration:** small random motor variation.
+- **Dopamine:** getting closer to the asked feeling this step, relative to what is usual for that kind of trial.
+- **Rule:** node perturbation. Eligibility = the motor neuron's own variation × the sensory input; Δ = rate ×
+  standardised dopamine × eligibility; synaptic scaling caps the skill synapses at 0.25 of the twitch map's size.
+- **Body:** 9 rad/s, leak 0.5 s, held babbling. Tests use no noise, no help, the same dog before and after practice.
+
+| run | rate | noise | practice: still up | skill synapses (vs map) | result |
+|---|---|---|---|---|---|
+| skills1 | 1e-3 | 0.3 | 0% | 16–21× (ran away) | falls every trial |
+| skills2 | 2e-6 | 0.3 | 23–48% | 0.10 | after, ×0: falls in every test; ×0.125: joints 33 → 14% (harmed) |
+| skills3 | 2e-6 | 0.05 | 98–100% | 0.01 | tilt improved (below) |
+| skills4 | 1.2e-5 | 0.05 | 98–100% | 0.06–0.09 | tilt improved most (below) |
+| control | 0 | 0.05 | 99% | 0 | no change |
+
+Tests at ×0.125, before → after 60 min of practice:
+
+| | tilt roll L / roll R / nose down / nose up | one joint | up after joint moves |
+|---|---|---|---|
+| skills3 dog 1 | −40/+37/+53/−28 → −2/+51/+41/**+48**% | 33 → 29% | 22 → 24/24 |
+| skills3 dog 2 | −15/+29/+48/−4 → **+17/+42/+52/+53**% | 32 → 29% | 23 → 23/24 |
+| skills4 dog 1 | −40/+37/+53/−28 → **+47/+70/+58/+60**% | 33 → 28% | 22 → 24/24 |
+| control dog 1 (learning off) | −40/+37/+53/−28 → −41/+36/+51/−26% | 33 → 34% | 22 → 22/24 |
+
+- **Standing, nothing asked:** 0.19–0.20 m on 4 feet after practice.
+- **Weight shift:** not learned; after practice the weight still slides to the back feet.
+- **Get-up:** 0/8.
+- **With reflexes off (×0), skills4 dog 1 after practice falls in every tilt.** The skill synapses work together with
+  the reflexes, not alone.
+- **Practice tilt score at ~30 min:** control +10%, skills3 +28%, skills4 +44–49%, rising to +65–73% by 60 min.
+
+**Conclusion.** The control shows re-settling does not change the tilt. So reward-gated plasticity in the brain's own
+sensory-to-motor synapses turned the fixed one-way lean into tilting the asked way: four directions in two dogs, and
+nose up fixed in the third. This is the first whole-body balance skill learned by the brain itself. Costs and gaps:
+joint control dipped slightly (≈ 33 → 28–29%), weight shift is not learned, getting up is not learned, and the skill
+needs the weak reflexes on.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
