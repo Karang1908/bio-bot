@@ -97,6 +97,17 @@ CTX_SLOW = False         # --ctx_slow: read posture mostly from the senses that 
                          # its weight is their ratio (capped at 10x the median). Posture is what stays steady.
 CTX_STATS_RATE = 1e-4    # how fast those variances are estimated (~200 s)
 CTX_START = int(30.0 / BRAIN_DT)   # no posture neurons in the first 30 s of life, while its senses calibrate
+# --skills: reward-based practice of whole-body skills (as songbirds learn song: variability plus reward). Plastic
+# skill synapses from sensory to motor neurons start at zero. Each 2 s trial from standing asks for a felt change
+# (a tilt, more weight on a foot, a joint move to rehearse, or staying as it is) by shifting that sense's felt
+# reference. Motor neurons get small random variation. Dopamine: getting closer to the asked feeling this step,
+# relative to what is usual for that kind of trial. A synapse grows when its sensory input together with its motor
+# neuron's own variation preceded dopamine (node perturbation). The twitch-tuned reflexes stay on, weak.
+SKILL_REFLEX = 0.125     # twitch-tuned reflexes during skill practice (stands well at this strength, §6.26)
+SKILL_NOISE = 0.3        # motor variation, as a share of babbling's
+SKILL_RATE = 1e-3        # skill synapse change per step per unit of (standardised dopamine x eligibility)
+SKILL_TRACE = 0.9        # eligibility kept per step (~0.2 s)
+SKILL_TRIAL_S = 2.0
 HELD_BABBLE_SHARE = 0.5  # --held_babble: share of babbling set-downs where a parent holds it standing (like holding a
 HELD_BABBLE_HELP = 0.5   # baby upright on its feet), carrying this share of its weight; it babbled standing only
                          # 0.6% of the time otherwise (§6.25). Never during tests.
@@ -297,6 +308,7 @@ class Brain:
     rest_mean = None         # what its senses report at rest, standing
     reflex_cols = None       # diagnosis only: use the reflexes from these sensory neurons alone (None: all)
     R = None                 # its reflex synapses once they learn on their own (standing practice); None: the twitch-tuned ones
+    Q = None                 # skill synapses, sensory to motor, learned from reward (--skills)
     use_ctx = False          # posture neurons (--contexts)
 
     def ctx_init(self):
@@ -370,6 +382,8 @@ class Brain:
         I = np.zeros(self.N)
         np.add.at(I, self.fibre_neuron.ravel(), (self.fibre_gain * zf[:, None]).ravel())
         I[self.motor] += motor_drive
+        if self.Q is not None and self.rest_sense is not None:  # learned skills: respond to what it feels vs rest
+            I[self.motor] += self.Q @ (self.rates()[self.sense] - self.rest_sense)
         if self.reflex and self.rest_sense is not None:      # its own reflexes: oppose what changed since rest
             change = self.rates()[self.sense] - self.rest_sense
             Wr = self.map if self.R is None else self.R
@@ -1134,6 +1148,106 @@ def ctx_diag(body, brain, log, label):
     return out
 
 
+def skill_task(body, brain, rng):
+    """One practice request: {nerve: goal in its own units}, its kind, and the measure of success at the end."""
+    J = len(body.joint)
+    grav, touch = 4 * J + 4 + np.arange(3), 4 * J + np.arange(4)
+    kind = ("tilt", "tilt", "weight", "joint", "still")[rng.integers(5)]
+    if kind == "tilt":
+        a = rng.uniform(0.1, 0.3) * rng.choice([-1.0, 1.0])
+        roll, pitch = (a, 0.0) if rng.random() < 0.5 else (0.0, a)
+        g = np.array([np.sin(pitch), -np.sin(roll), -np.cos(roll) * np.cos(pitch)])
+        return dict(zip(grav.tolist(), g.tolist())), kind, ("tilt", np.array([roll, pitch]))
+    if kind == "weight":
+        k = int(rng.integers(4))
+        base = body.touch()
+        return {int(touch[k]): float(1.5 * base[k])}, kind, ("weight", k, base[k] / max(base.sum(), 1e-6))
+    if kind == "joint":
+        j = int(rng.integers(J))
+        q0 = body.angles()[j]
+        goal = float(np.clip(q0 + rng.choice([-0.5, 0.5]), body.lo[j], body.hi[j]))
+        return {j: goal}, kind, ("joint", j, q0, goal)
+    return {}, kind, ("still",)
+
+
+def skill_score(body, how, r0p0):
+    if how[0] == "tilt":
+        want = how[1]
+        moved = np.array(body.tilt()) - np.array(r0p0)
+        return float(moved @ want / (want @ want))
+    if how[0] == "weight":
+        k, s0 = how[1], how[2]
+        t = body.touch()
+        return float((t[k] / max(t.sum(), 1e-6) - s0) / max(0.5 * s0, 1e-6))
+    if how[0] == "joint":
+        j, q0, goal = how[1], how[2], how[3]
+        return float((body.angles()[j] - q0) / (goal - q0)) if abs(goal - q0) > 1e-6 else 0.0
+    return float(is_up(body))
+
+
+def practice_skills(body, brain, minutes, rng, log, label):
+    J = len(body.joint)
+    brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    brain.reflex = SKILL_REFLEX
+    settle_reflex(body, brain)
+    brain.Q = np.zeros((len(brain.motor), len(brain.sense)))
+    map_size = float(np.linalg.norm(brain.map)) / brain.reflex_scale
+    trial = int(SKILL_TRIAL_S / BRAIN_DT)
+    trials = int(minutes * 60 / SKILL_TRIAL_S)
+    stats = {k: [0.0, 1e-4] for k in ("tilt", "weight", "joint", "still")}     # usual progress per step, per kind
+    window, history = [], []
+    t0 = time.time()
+    for n in range(trials):
+        body.reset("stand")
+        brain.fresh()
+        targets, kind, how = skill_task(body, brain, rng)
+        for l, g in targets.items():
+            brain.intention[l] = -(g - brain.mean[l]) / np.sqrt(brain.var[l] + 1e-6)
+        lines = np.array(list(targets), int)
+        goal = np.array([(targets[l] - brain.mean[l]) / np.sqrt(brain.var[l] + 1e-6) for l in lines])
+        watch = lines if len(lines) else 4 * J + np.arange(7)              # "still": stay as it feels at rest
+        aim = goal if len(lines) else np.zeros(7)
+        r0p0 = body.tilt()
+        noise = np.zeros(len(brain.motor))
+        e = np.zeros_like(brain.Q)
+        prev = None
+        for _ in range(trial):
+            noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
+            xi = SKILL_NOISE * BABBLE_SIZE * noise
+            pre = brain.rates()[brain.sense] - brain.rest_sense
+            felt = body.feel()
+            r = brain.step(felt, xi)
+            body.step(brain.command(r))
+            e *= SKILL_TRACE
+            e += np.outer(xi, pre)
+            dist = float(np.sqrt(np.mean((brain.zscore(body.feel())[watch] - aim) ** 2)))
+            if prev is not None:
+                D = prev - dist                                           # got closer to the asked feeling
+                m, v = stats[kind]
+                m += 0.002 * (D - m)
+                v += 0.002 * ((D - m) ** 2 - v)
+                stats[kind] = [m, v]
+                dz = float(np.clip((D - m) / np.sqrt(v + 1e-12), -3.0, 3.0))
+                brain.Q += SKILL_RATE * dz * e
+            prev = dist
+        brain.intention[:] = 0.0
+        window.append((kind, skill_score(body, how, r0p0), is_up(body)))
+        if (n + 1) % int(5 * 60 / SKILL_TRIAL_S) == 0 or n == trials - 1:
+            by = {k: [w[1] for w in window if w[0] == k] for k in ("tilt", "weight", "joint", "still")}
+            up = float(np.mean([w[2] for w in window]))
+            qsize = float(np.linalg.norm(brain.Q)) / max(map_size, 1e-12)
+            history.append({"minute": (n + 1) * SKILL_TRIAL_S / 60, "still_up": up, "Q_vs_map": qsize,
+                            **{k: (float(np.median(v)) if v else None) for k, v in by.items()}})
+            log(f"[{label}] skill practice {(n + 1) * SKILL_TRIAL_S / 60:4.1f} min ({time.time() - t0:4.0f} s), last "
+                f"{len(window)} trials: median share of the asked change: tilt "
+                f"{np.median(by['tilt']) if by['tilt'] else float('nan'):+.0%}, weight "
+                f"{np.median(by['weight']) if by['weight'] else float('nan'):+.0%}, joint "
+                f"{np.median(by['joint']) if by['joint'] else float('nan'):+.0%}; still up at the end {up:.0%}; "
+                f"skill synapses {qsize:.2f} of the twitch map's size")
+            window = []
+    return history
+
+
 def main():
     global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN
     ap = argparse.ArgumentParser()
@@ -1156,6 +1270,7 @@ def main():
     ap.add_argument("--ctx_slow", action="store_true", help="read posture mostly from the slowly changing senses")
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
+    ap.add_argument("--skills", type=float, default=0.0, help="minutes of reward-based skill practice (tested before and after)")
     ap.add_argument("--held_babble", action="store_true", help="babble held standing by a parent in half the set-downs")
     ap.add_argument("--tilt_xy", action="store_true", help="diagnosis: also ask tilts on the two directional lines only")
     ap.add_argument("--babble_tau", type=float, default=BABBLE_TAU,
@@ -1227,6 +1342,10 @@ def main():
         after = None if args.reflex else control_test(body, brain, scores, log, label + f", after {args.minutes:g} min of babbling")
         ground_after = ground_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling", None) if args.ground and not args.reflex else None
         practised = None
+        if args.skills:
+            before_skills = reflex_tests(body, brain, log, label + ", before skill practice")
+            practised = {"before": before_skills,
+                         "history": practice_skills(body, brain, args.skills, np.random.default_rng(3000 + dog), log, label)}
         if args.practice:
             practised = practice(body, brain, args.practice, np.random.default_rng(2000 + dog), log, label,
                                  support=bool(args.support), fair=bool(args.fair_dopamine))
@@ -1236,7 +1355,8 @@ def main():
                 reflex["tests"] = reflex_tests(body, brain, log, label + f", after babbling and {args.practice:g} min of practice")
         else:
             reflex = reflex_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling"
-                                  + (f" and {args.practice:g} min of practice" if args.practice else "")) if args.reflex else None
+                                  + (f" and {args.practice:g} min of practice" if args.practice else "")
+                                  + (f" and {args.skills:g} min of skill practice" if args.skills else "")) if args.reflex else None
         acc = map_accuracy(brain, body)
         per_joint = []
         for j, name in enumerate(body.names):
@@ -1273,7 +1393,9 @@ def main():
                                                               "fair_dopamine": bool(args.fair_dopamine),
                                                               "leak_s": float(args.leak_s),
                                                               "set_speed": float(args.set_speed),
-                                                              "held_babble": bool(args.held_babble),
+                                                              "held_babble": bool(args.held_babble), "skills": float(args.skills),
+                                                              "SKILL_REFLEX": SKILL_REFLEX, "SKILL_NOISE": SKILL_NOISE,
+                                                              "SKILL_RATE": SKILL_RATE, "SKILL_TRACE": SKILL_TRACE,
                                                               "contexts": bool(args.contexts), "ctx_winner": bool(args.ctx_winner),
                                                               "CTX_GROW": CTX_GROW, "CTX_SIGMA": CTX_SIGMA, "ctx_slow": CTX_SLOW, "CTX_LEARN": CTX_LEARN,
                                                               "HELD_BABBLE_SHARE": HELD_BABBLE_SHARE,
