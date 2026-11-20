@@ -29,6 +29,8 @@ Do not treat historical plans or pending-status notes as current authorization o
   first, by what the dog does: every skill against the real dog (gaits, turns, back, jump, sit, lie-down, getting up,
   few falls). Not by a prediction score. No goal tasks (ball, come, fetch) until the owner says the body is mastered.
   Goal training eroded the gaits twice (long run 1, fetch3).
+- **Acceptance (owner, 20 Nov):** the dog behaves like a dog, and the brain has genuinely learned the body by itself.
+  Getting up from lying on its side is excluded: the robot cannot physically do it, even though a real dog can.
 - **Nothing hard-coded (owner, 15 Nov).** Do not set by hand which situation leads to which action, even from the
   brain's own learned parts: a hand-set "ball-left → turn-left" table was rejected. Build the learning mechanism
   (dopamine-gated plasticity, growth) and let the association start at zero and be learned from reward. The same
