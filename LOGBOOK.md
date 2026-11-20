@@ -6101,6 +6101,32 @@ neuron existed, and with one neuron the weights change nothing. Cause:
 Rerun with CTX_LEARN = 1e-4 (~200 s, `--ctx_learn`): `babble-ctxL` with all senses equal, `babble-slowL` with
 slow-weighted senses.
 
+### 6.29 Posture neurons at a slow pace: growth works, postures still not separated, tilt still not learned (20 Nov)
+
+CTX_LEARN 1e-4 (`fca52fc`), winner-only, grow at 1.0, width 0.5, held babbling, 9 rad/s.
+
+| | `babble-ctxL` (all senses equal), dog 1 / dog 2 | `babble-slowL` (slow-weighted), dog 1 |
+|---|---|---|
+| grown | 24 / 24 (0.62–1.97 apart) | 24 (0.44–1.48 apart) |
+| stand / belly / side: top neuron (share) | 3 / 3 / 1 (19–20%) · 0 / 0 / 0 (18–25%) | 5 / 5 / 5 (16–19%) |
+| standing neuron's links, sign right: roll / upright | 53 / 5% · 21 / 54% | **73** / 29% (belly 82%, side 85% roll) |
+| ×0.125: one joint / tilt roll L, roll R, nose down, nose up | 19% / −10, +18, +17, +9 · 14% / −1, +28, +1, +37 | 16% / −15, +13, +11, +13 |
+| ×0.5: one joint / tilt | 50% / −110, +149, +77, −11 · 38% / −16, +45, +62, −22 | 42% / −64, +78, +67, −31 |
+| get up from its side | 0/8 everywhere | 0/8 |
+
+- **Slow-weighted reading:** the top weights are still the 12 joint angles (all at the cap), so posture is still read
+  mostly from them.
+- **ctxL weight shift at ×0.5:** FL 26 → 29% against 18% with reflexes off, about 11 points of real gain. The rest is
+  the passive slide backward or no change.
+
+**Finding.** In slowL dog 1, the standing neuron's roll links were right 73% of the time, the best so far, yet tilt
+still did not follow the request. Single-motor link signs at 60 ms are not sufficient: tilting needs a coordinated,
+multi-joint pattern over a second or more. Reflexes that add up each motor's own short effect do not produce one.
+
+Eight posture-neuron runs plus four practice runs have not produced tilt, weight shift or getting up. Options put to
+the owner: reward what its own body achieves (reach the asked tilt), with practice searching over its 12 motor pools'
+coordination, as body skills not goal tasks; or pause and write up the joint stage.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
