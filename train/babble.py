@@ -1135,7 +1135,7 @@ def ctx_diag(body, brain, log, label):
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1150,6 +1150,9 @@ def main():
                     help="reflex strengths to test, comma-separated (0 = switched off)")
     ap.add_argument("--contexts", action="store_true", help="grow posture neurons, each with its own reflexes")
     ap.add_argument("--ctx_winner", action="store_true", help="only the best-matching posture neuron moves its posture")
+    ap.add_argument("--ctx_learn", type=float, default=CTX_LEARN,
+                    help="how fast a posture neuron's preferred posture follows what it feels, per step (0.01 = ~2 s: it "
+                         "tracks the moment and no new ones grow; set-downs last 15 s)")
     ap.add_argument("--ctx_slow", action="store_true", help="read posture mostly from the slowly changing senses")
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
@@ -1173,6 +1176,7 @@ def main():
     CTX_WINNER = bool(args.ctx_winner)
     CTX_GROW, CTX_SIGMA = float(args.ctx_grow), float(args.ctx_sigma)
     CTX_SLOW = bool(args.ctx_slow)
+    CTX_LEARN = float(args.ctx_learn)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
@@ -1271,7 +1275,7 @@ def main():
                                                               "set_speed": float(args.set_speed),
                                                               "held_babble": bool(args.held_babble),
                                                               "contexts": bool(args.contexts), "ctx_winner": bool(args.ctx_winner),
-                                                              "CTX_GROW": CTX_GROW, "CTX_SIGMA": CTX_SIGMA, "ctx_slow": CTX_SLOW,
+                                                              "CTX_GROW": CTX_GROW, "CTX_SIGMA": CTX_SIGMA, "ctx_slow": CTX_SLOW, "CTX_LEARN": CTX_LEARN,
                                                               "HELD_BABBLE_SHARE": HELD_BABBLE_SHARE,
                                                               "HELD_BABBLE_HELP": HELD_BABBLE_HELP}}, indent=1))
     (out / "babble_log.txt").write_text("\n".join(lines_out))
