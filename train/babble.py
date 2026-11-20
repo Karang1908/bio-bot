@@ -307,9 +307,13 @@ class Brain:
         self.slow_m, self.slow_v, self.fast_v = np.zeros(n), np.zeros(n), np.full(n, 1e-3)
         self.prev_z = None
         self.ctx_w = np.ones(n)
+        self.ctx_skip = 0                        # steps right after being set down, not counted (being moved is not its own change)
 
     def ctx_stats(self, z):
         """While babbling: how slowly each sense changes, and the weights posture is read with."""
+        if self.ctx_skip > 0:
+            self.ctx_skip -= 1
+            return
         r = CTX_STATS_RATE
         self.slow_m += r * (self.slow - self.slow_m)
         self.slow_v += r * ((self.slow - self.slow_m) ** 2 - self.slow_v)
@@ -426,6 +430,8 @@ def babble(body, brain, minutes, rng, log, label, diag=None, held=False):
                 body.support = HELD_BABBLE_HELP
             body.reset(pose, rng)
             trace[:] = 0.0                                                # being moved is not something it did
+            if brain.use_ctx:
+                brain.ctx_skip = int(0.5 / BRAIN_DT)
             if diag is not None:
                 if diag["up_since"] is not None:
                     diag["stand_lasted_s"].append((t - diag["up_since"]) * BRAIN_DT)
