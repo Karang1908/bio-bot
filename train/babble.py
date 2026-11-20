@@ -1254,7 +1254,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1276,6 +1276,9 @@ def main():
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
+    ap.add_argument("--skill_noise", type=float, default=SKILL_NOISE,
+                    help="motor variation in skill practice, share of babbling's (0.3 at 9 rad/s moves a set point "
+                         "~0.45 rad and toppled it in 77% of trials)")
     ap.add_argument("--skills", type=float, default=0.0, help="minutes of reward-based skill practice (tested before and after)")
     ap.add_argument("--held_babble", action="store_true", help="babble held standing by a parent in half the set-downs")
     ap.add_argument("--tilt_xy", action="store_true", help="diagnosis: also ask tilts on the two directional lines only")
@@ -1299,6 +1302,7 @@ def main():
     CTX_SLOW = bool(args.ctx_slow)
     CTX_LEARN = float(args.ctx_learn)
     SKILL_RATE = float(args.skill_rate)
+    SKILL_NOISE = float(args.skill_noise)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
