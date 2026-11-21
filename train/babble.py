@@ -1317,6 +1317,43 @@ def practice_skills(body, brain, minutes, rng, log, label):
     return history
 
 
+def feasibility(body, log, rng, samples=300, seconds=2.0, spread=0.6):
+    """Physics only, no brain: from standing, hold random joint postures (within +-spread rad of the standing posture)
+    for 2 s and record the best achieved per request. Says whether a weight shift or a paw lift is possible at all for
+    this body. Nothing here is given to the brain."""
+    J = len(body.joint)
+    leak, body.leak = body.leak, False                                    # hold the posture asked for
+    best_share, best_lift, ok = np.zeros(4), np.zeros(4), 0
+    best_pose = {}
+    for n in range(samples):
+        body.reset("stand")
+        stand = body.angles()
+        f0 = body.touch()
+        s0 = f0 / max(f0.sum(), 1e-6)
+        body.target = np.clip(stand + rng.uniform(-spread, spread, J), body.lo, body.hi)
+        for _ in range(int(seconds / BRAIN_DT)):
+            body.step(np.zeros(J))
+        if not is_up(body):
+            continue
+        ok += 1
+        f = body.touch()
+        share = f / max(f.sum(), 1e-6)
+        for k in range(4):
+            if share[k] - s0[k] > best_share[k]:
+                best_share[k] = share[k] - s0[k]
+                best_pose[f"weight {k}"] = (body.target - stand).round(2).tolist()
+            lift = (f0[k] - f[k]) / max(f0[k], 1e-6)
+            if lift > best_lift[k]:
+                best_lift[k] = lift
+                best_pose[f"lift {k}"] = (body.target - stand).round(2).tolist()
+    body.leak = leak
+    feet = ("FL", "FR", "RL", "RR")
+    log(f"FEASIBILITY ({samples} random held postures within +-{spread:g} rad of standing, {ok} stayed up): best gain in "
+        f"a foot's share of the weight: " + ", ".join(f"{f} +{b:.0%}" for f, b in zip(feet, best_share))
+        + "; best lightening of a paw: " + ", ".join(f"{f} {b:.0%}" for f, b in zip(feet, best_lift)))
+    return {"stayed_up": ok, "best_share_gain": best_share.tolist(), "best_lift": best_lift.tolist(), "poses": best_pose}
+
+
 def main():
     global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK
     ap = argparse.ArgumentParser()
@@ -1342,6 +1379,7 @@ def main():
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
     ap.add_argument("--skill_per_task", action="store_true", help="dopamine relative to what is usual for the exact request")
     ap.add_argument("--skill_mix", default="", help="practice task mix, comma-separated (tilt,weight,lift,joint,still)")
+    ap.add_argument("--feasibility", action="store_true", help="physics only: can this body shift weight / lift each paw?")
     ap.add_argument("--resume", action="store_true",
                     help="continue the saved brain_dogN.npz from an attached kernel output (skips babbling)")
     ap.add_argument("--skill_lift", action="store_true", help="also practise lifting a paw; equal task mix")
@@ -1399,6 +1437,12 @@ def main():
     log(f"body: Go2, {len(body.joint)} joints ({', '.join(body.names)}); {where}; {len(body.feel())} nerves; "
         f"physics {body.subs} steps per brain step")
     log(f"brain: fly connectome, {len(core['role'])} neurons, {len(core['pre'])} connections; it is told nothing about the body")
+    if args.feasibility:
+        feas = feasibility(body, log, np.random.default_rng(7))
+        (out / "feasibility.json").write_text(json.dumps(feas, indent=1))
+        (out / "babble_log.txt").write_text("\n".join(lines_out))
+        print("DONE", flush=True)
+        return
     results = []
     for dog in range(args.dogs):
         brain = Brain(core, len(body.feel()), len(body.joint), np.random.default_rng(GENOME))     # same genome
