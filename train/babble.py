@@ -108,6 +108,7 @@ SKILL_NOISE = 0.3        # motor variation, as a share of babbling's
 SKILL_RATE = 1e-3        # skill synapse change per step per unit of (standardised dopamine x eligibility)
 SKILL_TRACE = 0.9        # eligibility kept per step (~0.2 s)
 SKILL_TRIAL_S = 2.0
+SKILL_MIX = ()           # --skill_mix: the practice task mix, e.g. tilt,weight,weight,lift,lift,joint,still
 SKILL_LIFT = False       # --skill_lift: also practise lifting a paw (take the weight off one foot); equal task mix
 SKILL_MAX = 0.25         # synaptic scaling: skill synapses never exceed this share of the twitch map's size
                          # (skills1 at rate 1e-3: 16x the map's size within 5 min, knocking it over every trial)
@@ -135,6 +136,34 @@ def fetch_go2(root: Path) -> Path:
         run("git", "-C", str(d), "sparse-checkout", "set", "unitree_go2")
         run("git", "-C", str(d), "checkout", "-q", MENAGERIE_COMMIT)
     return d / "unitree_go2"
+
+
+BRAIN_KEYS = ("map", "Q", "mean", "var", "seen", "motor_baseline", "rest_baseline", "rest_mean", "rest_sense",
+              "reflex_scale", "drives", "push", "fibre_neuron", "fibre_gain")
+
+
+def save_brain(brain, path):
+    """Everything it learned and its fixed wiring, so practice can continue on this exact brain."""
+    data = {k: np.asarray(getattr(brain, k)) for k in BRAIN_KEYS if getattr(brain, k, None) is not None}
+    np.savez_compressed(path, **data)
+
+
+def load_brain(brain, path):
+    """Continue an existing brain. Its fixed wiring must match exactly; learned parts must all be present."""
+    with np.load(path) as z:
+        for k in ("drives", "push", "fibre_neuron", "fibre_gain"):
+            if not np.array_equal(z[k], getattr(brain, k)):
+                raise SystemExit(f"{path}: its wiring '{k}' differs from this genome; refusing to continue a different brain")
+        for k in ("map", "mean", "var", "seen"):
+            if k not in z.files:
+                raise SystemExit(f"{path}: missing '{k}'; refusing to continue with part of a brain")
+        for k in z.files:
+            if k in ("drives", "push", "fibre_neuron", "fibre_gain"):
+                continue
+            v = z[k]
+            setattr(brain, k, v.item() if v.shape == () else v.copy())
+        if brain.map.shape != (len(brain.motor), len(brain.sense)):
+            raise SystemExit(f"{path}: map shape {brain.map.shape} does not fit this brain")
 
 
 def load_core():
@@ -1166,7 +1195,7 @@ def skill_task(body, brain, rng):
     """One practice request: {nerve: goal in its own units}, its kind, and the measure of success at the end."""
     J = len(body.joint)
     grav, touch = 4 * J + 4 + np.arange(3), 4 * J + np.arange(4)
-    kinds = ("tilt", "weight", "lift", "joint", "still") if SKILL_LIFT else ("tilt", "tilt", "weight", "joint", "still")
+    kinds = SKILL_MIX or (("tilt", "weight", "lift", "joint", "still") if SKILL_LIFT else ("tilt", "tilt", "weight", "joint", "still"))
     kind = kinds[rng.integers(len(kinds))]
     if kind == "tilt":
         a = rng.uniform(0.1, 0.3) * rng.choice([-1.0, 1.0])
@@ -1212,7 +1241,8 @@ def practice_skills(body, brain, minutes, rng, log, label):
     brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
     brain.reflex = SKILL_REFLEX
     settle_reflex(body, brain)
-    brain.Q = np.zeros((len(brain.motor), len(brain.sense)))
+    if brain.Q is None:
+        brain.Q = np.zeros((len(brain.motor), len(brain.sense)))
     map_size = float(np.linalg.norm(brain.map)) / brain.reflex_scale
     trial = int(SKILL_TRIAL_S / BRAIN_DT)
     trials = int(minutes * 60 / SKILL_TRIAL_S)
@@ -1275,7 +1305,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1297,6 +1327,9 @@ def main():
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
+    ap.add_argument("--skill_mix", default="", help="practice task mix, comma-separated (tilt,weight,lift,joint,still)")
+    ap.add_argument("--resume", action="store_true",
+                    help="continue the saved brain_dogN.npz from an attached kernel output (skips babbling)")
     ap.add_argument("--skill_lift", action="store_true", help="also practise lifting a paw; equal task mix")
     ap.add_argument("--skill_noise", type=float, default=SKILL_NOISE,
                     help="motor variation in skill practice, share of babbling's (0.3 at 9 rad/s moves a set point "
@@ -1326,6 +1359,7 @@ def main():
     SKILL_RATE = float(args.skill_rate)
     SKILL_NOISE = float(args.skill_noise)
     SKILL_LIFT = bool(args.skill_lift)
+    SKILL_MIX = tuple(k for k in str(args.skill_mix).split(",") if k)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
@@ -1368,8 +1402,18 @@ def main():
                     "abs_command": np.zeros(len(body.joint)),
                     "cols": brain.fibre_col[4 * len(body.joint):4 * len(body.joint) + 7].ravel(),
                     "part": np.zeros((2, len(brain.motor), 7 * NERVE_FIBRES))}
-        explored = babble(body, brain, args.minutes, np.random.default_rng(1000 + dog), log, label, diag,
-                          held=bool(args.held_babble))
+        if args.resume:
+            found = sorted(Path("/kaggle/input").glob(f"**/brain_dog{dog + 1}.npz")) if Path("/kaggle/input").exists() else []
+            if not found:
+                raise SystemExit(f"--resume: no brain_dog{dog + 1}.npz in the attached inputs")
+            load_brain(brain, found[0])
+            log(f"[{label}] continuing the saved brain {found[0]} (it has felt {int(brain.seen)} brain steps; skill synapses "
+                f"{'present' if brain.Q is not None else 'none'})")
+            explored = {"coverage": [0.0] * len(body.joint), "seen_lo": body.lo.tolist(), "seen_hi": body.hi.tolist(),
+                        "limit_felt_steps": [[0, 0]] * len(body.joint), "resumed": True}
+        else:
+            explored = babble(body, brain, args.minutes, np.random.default_rng(1000 + dog), log, label, diag,
+                              held=bool(args.held_babble))
         diag_report = diagnose(body, brain, diag, log, label, out, dog + 1) if diag is not None else None
         ctx_report = ctx_diag(body, brain, log, label) if args.contexts else None
         scores = joint_scores(brain, body)
@@ -1404,6 +1448,8 @@ def main():
                 f"{explored['seen_hi'][j]:+.2f} ({explored['coverage'][j]:.0%}); limits felt (low/high, steps) "
                 f"{explored['limit_felt_steps'][j][0]}/{explored['limit_felt_steps'][j][1]}; its motor neurons mapped to it "
                 f"{np.mean(best == j):.0%}")
+        save_brain(brain, out / f"brain_dog{dog + 1}.npz")
+        log(f"[{label}] saved this brain as brain_dog{dog + 1}.npz")
         results.append({"dog": dog + 1, "map": acc, "per_joint": per_joint, "control_newborn": before, "control_after": after,
                         "ground_newborn": ground_before, "ground_after": ground_after, "diagnosis": diag_report,
                         "reflex": reflex, "practice": practised, "contexts": ctx_report})
@@ -1430,7 +1476,7 @@ def main():
                                                               "held_babble": bool(args.held_babble), "skills": float(args.skills),
                                                               "SKILL_REFLEX": SKILL_REFLEX, "SKILL_NOISE": SKILL_NOISE,
                                                               "SKILL_RATE": SKILL_RATE, "SKILL_TRACE": SKILL_TRACE, "SKILL_MAX": SKILL_MAX,
-                                                              "SKILL_LIFT": SKILL_LIFT,
+                                                              "SKILL_LIFT": SKILL_LIFT, "SKILL_MIX": list(SKILL_MIX), "resume": bool(args.resume),
                                                               "contexts": bool(args.contexts), "ctx_winner": bool(args.ctx_winner),
                                                               "CTX_GROW": CTX_GROW, "CTX_SIGMA": CTX_SIGMA, "ctx_slow": CTX_SLOW, "CTX_LEARN": CTX_LEARN,
                                                               "HELD_BABBLE_SHARE": HELD_BABBLE_SHARE,
