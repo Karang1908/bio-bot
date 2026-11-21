@@ -6231,6 +6231,31 @@ front-foot attempts looked like failures. The passive nose-up sag likewise makes
 lift per foot, tilt per axis and direction, joint per joint and direction. Run `babble-skills7` uses the equal mix,
 120 min, 2 fresh dogs, brains saved.
 
+### 6.33 Per-request dopamine: tilt strongest yet; weight and back paws still not; physically feasible (22 Nov)
+
+**`babble-skills7`** (`0e68ee5`, `--skill_per_task`, equal mix, 120 min, 2 dogs; brains saved). ×0.125, before → after:
+
+| dog | tilt roll L / roll R / nose down / nose up | lift paw FL / FR / RL / RR (N) | weight | joints |
+|---|---|---|---|---|
+| 1 | −40/+37/+53/−28 → **+61/+37/+51/+67**% (fell in nose down) | 45/35/48/38 → **25/29**/46/41 | not learned | 33 → 29% |
+| 2 | −15/+29/+48/−4 → **+52/+47/+84/+57**% | 36/34/40/44 → **25**/38/43/51 | not learned | 32 → 30% |
+
+In practice, "still up at the end" slid to 93% late in dog 1 (100 → 93%).
+
+**Premise test: `babble-feasibility`** (`6bbbc6d`). Physics only, no brain: 300 random held postures within ±0.6 rad of
+standing, 2 s each; 191 stayed up.
+
+- **Best gain in a foot's share of the weight:** FL +50%, FR +54%, RL +42%, RR +52%.
+- **Best lightening of a paw:** 100% for every paw. The robot can stand on three legs with any one paw fully lifted.
+- **The postures that did it:** for the back paws, mean joint offset 0.25 rad, with 0.37–0.59 rad on several joints
+  (calf, thigh and the hips of other legs). For front-foot weight, mean 0.30 rad, 0.39–0.53 rad on thighs and calves.
+
+So weight shift and back-paw lift are physically possible; the failure is in learning. Believed, not measured: they need
+larger coordinated changes across many joints than tilt does, so they need much more practice.
+
+**Next:** continue the two saved skills7 brains (`--resume`) for 180 more min of the same practice. This tests whether
+they are just slow to learn, and checks that tilt is kept.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
