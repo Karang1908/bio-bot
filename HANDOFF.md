@@ -10,7 +10,44 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-## 0. Current state: 2 Nov 2026 (this section overrides everything below it)
+## 0. Current state: 21 Nov 2026 (this section overrides everything below it)
+
+**Fresh start (owner, 17 Nov).** Body first, no goal tasks, no prediction. The old training code (`baby_dog.py`,
+fetch, PPO) is not the line of work any more. Everything now lives in one standalone script, **`train/babble.py`**,
+run on **Kaggle CPU only** (owner, 18 Nov: Kaggle only, always free; the GPU PC is not used). Results are in
+`results/babble*/`; evidence is in LOGBOOK §6.15–6.31.
+
+**Acceptance (owner, 20 Nov):** the dog behaves like a dog, and the brain genuinely learned the body by itself.
+Getting up from its side is excluded: the robot cannot physically do it.
+
+**Best setup so far (verified):**
+- **Command:** `scripts/kaggle_job.py push babble --job NAME --machine CPU --dataset bio-bot-cores`, with `--set`
+  options `minutes=30 ground=1 tone=1 leak=1 leak_s=0.5 set_speed=9 held_babble=1 reflex=1 reflex_gains=0,0.125
+  skills=90 skill_rate=0.000012 skill_noise=0.05 skill_lift=1`.
+- **Body:** Go2 in MuJoCo on the ground. It feels foot touch and has an inner ear. Muscle tone: the motor neurons move
+  each joint's set point at up to 9 rad/s, and the set point relaxes back to the set-down posture over 0.5 s.
+- **Brain:** the fly connectome core v2. A Hebbian body map is learned by babbling; in half the set-downs a parent
+  holds it standing.
+- **Reflexes:** twitch-tuned, used at ×0.125.
+- **Skill synapses:** reward-learned (node perturbation, dopamine = getting closer to the asked feeling), capped at
+  0.25 of the map's size.
+
+**What the brain has learned by itself (verified, same dog before → after, controls unchanged):**
+- **Its body:** map 100% correct; 22–24/24 joint limits felt.
+- **Standing:** 0.19–0.24 m on 4 feet; moves one joint on request about 30% of the way and stays up.
+- **Tilt on request:** all four directions in 4/4 fresh dogs (16/16 directions, against 9/16 before); +43.7 points
+  per dog, about 7.8 SE.
+- **Front paws:** lighten 26–52% on request.
+
+**Not learned yet:** weight onto an asked foot, back-paw lift, stepping, gaits, turns, sit, lie down.
+
+**Stopped lines (measured failures, do not repeat blindly):** dopamine practice of the reflexes themselves (§6.20–6.23,
+runaway); posture neurons (§6.27–6.29); steering by test code (§6.18).
+
+**Next question:** do weight shift and back-paw lift come with more weighted practice, on a brain that is now saved
+between runs? babble.py did not save brains before 21 Nov.
+
+**Earlier state (2 Nov):**
 
 **The plan changed.** The owner agreed the **Embodiogenesis** plan (working name) on 2 Nov. Read `Embodiogenesis.md`
 first. The reward-coefficient "vision approach" rounds (3–68) are **stopped**. No code has changed yet; the next agent
