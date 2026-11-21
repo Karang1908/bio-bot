@@ -108,6 +108,9 @@ SKILL_NOISE = 0.3        # motor variation, as a share of babbling's
 SKILL_RATE = 1e-3        # skill synapse change per step per unit of (standardised dopamine x eligibility)
 SKILL_TRACE = 0.9        # eligibility kept per step (~0.2 s)
 SKILL_TRIAL_S = 2.0
+SKILL_PER_TASK = False   # --skill_per_task: dopamine relative to what is usual for that exact request (each foot,
+                         # each tilt direction), not for the kind of task. Passive drift (weight sliding back, the nose
+                         # sagging up) otherwise makes some requests free and others look like failures (skills6).
 SKILL_MIX = ()           # --skill_mix: the practice task mix, e.g. tilt,weight,weight,lift,lift,joint,still
 SKILL_LIFT = False       # --skill_lift: also practise lifting a paw (take the weight off one foot); equal task mix
 SKILL_MAX = 0.25         # synaptic scaling: skill synapses never exceed this share of the twitch map's size
@@ -1253,6 +1256,16 @@ def practice_skills(body, brain, minutes, rng, log, label):
         body.reset("stand")
         brain.fresh()
         targets, kind, how = skill_task(body, brain, rng)
+        task = kind
+        if SKILL_PER_TASK:                                                # the exact request
+            if how[0] == "tilt":
+                task = f"tilt {'roll' if how[1][0] else 'pitch'} {'+' if how[1].sum() > 0 else '-'}"
+            elif how[0] in ("weight", "lift"):
+                task = f"{how[0]} {how[1]}"
+            elif how[0] == "joint":
+                task = f"joint {how[1]} {'+' if how[3] > how[2] else '-'}"
+        if task not in stats:
+            stats[task] = [0.0, 1e-4]
         for l, g in targets.items():
             brain.intention[l] = -(g - brain.mean[l]) / np.sqrt(brain.var[l] + 1e-6)
         lines = np.array(list(targets), int)
@@ -1275,10 +1288,10 @@ def practice_skills(body, brain, minutes, rng, log, label):
             dist = float(np.sqrt(np.mean((brain.zscore(body.feel())[watch] - aim) ** 2)))
             if prev is not None:
                 D = prev - dist                                           # got closer to the asked feeling
-                m, v = stats[kind]
+                m, v = stats[task]
                 m += 0.002 * (D - m)
                 v += 0.002 * ((D - m) ** 2 - v)
-                stats[kind] = [m, v]
+                stats[task] = [m, v]
                 dz = float(np.clip((D - m) / np.sqrt(v + 1e-12), -3.0, 3.0))
                 brain.Q += SKILL_RATE * dz * e
                 qn = float(np.linalg.norm(brain.Q))
@@ -1305,7 +1318,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1327,6 +1340,7 @@ def main():
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
+    ap.add_argument("--skill_per_task", action="store_true", help="dopamine relative to what is usual for the exact request")
     ap.add_argument("--skill_mix", default="", help="practice task mix, comma-separated (tilt,weight,lift,joint,still)")
     ap.add_argument("--resume", action="store_true",
                     help="continue the saved brain_dogN.npz from an attached kernel output (skips babbling)")
@@ -1360,6 +1374,7 @@ def main():
     SKILL_NOISE = float(args.skill_noise)
     SKILL_LIFT = bool(args.skill_lift)
     SKILL_MIX = tuple(k for k in str(args.skill_mix).split(",") if k)
+    SKILL_PER_TASK = bool(args.skill_per_task)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
@@ -1477,6 +1492,7 @@ def main():
                                                               "SKILL_REFLEX": SKILL_REFLEX, "SKILL_NOISE": SKILL_NOISE,
                                                               "SKILL_RATE": SKILL_RATE, "SKILL_TRACE": SKILL_TRACE, "SKILL_MAX": SKILL_MAX,
                                                               "SKILL_LIFT": SKILL_LIFT, "SKILL_MIX": list(SKILL_MIX), "resume": bool(args.resume),
+                                                              "SKILL_PER_TASK": SKILL_PER_TASK,
                                                               "contexts": bool(args.contexts), "ctx_winner": bool(args.ctx_winner),
                                                               "CTX_GROW": CTX_GROW, "CTX_SIGMA": CTX_SIGMA, "ctx_slow": CTX_SLOW, "CTX_LEARN": CTX_LEARN,
                                                               "HELD_BABBLE_SHARE": HELD_BABBLE_SHARE,
