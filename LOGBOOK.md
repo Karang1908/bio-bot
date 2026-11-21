@@ -6204,6 +6204,27 @@ lifting a back paw needs the weight shifted forward first. That is the skill sti
 Not done: the learned brains are not saved (babble.py writes no checkpoint), so practice cannot continue on the same
 brain. Next run saves the brain.
 
+### 6.32 Weight-heavy practice: tilt diluted, weight not learned; the practice measure was fooled by passive drift (21 Nov)
+
+`babble-skills6` (`a7b70ae`; brains are now saved as `brain_dogN.npz`, `--resume` continues them exactly). Practice
+was 120 min with the mix tilt, weight, weight, lift, lift, joint, still. Dog 1, ×0.125, before → after:
+
+- **Tilt:** −40/+37/+53/−28 → +4/+4/−6/+43%. Worse than the equal-mix dogs (§6.31: e.g. +23/+67/+55/+33%).
+- **Weight onto FL/FR/RL/RR (share):** 26 → 19, 26 → 23, 24 → 31, 24 → 34%. Not learned; it slides back.
+- **Lift paw FL/FR/RL/RR (N):** 42 → 22, 42 → 26, 39 → 38, 39 → 45. The front paws lighten the most so far; the back
+  paws do not.
+- **Joints:** 33 → 31%. Standing kept.
+- **Practice medians at 30/60/90/120 min:** weight −27, +9, +29, +47%; tilt −9, +32, +1, +17%.
+
+**Why practice looked like progress.** The weight slides onto the back feet by itself, so requests for a back foot
+succeed for free, while front-foot requests fail. The median over feet therefore rose without any skill. The dopamine
+baseline was kept per kind of task (all weight trials together), so the free back-foot trials raised the bar and the
+front-foot attempts looked like failures. The passive nose-up sag likewise makes "nose up" partly free.
+
+**Fix:** `--skill_per_task` (`0e68ee5`) keeps a separate usual-progress baseline for every exact request: weight and
+lift per foot, tilt per axis and direction, joint per joint and direction. Run `babble-skills7` uses the equal mix,
+120 min, 2 fresh dogs, brains saved.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
