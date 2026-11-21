@@ -6175,6 +6175,35 @@ nose up fixed in the third; skills4 dog 2 is added below. This is the first whol
 joint control dipped slightly (≈ 33 → 28–29%), weight shift is not learned, getting up is not learned, and the skill
 needs the weak reflexes on.
 
+### 6.31 Four fresh dogs: tilt on request in every direction; front paws lift; back paws and weight shift not yet (21 Nov)
+
+`babble-skills5` (`9cad74b`, 4 dogs): skills4 settings (rate 1.2e-5, noise 0.05, cap 0.25), practice 90 min, adding
+"lift a paw" (felt reference of one foot's pressure set to 0) with an equal mix of tilt, weight, lift, joint and still.
+Tests at ×0.125, same dog before → after practice.
+
+| dog | tilt roll L / roll R / nose down / nose up | one joint | lift paw FL / FR / RL / RR (N; each starts 42 / 42 / 39 / 39) |
+|---|---|---|---|
+| 1 | −40/+37/+53/−28 → **+23/+67/+55/+33**% | 33 → 30% | 45/35/48/38 → **29/31**/45/43 |
+| 2 | −15/+29/+48/−4 → **+99/+10/+93/+38**% | 32 → 36% | 36/34/40/44 → **20/36**/37/46 |
+| 3 | +11/+15/+41/−21 → **+19/+19/+95/+41**% | 32 → 30% | 39/38/48/45 → **29/27**/38/48 |
+| 4 | +20/+2/+44/+2 → **+106/+86/+67/+42**% | 30 → 26% | 34/36/42/46 → **26/29**/44/40 |
+
+- **Tilt:** all 16 directions go the asked way after practice, against 9/16 (above +10%) before. The per-dog mean
+  gain is +39, +45.5, +32, +58 points: mean +43.7, SE 5.6, about 7.8 SE. Earlier learning dogs gained +26 to +54
+  points (§6.30); the two controls with learning off gained −0.5 and +0.3.
+- **Front paws:** lighten by 26–52% when asked (before: −7 to +19%).
+- **Back paws:** do not lift; the weight still slides back.
+- **Weight onto an asked foot:** not learned.
+- **Standing with nothing asked:** 0.19–0.20 m on 4 feet. Up after the 24 joint moves: 22–24/24.
+- **Joint control roughly kept:** 32 → 30.5% average.
+- **Get-up:** 0/8, now excluded by the owner (§ AGENTS, 20 Nov).
+
+Probable reason the back paws fail (an inference, not measured): the passive sag puts the weight on the back legs, so
+lifting a back paw needs the weight shifted forward first. That is the skill still missing.
+
+Not done: the learned brains are not saved (babble.py writes no checkpoint), so practice cannot continue on the same
+brain. Next run saves the brain.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
