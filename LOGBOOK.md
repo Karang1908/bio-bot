@@ -6215,6 +6215,12 @@ was 120 min with the mix tilt, weight, weight, lift, lift, joint, still. Dog 1, 
   paws do not.
 - **Joints:** 33 → 31%. Standing kept.
 - **Practice medians at 30/60/90/120 min:** weight −27, +9, +29, +47%; tilt −9, +32, +1, +17%.
+- **Dog 2, before → after:**
+  - tilt −15/+29/+48/−4 → +58/+27/+60/+60%, all four directions;
+  - lift paw FL/FR/RL/RR 36/34/40/44 → 27/28/39/43 N, front paws only;
+  - weight not learned;
+  - joints 32 → 27%.
+- **Saved:** `results/babble-skills6/brain_dog{1,2}.npz`.
 
 **Why practice looked like progress.** The weight slides onto the back feet by itself, so requests for a back foot
 succeed for free, while front-foot requests fail. The median over feet therefore rose without any skill. The dopamine
