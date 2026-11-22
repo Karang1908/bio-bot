@@ -6304,6 +6304,20 @@ practice; a request now also means "otherwise stay level".
   - joints 29 → **21%**, a retention cost to watch;
   - lift paw FL/FR/RL/RR 25/29/46/41 → 31/29/41/36 N; weight FL/FR/RL/RR 26/19/25/32 → 27/19/30/27%. Weight and back
     paws are not learned after about 5 h of practice in all.
+- **Dog 2** (practice up 94% at 180 min; skill synapses 0.16), before → after:
+  - tilt +52/+47/+84/+57 → **+92/+59/+63 (fell)/+75**%;
+  - joints 30 → 26%; standing 0.20 m on 4 feet, up 23/24;
+  - lift paw FL/FR/RL/RR 25/38/43/51 → **24/26**/38/40 N, both front paws now;
+  - weight not learned.
+- **Saved:** `results/babble-skills7c/brain_dog{1,2}.npz`, the best brains so far.
+
+**Weight shift and back-paw lift: five flat rounds** (skills5, 6, 7, 7b, 7c; up to ~5 h of practice), although the
+physics check shows both are possible (§6.33). Per the flat-rounds rule, tuning stops here. Believed, not measured:
+these need coordinated changes of 0.3–0.6 rad across many joints, while practice explores only ~0.08 rad around the
+current posture, so the reward gradient near the start may be too faint to follow. Options for the owner: a graded
+curriculum (small weight shifts first), larger structured exploration only within those trials, or a different
+representation for whole-body posture.
+
 
 ## 7. Open problems and next steps
 
