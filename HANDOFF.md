@@ -44,8 +44,20 @@ Getting up from its side is excluded: the robot cannot physically do it.
 **Stopped lines (measured failures, do not repeat blindly):** dopamine practice of the reflexes themselves (§6.20–6.23,
 runaway); posture neurons (§6.27–6.29); steering by test code (§6.18).
 
-**Next question:** do weight shift and back-paw lift come with more weighted practice, on a brain that is now saved
-between runs? babble.py did not save brains before 21 Nov.
+**Update 22 Nov (verified):**
+- **Brains are saved** (`brain_dogN.npz`) and `--resume --kernel-source karang1908/bio-bot-babble-<run>` continues
+  them exactly; a resumed brain reproduced its last test digit for digit.
+- **Best brains:** `results/babble-skills7c/brain_dog{1,2}.npz`, run with `--skill_per_task --skill_level`.
+  - Tilt in all four directions: +81/+74/+72/+73% and +92/+59/+63/+75%.
+  - Both front paws lift on request.
+  - Standing, up 23–24/24 after the joint moves.
+  - Joint control 21–26%, down from about 30%; watch this.
+- **Do not resume** `results/babble-skills7b/brain_dog1.npz`: it learned to fall over (LOGBOOK §6.34).
+- **Weight shift and back-paw lift:** physically possible (feasibility check, §6.33), yet not learned in five rounds
+  (§6.31–6.35). Tuning is stopped there.
+
+**Next question (for the owner):** how should weight shift be learned? A graded curriculum (small shifts first),
+larger structured exploration within those trials, or a different whole-body posture representation.
 
 **Earlier state (2 Nov):**
 
