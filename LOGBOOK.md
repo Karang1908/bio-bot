@@ -6283,6 +6283,28 @@ grew. Fix: `--skill_level` (`f5f3f4c`). A request means "feel this, and otherwis
 distance adds the inner ear's deviation from standing, except when a tilt is asked. Run `babble-skills7c` resumes the
 original skills7 brains (from before this run) with the fix, +180 min.
 
+### 6.35 Stay-level reward closes the cheat; tilt clean in all four directions; weight and back paws still not (22 Nov)
+
+`babble-skills7c` (`f5f3f4c`, `--skill_level`). Resumes the original skills7 brains for +180 min of per-request
+practice; a request now also means "otherwise stay level".
+
+- **Practice for dog 1:**
+
+  | | 30 min | 60 min | 90 min | 120 min | 150 min | 180 min |
+  |---|---|---|---|---|---|---|
+  | still up | 99% | 97% | 97% | 99% | 99% | 98% |
+  | tilt | +82% | +72% | +83% | +76% | +69% | +78% |
+  | weight | +39% | +28% | +27% | +40% | +4% | +13% |
+  | lift a paw | +4% | +11% | +17% | +22% | +25% | +25% |
+
+  Skill synapses 0.13 → 0.19. No collapse; under the old reward, skills7b had fallen to 29%.
+- **Dog 1, ×0.125, before → after:**
+  - tilt +61/+37/+51 (fell)/+67 → **+81/+74/+72/+73**%, no falls: the cleanest and most even so far;
+  - standing 0.19 m on 4 feet, up 24/24 after joint moves;
+  - joints 29 → **21%**, a retention cost to watch;
+  - lift paw FL/FR/RL/RR 25/29/46/41 → 31/29/41/36 N; weight FL/FR/RL/RR 26/19/25/32 → 27/19/30/27%. Weight and back
+    paws are not learned after about 5 h of practice in all.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
