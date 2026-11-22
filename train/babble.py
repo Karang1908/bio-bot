@@ -111,6 +111,10 @@ SKILL_TRIAL_S = 2.0
 SKILL_PER_TASK = False   # --skill_per_task: dopamine relative to what is usual for that exact request (each foot,
                          # each tilt direction), not for the kind of task. Passive drift (weight sliding back, the nose
                          # sagging up) otherwise makes some requests free and others look like failures (skills6).
+SKILL_LEVEL = False      # --skill_level: a request means "feel this, and otherwise feel level as when standing". The
+                         # distance also counts how far the inner ear's gravity is from standing (unless tilt is what is
+                         # asked). Without it, falling over took weight off a paw and was rewarded (skills7b: still up
+                         # 96% -> 29%, "lift a paw" +58% from falls).
 SKILL_MIX = ()           # --skill_mix: the practice task mix, e.g. tilt,weight,weight,lift,lift,joint,still
 SKILL_LIFT = False       # --skill_lift: also practise lifting a paw (take the weight off one foot); equal task mix
 SKILL_MAX = 0.25         # synaptic scaling: skill synapses never exceed this share of the twitch map's size
@@ -1285,7 +1289,10 @@ def practice_skills(body, brain, minutes, rng, log, label):
             body.step(brain.command(r))
             e *= SKILL_TRACE
             e += np.outer(xi, pre)
-            dist = float(np.sqrt(np.mean((brain.zscore(body.feel())[watch] - aim) ** 2)))
+            zf = brain.zscore(body.feel())
+            dist = float(np.sqrt(np.mean((zf[watch] - aim) ** 2)))
+            if SKILL_LEVEL and kind not in ("tilt", "still"):            # ...and otherwise feel level, as when standing
+                dist += float(np.sqrt(np.mean(zf[4 * J + 4:4 * J + 7] ** 2)))
             if prev is not None:
                 D = prev - dist                                           # got closer to the asked feeling
                 m, v = stats[task]
@@ -1355,7 +1362,7 @@ def feasibility(body, log, rng, samples=300, seconds=2.0, spread=0.6):
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1377,6 +1384,7 @@ def main():
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
+    ap.add_argument("--skill_level", action="store_true", help="requests also mean: otherwise stay level")
     ap.add_argument("--skill_per_task", action="store_true", help="dopamine relative to what is usual for the exact request")
     ap.add_argument("--skill_mix", default="", help="practice task mix, comma-separated (tilt,weight,lift,joint,still)")
     ap.add_argument("--feasibility", action="store_true", help="physics only: can this body shift weight / lift each paw?")
@@ -1413,6 +1421,7 @@ def main():
     SKILL_LIFT = bool(args.skill_lift)
     SKILL_MIX = tuple(k for k in str(args.skill_mix).split(",") if k)
     SKILL_PER_TASK = bool(args.skill_per_task)
+    SKILL_LEVEL = bool(args.skill_level)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
@@ -1536,7 +1545,7 @@ def main():
                                                               "SKILL_REFLEX": SKILL_REFLEX, "SKILL_NOISE": SKILL_NOISE,
                                                               "SKILL_RATE": SKILL_RATE, "SKILL_TRACE": SKILL_TRACE, "SKILL_MAX": SKILL_MAX,
                                                               "SKILL_LIFT": SKILL_LIFT, "SKILL_MIX": list(SKILL_MIX), "resume": bool(args.resume),
-                                                              "SKILL_PER_TASK": SKILL_PER_TASK,
+                                                              "SKILL_PER_TASK": SKILL_PER_TASK, "SKILL_LEVEL": SKILL_LEVEL,
                                                               "contexts": bool(args.contexts), "ctx_winner": bool(args.ctx_winner),
                                                               "CTX_GROW": CTX_GROW, "CTX_SIGMA": CTX_SIGMA, "ctx_slow": CTX_SLOW, "CTX_LEARN": CTX_LEARN,
                                                               "HELD_BABBLE_SHARE": HELD_BABBLE_SHARE,
