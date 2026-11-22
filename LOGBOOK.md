@@ -6256,6 +6256,33 @@ larger coordinated changes across many joints than tilt does, so they need much 
 **Next:** continue the two saved skills7 brains (`--resume`) for 180 more min of the same practice. This tests whether
 they are just slow to learn, and checks that tilt is kept.
 
+### 6.34 Continuing saved brains works; more practice found a cheat: falling over "lifts a paw" (22 Nov)
+
+`babble-skills7b` (`--resume` of the skills7 brains, +180 min of the same per-request practice). Each resumed brain
+reproduced its last after-practice test exactly: dog 1's tilt +61/+37/+51 (fell)/+67% and paws 25/29/46/41 N, digit for
+digit. Continuing saved brains is verified.
+
+- **Practice for dog 1:**
+
+  | | 30 min | 120 min | 150 min | 180 min |
+  |---|---|---|---|---|
+  | still up | 96% | 96% | **49%** | **29%** |
+  | weight | +26% | +36% | −124% | −45% |
+  | lift a paw | +13% | +18% | +50% | +58% |
+
+  Skill synapses 0.14 → 0.22.
+- **After, ×0.125, dog 1:** falls (0.16 m, 2 feet); up after joint moves 3/24; every tilt, weight and lift trial fell;
+  "lift" FL 42 → 4 N and RL 39 → 0 N by falling over. **This brain is ruined. Do not resume
+  `results/babble-skills7b/brain_dog1.npz`.**
+- **After, ×0.125, dog 2** (practice up 87% at 180 min): stands 0.20 m on 4 feet; joints 30%, up 23/24; tilt
+  +106/+48/+41 (fell)/+83%; front paws 24/25 N, back paws not; weight not learned.
+
+**Mechanism (inferred from the numbers).** The paw-lift reward was "the force under that paw went toward zero", and
+falling over sideways does that. Once the skill synapses were large enough to tip it over, falls were rewarded and
+grew. Fix: `--skill_level` (`f5f3f4c`). A request means "feel this, and otherwise feel level as when standing": the
+distance adds the inner ear's deviation from standing, except when a tilt is asked. Run `babble-skills7c` resumes the
+original skills7 brains (from before this run) with the fix, +180 min.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
