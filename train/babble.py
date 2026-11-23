@@ -115,6 +115,8 @@ SKILL_LEVEL = False      # --skill_level: a request means "feel this, and otherw
                          # distance also counts how far the inner ear's gravity is from standing (unless tilt is what is
                          # asked). Without it, falling over took weight off a paw and was rewarded (skills7b: still up
                          # 96% -> 29%, "lift a paw" +58% from falls).
+SKILL_LEVEL_JOINTS = True  # --no_level_joints: leave joint-move trials out of the stay-level term (moving one joint
+                           # far tilts the trunk; penalising that may teach it to resist joint moves: joints 33 -> 20%)
 SKILL_CURRICULUM = False  # --skill_curriculum: weight and lift requests start small and grow per foot as it succeeds
 CURRICULUM = {"weight": (0.1, 0.5), "lift": (0.2, 1.0)}   # (first step, full request as in the tests)
 SKILL_MIX = ()           # --skill_mix: the practice task mix, e.g. tilt,weight,weight,lift,lift,joint,still
@@ -1299,7 +1301,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
             e += np.outer(xi, pre)
             zf = brain.zscore(body.feel())
             dist = float(np.sqrt(np.mean((zf[watch] - aim) ** 2)))
-            if SKILL_LEVEL and kind not in ("tilt", "still"):            # ...and otherwise feel level, as when standing
+            if SKILL_LEVEL and kind not in ("tilt", "still") and (SKILL_LEVEL_JOINTS or kind != "joint"):  # ...and otherwise level
                 dist += float(np.sqrt(np.mean(zf[4 * J + 4:4 * J + 7] ** 2)))
             if prev is not None:
                 D = prev - dist                                           # got closer to the asked feeling
@@ -1386,7 +1388,7 @@ def feasibility(body, log, rng, samples=300, seconds=2.0, spread=0.6):
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1408,6 +1410,7 @@ def main():
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
+    ap.add_argument("--no_level_joints", action="store_true", help="joint-move trials do not count the stay-level term")
     ap.add_argument("--skill_max", type=float, default=SKILL_MAX,
                     help="cap on the skill synapses' size, as a share of the twitch map's (they sat at 0.25 in steps1)")
     ap.add_argument("--skill_curriculum", action="store_true", help="weight and lift requests start small, grow per foot")
@@ -1451,6 +1454,7 @@ def main():
     SKILL_LEVEL = bool(args.skill_level)
     SKILL_CURRICULUM = bool(args.skill_curriculum)
     SKILL_MAX = float(args.skill_max)
+    SKILL_LEVEL_JOINTS = not bool(args.no_level_joints)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
@@ -1576,6 +1580,7 @@ def main():
                                                               "SKILL_LIFT": SKILL_LIFT, "SKILL_MIX": list(SKILL_MIX), "resume": bool(args.resume),
                                                               "SKILL_PER_TASK": SKILL_PER_TASK, "SKILL_LEVEL": SKILL_LEVEL,
                                                               "SKILL_CURRICULUM": SKILL_CURRICULUM,
+                                                              "SKILL_MAX": SKILL_MAX, "SKILL_LEVEL_JOINTS": SKILL_LEVEL_JOINTS,
                                                               "contexts": bool(args.contexts), "ctx_winner": bool(args.ctx_winner),
                                                               "CTX_GROW": CTX_GROW, "CTX_SIGMA": CTX_SIGMA, "ctx_slow": CTX_SLOW, "CTX_LEARN": CTX_LEARN,
                                                               "HELD_BABBLE_SHARE": HELD_BABBLE_SHARE,
