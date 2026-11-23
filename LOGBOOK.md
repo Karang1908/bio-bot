@@ -6355,6 +6355,21 @@ Dog 1, ×0.125, before → after:
 The back-right paw gets 21% lighter, the first back-paw lightening in a test. The front-right paw got worse and the
 back-left did not lift. Standing: 0.20 m on 4 feet, up 23/24. Modest, and one dog.
 
+**Dog 2 does not repeat it.**
+
+- **Steps at 180 min:** weight 0.10/0.12/0.50/0.50, lift 1.00/0.95/0.25/0.20.
+- **×0.125, before → after:**
+  - weight FL/FR 26 → 17/23% → 26 → 17/20%, no gain;
+  - lift RL/RR 38/40 → 38/40 N, unchanged; front paws kept (25/26 N);
+  - tilt +92/+59/+63 (fell)/+76 → +96/**+30**/+52 (fell)/+76%;
+  - joints 26 → 27%; up 24/24.
+
+Graded steps are not established for weight shift or back paws: one dog with small gains, one with none.
+
+**Measured:** in both dogs the skill synapses sat at their cap (0.24–0.25 of the map) from about 120 min, so they
+could only reshape, not grow. Next run (one change): cap 0.5, resuming the steps1 brains with the same graded practice.
+
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
