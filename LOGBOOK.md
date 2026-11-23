@@ -6319,6 +6319,42 @@ curriculum (small weight shifts first), larger structured exploration only withi
 representation for whole-body posture.
 
 
+### 6.36 Graded steps: first front-foot weight gain and first back paw lightening in a test (23 Nov)
+
+`babble-steps1` (`ad0f12b`, `--skill_curriculum`). Resumes the skills7c brains for +180 min of practice with
+per-request dopamine and stay-level. Weight and lift requests start small and change per foot:
+
+- **Starting steps:** weight +10% of the foot's load; lift 20% of the paw's weight.
+- **Up a step (×1.25):** when the last 10 tries reach ≥ half of what was asked. **Down a step:** when their median is
+  below 0.
+- **Ceilings:** the test sizes, weight 0.5 and lift 1.0.
+- Tests unchanged.
+
+Steps for dog 1 (weight FL/FR/RL/RR; lift FL/FR/RL/RR):
+
+| | weight | lift |
+|---|---|---|
+| 30 min | 0.10/0.10/0.24/0.24 | 0.49/0.49/0.20/0.20 |
+| 60 min | 0.12/0.10/0.48/0.48 | 0.61/0.49/0.20/0.25 |
+| 140 min | 0.10/0.10/0.50/0.38 | 0.95/0.76/0.20/**0.49** |
+
+- **Back-foot weight steps rose,** but the backward slide makes those requests nearly free.
+- **Front-foot weight and back-left lift stayed at the first step.**
+- **Back-right lift doubled.**
+- **Skill synapses reached their cap** (0.25 of the map's size); still up 97–100% throughout.
+
+Dog 1, ×0.125, before → after:
+
+| | before | after |
+|---|---|---|
+| tilt | +81/+74/+72/+73% | +54/+77/+61 (fell)/+82% |
+| joints | 21% | 25% |
+| weight FL | 26 → 27% | **26 → 31%**, the first front-foot gain in a test |
+| lift FL / FR / RL / RR (N) | 31/29/41/36 | **24**/34/42/**31** |
+
+The back-right paw gets 21% lighter, the first back-paw lightening in a test. The front-right paw got worse and the
+back-left did not lift. Standing: 0.20 m on 4 feet, up 23/24. Modest, and one dog.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
