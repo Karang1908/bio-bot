@@ -115,6 +115,8 @@ SKILL_LEVEL = False      # --skill_level: a request means "feel this, and otherw
                          # distance also counts how far the inner ear's gravity is from standing (unless tilt is what is
                          # asked). Without it, falling over took weight off a paw and was rewarded (skills7b: still up
                          # 96% -> 29%, "lift a paw" +58% from falls).
+SKILL_CURRICULUM = False  # --skill_curriculum: weight and lift requests start small and grow per foot as it succeeds
+CURRICULUM = {"weight": (0.1, 0.5), "lift": (0.2, 1.0)}   # (first step, full request as in the tests)
 SKILL_MIX = ()           # --skill_mix: the practice task mix, e.g. tilt,weight,weight,lift,lift,joint,still
 SKILL_LIFT = False       # --skill_lift: also practise lifting a paw (take the weight off one foot); equal task mix
 SKILL_MAX = 0.25         # synaptic scaling: skill synapses never exceed this share of the twitch map's size
@@ -1198,7 +1200,7 @@ def ctx_diag(body, brain, log, label):
     return out
 
 
-def skill_task(body, brain, rng):
+def skill_task(body, brain, rng, levels=None):
     """One practice request: {nerve: goal in its own units}, its kind, and the measure of success at the end."""
     J = len(body.joint)
     grav, touch = 4 * J + 4 + np.arange(3), 4 * J + np.arange(4)
@@ -1212,11 +1214,13 @@ def skill_task(body, brain, rng):
     if kind == "weight":
         k = int(rng.integers(4))
         base = body.touch()
-        return {int(touch[k]): float(1.5 * base[k])}, kind, ("weight", k, base[k] / max(base.sum(), 1e-6))
+        L = (levels or {}).get(f"weight {k}", 0.5)                       # ask for this much more weight on the foot
+        return {int(touch[k]): float((1 + L) * base[k])}, kind, ("weight", k, base[k] / max(base.sum(), 1e-6), L)
     if kind == "lift":                                                    # take the weight off one paw
         k = int(rng.integers(4))
         base = body.touch()
-        return {int(touch[k]): 0.0}, kind, ("lift", k, float(base[k]))
+        L = (levels or {}).get(f"lift {k}", 1.0)                         # take this share of the paw's weight off
+        return {int(touch[k]): float((1 - L) * base[k])}, kind, ("lift", k, float(base[k]), L)
     if kind == "joint":
         j = int(rng.integers(J))
         q0 = body.angles()[j]
@@ -1231,12 +1235,12 @@ def skill_score(body, how, r0p0):
         moved = np.array(body.tilt()) - np.array(r0p0)
         return float(moved @ want / (want @ want))
     if how[0] == "weight":
-        k, s0 = how[1], how[2]
+        k, s0, L = how[1], how[2], how[3]
         t = body.touch()
-        return float((t[k] / max(t.sum(), 1e-6) - s0) / max(0.5 * s0, 1e-6))
+        return float((t[k] / max(t.sum(), 1e-6) - s0) / max(L * s0, 1e-6))
     if how[0] == "lift":
-        k, f0 = how[1], how[2]
-        return float((f0 - body.touch()[k]) / max(f0, 1e-6))
+        k, f0, L = how[1], how[2], how[3]
+        return float((f0 - body.touch()[k]) / max(L * f0, 1e-6))
     if how[0] == "joint":
         j, q0, goal = how[1], how[2], how[3]
         return float((body.angles()[j] - q0) / (goal - q0)) if abs(goal - q0) > 1e-6 else 0.0
@@ -1255,11 +1259,15 @@ def practice_skills(body, brain, minutes, rng, log, label):
     trials = int(minutes * 60 / SKILL_TRIAL_S)
     stats = {k: [0.0, 1e-4] for k in ("tilt", "weight", "lift", "joint", "still")}     # usual progress per step, per kind
     window, history = [], []
+    levels, recent = {}, {}
+    if SKILL_CURRICULUM:
+        for k in range(4):
+            levels[f"weight {k}"], levels[f"lift {k}"] = CURRICULUM["weight"][0], CURRICULUM["lift"][0]
     t0 = time.time()
     for n in range(trials):
         body.reset("stand")
         brain.fresh()
-        targets, kind, how = skill_task(body, brain, rng)
+        targets, kind, how = skill_task(body, brain, rng, levels)
         task = kind
         if SKILL_PER_TASK:                                                # the exact request
             if how[0] == "tilt":
@@ -1306,12 +1314,25 @@ def practice_skills(body, brain, minutes, rng, log, label):
                     brain.Q *= SKILL_MAX * map_size / qn
             prev = dist
         brain.intention[:] = 0.0
-        window.append((kind, skill_score(body, how, r0p0), is_up(body)))
+        score = skill_score(body, how, r0p0)
+        window.append((kind, score, is_up(body)))
+        if SKILL_CURRICULUM and how[0] in ("weight", "lift"):              # the teacher's steps for this exact request
+            key = f"{how[0]} {how[1]}"
+            lo, hi = CURRICULUM[how[0]]
+            recent.setdefault(key, []).append(score)
+            if len(recent[key]) >= 10:
+                med = float(np.median(recent[key]))
+                if med >= 0.5:
+                    levels[key] = min(hi, levels[key] * 1.25)
+                elif med < 0.0:
+                    levels[key] = max(lo, levels[key] / 1.25)
+                recent[key] = []
         if (n + 1) % int(5 * 60 / SKILL_TRIAL_S) == 0 or n == trials - 1:
             by = {k: [w[1] for w in window if w[0] == k] for k in ("tilt", "weight", "lift", "joint", "still")}
             up = float(np.mean([w[2] for w in window]))
             qsize = float(np.linalg.norm(brain.Q)) / max(map_size, 1e-12)
             history.append({"minute": (n + 1) * SKILL_TRIAL_S / 60, "still_up": up, "Q_vs_map": qsize,
+                            "levels": dict(levels),
                             **{k: (float(np.median(v)) if v else None) for k, v in by.items()}})
             log(f"[{label}] skill practice {(n + 1) * SKILL_TRIAL_S / 60:4.1f} min ({time.time() - t0:4.0f} s), last "
                 f"{len(window)} trials: median share of the asked change: tilt "
@@ -1319,7 +1340,10 @@ def practice_skills(body, brain, minutes, rng, log, label):
                 f"{np.median(by['weight']) if by['weight'] else float('nan'):+.0%}, lift a paw "
                 f"{np.median(by['lift']) if by['lift'] else float('nan'):+.0%}, joint "
                 f"{np.median(by['joint']) if by['joint'] else float('nan'):+.0%}; still up at the end {up:.0%}; "
-                f"skill synapses {qsize:.2f} of the twitch map's size")
+                f"skill synapses {qsize:.2f} of the twitch map's size"
+                + ("" if not levels else "; steps (weight / lift, FL FR RL RR): "
+                   + " ".join(f"{levels[f'weight {k}']:.2f}" for k in range(4)) + " / "
+                   + " ".join(f"{levels[f'lift {k}']:.2f}" for k in range(4))))
             window = []
     return history
 
@@ -1362,7 +1386,7 @@ def feasibility(body, log, rng, samples=300, seconds=2.0, spread=0.6):
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1384,6 +1408,7 @@ def main():
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
+    ap.add_argument("--skill_curriculum", action="store_true", help="weight and lift requests start small, grow per foot")
     ap.add_argument("--skill_level", action="store_true", help="requests also mean: otherwise stay level")
     ap.add_argument("--skill_per_task", action="store_true", help="dopamine relative to what is usual for the exact request")
     ap.add_argument("--skill_mix", default="", help="practice task mix, comma-separated (tilt,weight,lift,joint,still)")
@@ -1422,6 +1447,7 @@ def main():
     SKILL_MIX = tuple(k for k in str(args.skill_mix).split(",") if k)
     SKILL_PER_TASK = bool(args.skill_per_task)
     SKILL_LEVEL = bool(args.skill_level)
+    SKILL_CURRICULUM = bool(args.skill_curriculum)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
@@ -1546,6 +1572,7 @@ def main():
                                                               "SKILL_RATE": SKILL_RATE, "SKILL_TRACE": SKILL_TRACE, "SKILL_MAX": SKILL_MAX,
                                                               "SKILL_LIFT": SKILL_LIFT, "SKILL_MIX": list(SKILL_MIX), "resume": bool(args.resume),
                                                               "SKILL_PER_TASK": SKILL_PER_TASK, "SKILL_LEVEL": SKILL_LEVEL,
+                                                              "SKILL_CURRICULUM": SKILL_CURRICULUM,
                                                               "contexts": bool(args.contexts), "ctx_winner": bool(args.ctx_winner),
                                                               "CTX_GROW": CTX_GROW, "CTX_SIGMA": CTX_SIGMA, "ctx_slow": CTX_SLOW, "CTX_LEARN": CTX_LEARN,
                                                               "HELD_BABBLE_SHARE": HELD_BABBLE_SHARE,
