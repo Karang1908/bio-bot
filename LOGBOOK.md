@@ -6370,6 +6370,28 @@ Graded steps are not established for weight shift or back paws: one dog with sma
 could only reshape, not grow. Next run (one change): cap 0.5, resuming the steps1 brains with the same graded practice.
 
 
+### 6.37 Skill cap 0.5: full tilt in all four directions; back-right paw lifts; joints slip (24 Nov)
+
+`babble-steps2` (`395fa57`, `--skill_max 0.5`). Resumes the steps1 brains for +180 min of the same graded practice.
+
+Dog 1:
+
+- **Practice:** still up 99–100%; skill synapses 0.29 → 0.34 (no runaway). Steps at 180 min: weight 0.10/0.10/0.50/0.20,
+  lift 0.95/1.00/0.20/**0.95**.
+- **×0.125, before → after:**
+
+  | | before | after |
+  |---|---|---|
+  | tilt roll L / roll R / nose down / nose up | +54/+77/+61 (fell)/+82% | **+109/+99/+102/+81**%, no falls |
+  | lift FL / FR / RL / RR (N) | 24/34/42/31 | 31/**23**/37/**24** |
+  | weight FL | 31% | 24% (gain lost) |
+  | joints | 25% | **20%** |
+  | standing | — | 0.19 m on 4 feet, up 24/24 |
+
+Tilt is now essentially full in every direction. The back-right paw gets 38% lighter. The back-left paw and front-foot
+weight are still not learned. Single-joint control keeps slipping as the whole-body skills grow (33% → 20% over the
+skill line); this is a retention cost to address.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
