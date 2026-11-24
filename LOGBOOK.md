@@ -6552,7 +6552,7 @@ synapses (size 0.1, 0.5) and with none. Swing over time per stage (after the fir
   activity).
 - Its added joint swing is about 0.027 rad (√(0.035² − 0.022²)), against about 0.3 rad that a step needs.
 - At the cap the rhythm is therefore about 10× too weak to move a leg. No learning rate can fix this, because the cap
-  itself (`--skill_max 0.5`, set against the Q runaway of §6.2x) is too low for this path. By linear scaling, about
+  itself (`--skill_max 0.5`, set in §6.37 against the earlier Q runaway) is too low for this path. By linear scaling, about
   5–6 × the map is needed.
 - Separately, Qc started at exactly zero, against the standing rule that new connections start learnable
   (LOGBOOK §8.17).
