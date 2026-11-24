@@ -1534,6 +1534,46 @@ def cpg_check(brain, log, seconds=10.0):
     return rate, share, silent
 
 
+def cpg_feasibility(body, brain, log, rng, scales=(0.0, 0.01, 0.03, 0.1, 0.3, 0.5), samples=100, seconds=3.0):
+    """Premise check, no learning: can the grown rhythm turn this body at all? For each size (norm of the rhythm-to-motor
+    synapses as a share of the map's size; 0.5 is the cap learning is held to), draw random synapses, ask for a left turn
+    for 3 s with the reflexes (x0.125) and skill synapses as learned, and measure the turn. The sign of random synapses
+    is arbitrary (their mirror turns the other way), so |share| counts. The learned synapses are restored afterwards."""
+    J = len(body.joint)
+    brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    map_size = float(np.linalg.norm(brain.map)) / brain.reflex_scale
+    brain.reflex = SKILL_REFLEX
+    settle_reflex(body, brain)
+    kept = brain.Qc.copy()
+    out = {}
+    for sc in scales:
+        rows = []
+        for i in range(samples if sc > 0 else 10):
+            Qc = rng.standard_normal(brain.Qc.shape)
+            brain.Qc = Qc * (sc * map_size / np.linalg.norm(Qc)) if sc > 0 else np.zeros_like(Qc)
+            body.reset("stand")
+            brain.fresh()
+            y0 = body.yaw()
+            traj = intend(body, brain, {4 * J + 9: TURN_RATE}, seconds)
+            dy = (body.yaw() - y0 + np.pi) % (2 * np.pi) - np.pi
+            rows.append((float(dy / (TURN_RATE * seconds)), is_up(body), float(np.mean([t[7] for t in traj]))))
+        sh = np.array([r[0] for r in rows])
+        up = np.array([r[1] for r in rows])
+        ok = np.abs(sh) * up
+        res = {"share": sh.tolist(), "up": up.tolist(), "effort": [r[2] for r in rows],
+               "median_abs": float(np.median(np.abs(sh))), "p90_abs_up": float(np.percentile(ok, 90)),
+               "best_abs_up": float(ok.max()), "frac_ge_30_up": float(np.mean(ok >= 0.3)),
+               "frac_ge_60_up": float(np.mean(ok >= 0.6)), "up_frac": float(up.mean())}
+        out[f"{sc:g}"] = res
+        log(f"CPG FEASIBILITY size {sc:g} of the map ({len(rows)} random draws): |turn| median {res['median_abs']:.0%}, "
+            f"90th pct (up) {res['p90_abs_up']:.0%}, best (up) {res['best_abs_up']:.0%}; >=30% and up "
+            f"{res['frac_ge_30_up']:.0%}, >=60% and up {res['frac_ge_60_up']:.0%}; still up {res['up_frac']:.0%}; "
+            f"mean |command| {np.mean(res['effort']):.2f}")
+    brain.Qc = kept
+    brain.reflex = 0.0
+    return out
+
+
 def main():
     global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS
     ap = argparse.ArgumentParser()
@@ -1557,6 +1597,8 @@ def main():
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
+    ap.add_argument("--cpg_feasibility", action="store_true",
+                    help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
     ap.add_argument("--cpg", action="store_true", help="grow a 4-neuron pattern generator driven by turn requests")
     ap.add_argument("--rhythm", action="store_true", help="measure: does the brain make rhythmic motor output (adaptation sweep)?")
     ap.add_argument("--no_level_joints", action="store_true", help="joint-move trials do not count the stay-level term")
@@ -1678,6 +1720,9 @@ def main():
                 log(f"[{label}] the pattern generator is not a usable rhythm ({rate:.2f} hand-overs/s, silent {silent:.0%}; "
                     f"needs 1-15/s and < 20% silent); skipping its practice")
                 args.skills = 0.0
+        if args.cpg and args.cpg_feasibility:
+            practised = {"cpg_feasibility": cpg_feasibility(body, brain, log, np.random.default_rng(6000 + dog))}
+            args.skills = 0.0
         if args.rhythm:
             practised = {"rhythm": rhythm_diag(body, brain, log, np.random.default_rng(4000 + dog))}
         if args.skills:
