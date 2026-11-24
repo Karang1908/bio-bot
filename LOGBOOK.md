@@ -6406,6 +6406,38 @@ lightening. The back-left paw and front-foot weight are still not learned.
 **Saved:** `results/babble-steps2/brain_dog{1,2}.npz`, the best brains now.
 
 
+### 6.38 A/B: the stay-level term does not cause the joint slip; turn on request not learned (24 Nov)
+
+**A/B** (`bf8beea`): both arms resume the steps2 brains for +120 min of the same graded practice (cap 0.5).
+`babble-ab-level` keeps the stay-level term in joint trials; `babble-ab-nolevel` (`--no_level_joints`) drops it.
+
+| ×0.125, before → after | joints | tilt | lift FL/FR/RL/RR (N) |
+|---|---|---|---|
+| level, dog 1 | 20 → 16% | +109/+99/+102/+81 → +112/+73/+106/+66% | 31/23/37/24 → 38/26/38/**10** |
+| level, dog 2 | 25 → 23% | +77/+106/+76 (fell)/+81 → +109/+58/+74/+76% | 25/27/37/34 → 33/31/41/36 |
+| no-level, dog 1 | 20 → 18% | → +95/+86/+101/+63% | → 34/23/**30**/26 |
+| no-level, dog 2 | 25 → 24% | → +113/+106/+23 (fell)/+82% | → 24/26/39/38 |
+
+- **Joint slip:** it continues in both arms; the difference is 1–2 points, which is noise. The stay-level term in joint
+  trials is not the cause.
+- **Back paws:** the level dog 1's back-right paw now lifts 74% (39 → 10 N), the strongest back-paw result. The
+  no-level dog 1 shows the first back-left lightening in a test (39 → 30 N).
+- **Weight onto a front foot:** still not learned.
+
+**Turn on request:** `babble-turn1` (`5cc6817`) resumes the steps2 brains for +180 min, adding "turn" (feel turning at
+0.5 rad/s, body z) to the mix. Test: turn left/right for 3 s.
+
+| | turn left / right, before → after | tilt after | other |
+|---|---|---|---|
+| dog 1 | −10/+14 → −3/+9% | +82/+118/+101/+79% | — |
+| dog 2 | +18/−17 → +7/−9% | +53/**−2**/+91/+54% (roll right lost) | FL paw 42 → 0 N; joints 25 → 32% |
+
+Turning is not learned. Reasoned, not measured: tilts and paw lifts are postures, reached and held, but turning in
+place needs a rhythm (lift, swing, place, repeat). This brain model has no source of rhythm: rate neurons settle to
+steady outputs, and the reflex and skill synapses map a felt deviation to a fixed correction. Next, measured before
+building: give neurons adaptation (activity-dependent fatigue, a standard neuron property) and test whether the
+connectome then produces rhythmic motor output by itself while standing.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
