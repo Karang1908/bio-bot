@@ -6438,6 +6438,34 @@ steady outputs, and the reflex and skill synapses map a felt deviation to a fixe
 building: give neurons adaptation (activity-dependent fatigue, a standard neuron property) and test whether the
 connectome then produces rhythmic motor output by itself while standing.
 
+### 6.39 Rhythm check: the brain makes no walking rhythm by itself (24 Nov)
+
+`babble-rhythm1` (`0d5f3a8`, `--rhythm`): steps2 brain, dog 1. Measurement only, no learning. Neuron adaptation (a
+neuron that keeps firing tires, τ 0.3 s) at strength 0, 0.5, 1, 2, 4. For each: 20 s set down standing, reflexes ×0.125
+and skill synapses on, practice-level motor variation (0.05); once held still (output cut) and once free. Power of each
+motor pool's output in 1–3 Hz as a share of 0.25–10 Hz (flat ≈ 21%).
+
+| adaptation | held still: share / peak / swing | free: share / peak / swing |
+|---|---|---|
+| 0 | 27% / 0.40 Hz / 0.087 | 16% / 3.48 Hz / 0.134 |
+| 0.5 | 40% / 0.47 Hz / 0.055 | 6% / 3.45 Hz / 0.165 |
+| 1 | 41% / 0.60 Hz / 0.045 | 15% / 3.78 Hz / 0.087 |
+| 2 | 45% / 0.78 Hz / 0.034 | 30% / 3.92 Hz / 0.034 |
+| 4 | 42% / 0.65 Hz / 0.025 | 28% / 3.60 Hz / 0.024 |
+
+Still up in all.
+
+- **Held still:** adaptation shifts power toward 1–3 Hz, but the swing shrinks fourfold and the peak stays below 1 Hz.
+  This is noise being filtered, not a self-made rhythm.
+- **Free:** a 3.5–3.9 Hz peak at every strength; believed to be the body–reflex loop resonating, not stepping.
+
+With this rate model of the connectome, nothing generates a stepping rhythm. That is consistent with turning not being
+learned (§6.38).
+
+**Next:** an opt-in pattern generator, grown append-only. Four neurons with mutual inhibition and adaptation, driven
+only while the brain asks to turn (as a descending command drives a CPG). Their synapses to the motor neurons start at
+zero and are learned by the same reward practice. A check of their period and swing comes first in the same run.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
