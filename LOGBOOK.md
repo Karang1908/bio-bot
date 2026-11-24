@@ -6528,6 +6528,37 @@ No random draw turns the dog more than 6%, even at the cap. The mean command doe
 input does not reach the motor command at all; this is not merely a wrong leg pattern. A higher learning rate would
 change nothing. Next: trace the signal stage by stage to find where it is lost (`--cpg_trace`).
 
+### 6.42 Trace: the rhythm reaches the joints, ~10× too weak at the cap (25 Nov)
+
+`babble-cpgtrace1` (`ad9a8db`, `--cpg_trace`): cpg2 dog 1. One 3 s turn request each with random rhythm-to-motor
+synapses (size 0.1, 0.5) and with none. Swing over time per stage (after the first 0.5 s):
+
+| stage | none | 0.1 | 0.5 |
+|---|---|---|---|
+| turn request z → generator drive | 0.82 → 1.00 | same | same |
+| generator output (peak / swing) | 0.54 / 0.18 | same | same |
+| its input to motor neurons, swing / rms | 0 | 0.008 / 0.011 | 0.040 / 0.054 |
+| motor neurons' other input, swing / rms | 0.111 / 0.77 | 0.097 / 0.74 | 0.094 / 0.85 |
+| motor neurons above threshold / saturated | 48% / 1% | same | same |
+| command swing (mean \|cmd\|) | 0.174 (0.149) | 0.133 (0.121) | 0.140 (0.126) |
+| set-point swing | 0.080 rad | 0.061 rad | 0.072 rad |
+| joint swing | 0.022 rad | 0.021 rad | **0.035 rad** |
+
+**Pinpointed:**
+- The generator is fully driven and oscillating.
+- At the cap, its input is about 6% of the motor neurons' input (rms 0.054 vs 0.85), and about half of those neurons
+  are below threshold.
+- Its share of the command (about 0.04) is small against the command's existing wobble (0.17, reflexes and recurrent
+  activity).
+- Its added joint swing is about 0.027 rad (√(0.035² − 0.022²)), against about 0.3 rad that a step needs.
+- At the cap the rhythm is therefore about 10× too weak to move a leg. No learning rate can fix this, because the cap
+  itself (`--skill_max 0.5`, set against the Q runaway of §6.2x) is too low for this path. By linear scaling, about
+  5–6 × the map is needed.
+- Separately, Qc started at exactly zero, against the standing rule that new connections start learnable
+  (LOGBOOK §8.17).
+
+**Next:** feasibility at sizes 1, 2, 4, 8 (`babble-cpgfeas2`).
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
