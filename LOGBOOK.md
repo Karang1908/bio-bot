@@ -6466,6 +6466,26 @@ learned (§6.38).
 only while the brain asks to turn (as a descending command drives a CPG). Their synapses to the motor neurons start at
 zero and are learned by the same reward practice. A check of their period and swing comes first in the same run.
 
+### 6.40 A grown pattern generator: first integration chattered; fixed, it keeps a walking-rate rhythm (24 Nov)
+
+`--cpg` (`306e544`): four new neurons, grown append-only. They inhibit each other (2.0), tire (adaptation 1.5,
+τ 0.15 s; membrane τ 0.05 s), and each is inhibited 0.5 less by its predecessor. They are driven only by the brain's
+own turn request. Their synapses onto the 370 motor neurons start at zero and are learned by the same reward practice,
+with the same 0.5 cap. Nothing about legs, phases or gaits is set.
+
+- **`babble-cpg1`, rejected:** 41.56 hand-overs/s (a "cycle" every 0.10 s), each neuron leading 14–16% of the time,
+  so about 40% silent. Mechanism: integrated in one 20 ms brain step against a 50 ms membrane with strong inhibition,
+  every update overshot and flipped the winner. The pass threshold (> 0.5 hand-overs/s) was too loose to catch it.
+  Its results are discarded.
+- **Fix (`188381f`):** integrate it in 10 × 2 ms sub-steps per brain step. The check now requires 1–15 hand-overs/s
+  and less than 20% silent, else practice is skipped.
+- **`babble-cpg2`:** 6.44 hand-overs/s, a full cycle every 0.62 s (≈ 1.6 Hz, inside the 1–3 Hz walking band), each
+  neuron leading 24–26%, silent 0%. Verified in the run's own log.
+- **Baseline, before practice:** dog 1 turns −10% left / +14% right (reflexes ×0.125). This is identical to
+  `babble-turn1`'s baseline: with zero synapses the pattern generator leaves the brain unchanged.
+
+The turning result after 180 min of practice is pending.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
