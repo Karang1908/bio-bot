@@ -1655,6 +1655,8 @@ def main():
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
+    ap.add_argument("--cpg_sizes", default="0,0.01,0.03,0.1,0.3,0.5",
+                    help="--cpg_feasibility: sizes of the random rhythm-to-motor synapses, as a share of the map's size")
     ap.add_argument("--cpg_trace", action="store_true",
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
@@ -1785,7 +1787,8 @@ def main():
                                        for sz in (0.1, 0.5)}}
             args.skills = 0.0
         if args.cpg and args.cpg_feasibility:
-            practised = {"cpg_feasibility": cpg_feasibility(body, brain, log, np.random.default_rng(6000 + dog))}
+            practised = {"cpg_feasibility": cpg_feasibility(body, brain, log, np.random.default_rng(6000 + dog),
+                                                            scales=tuple(float(x) for x in str(args.cpg_sizes).split(",")))}
             args.skills = 0.0
         if args.rhythm:
             practised = {"rhythm": rhythm_diag(body, brain, log, np.random.default_rng(4000 + dog))}
