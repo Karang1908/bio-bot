@@ -1534,6 +1534,64 @@ def cpg_check(brain, log, seconds=10.0):
     return rate, share, silent
 
 
+def cpg_trace(body, brain, log, rng, size=0.5, seconds=3.0):
+    """Measurement only: where does the rhythm's signal go? One turn request with random rhythm-to-motor synapses of
+    the given size, and the same with none. At each stage (the generator's drive and output, its input to the motor
+    neurons against their other input, the motor neurons, the motor pools' raw output, the command, the set points,
+    the joints), the swing over time, so the stage where the two runs stop differing is where the signal is lost."""
+    J = len(body.joint)
+    brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    map_size = float(np.linalg.norm(brain.map)) / brain.reflex_scale
+    brain.reflex = SKILL_REFLEX
+    settle_reflex(body, brain)
+    kept = brain.Qc.copy()
+    Qc = rng.standard_normal(brain.Qc.shape)
+    Qc *= size * map_size / np.linalg.norm(Qc)
+    m = brain.motor
+    out = {}
+    for name, Q in (("with", Qc), ("none", np.zeros_like(Qc))):
+        brain.Qc = Q
+        body.reset("stand")
+        brain.fresh()
+        for l, g in {4 * J + 9: TURN_RATE}.items():
+            brain.intention[l] = -(g - brain.mean[l]) / np.sqrt(brain.var[l] + 1e-6)
+        want = float(-brain.intention[4 * J + 9])
+        y0 = body.yaw()
+        rec = {k: [] for k in ("cpg", "cpg_in", "rest_in", "v", "rate", "raw", "cmd", "target", "q")}
+        for _ in range(int(seconds / BRAIN_DT)):
+            r0, v0 = brain.rates(), brain.v.copy()
+            wr = (brain.W @ r0)[m]
+            r = brain.step(body.feel(), np.zeros(len(m)))
+            I_m = (brain.v[m] - v0[m]) / ALPHA + v0[m] - wr
+            ci = brain.Qc @ brain.cpg_f
+            o = brain.command(r)
+            body.step(o)
+            rec["cpg"].append(brain.cpg_f.copy()); rec["cpg_in"].append(ci); rec["rest_in"].append(wr + I_m - ci)
+            rec["v"].append(brain.v[m].copy()); rec["rate"].append(r[m].copy()); rec["raw"].append(brain.last_raw.copy())
+            rec["cmd"].append(o); rec["target"].append(body.target.copy()); rec["q"].append(body.angles().copy())
+        brain.intention[:] = 0.0
+        a = {k: np.array(v) for k, v in rec.items()}
+        sd = lambda x: float(x[25:].std(0).mean())                      # swing over time, after the first 0.5 s
+        res = {"want_z": want, "cpg_drive": min(1.0, abs(want) / 0.25), "cpg_peak": float(np.abs(a["cpg"]).max()),
+               "cpg_swing": sd(a["cpg"]), "cpg_in_swing": sd(a["cpg_in"]), "cpg_in_rms": float(np.sqrt((a["cpg_in"] ** 2).mean())),
+               "rest_in_swing": sd(a["rest_in"]), "rest_in_rms": float(np.sqrt((a["rest_in"] ** 2).mean())),
+               "v_pos_frac": float((a["v"] > 0).mean()), "v_sat_frac": float((a["v"] > 2.0).mean()),
+               "v_median": float(np.median(a["v"])), "rate_swing": sd(a["rate"]), "raw_swing": sd(a["raw"]),
+               "cmd_swing": sd(a["cmd"]), "cmd_abs": float(np.abs(a["cmd"]).mean()), "target_swing": sd(a["target"]),
+               "q_swing": sd(a["q"]), "yaw_turned": float((body.yaw() - y0 + np.pi) % (2 * np.pi) - np.pi)}
+        out[name] = res
+        log(f"CPG TRACE {name} rhythm synapses (size {size if name == 'with' else 0:g}): turn request z {res['want_z']:.2f} "
+            f"-> generator drive {res['cpg_drive']:.2f}, output peak {res['cpg_peak']:.3f} swing {res['cpg_swing']:.3f}; "
+            f"its input to motor neurons swing {res['cpg_in_swing']:.4f} rms {res['cpg_in_rms']:.4f} vs their other input "
+            f"swing {res['rest_in_swing']:.4f} rms {res['rest_in_rms']:.4f}; motor neurons above threshold "
+            f"{res['v_pos_frac']:.0%}, saturated {res['v_sat_frac']:.0%}, median v {res['v_median']:.3f}; swing of motor "
+            f"rates {res['rate_swing']:.4f}, pool raw {res['raw_swing']:.4f}, command {res['cmd_swing']:.4f} "
+            f"(mean |cmd| {res['cmd_abs']:.3f}), set points {res['target_swing']:.4f} rad, joints {res['q_swing']:.4f} rad")
+    brain.Qc = kept
+    brain.reflex = 0.0
+    return out
+
+
 def cpg_feasibility(body, brain, log, rng, scales=(0.0, 0.01, 0.03, 0.1, 0.3, 0.5), samples=100, seconds=3.0):
     """Premise check, no learning: can the grown rhythm turn this body at all? For each size (norm of the rhythm-to-motor
     synapses as a share of the map's size; 0.5 is the cap learning is held to), draw random synapses, ask for a left turn
@@ -1597,6 +1655,8 @@ def main():
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
+    ap.add_argument("--cpg_trace", action="store_true",
+                    help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
     ap.add_argument("--cpg", action="store_true", help="grow a 4-neuron pattern generator driven by turn requests")
@@ -1720,6 +1780,10 @@ def main():
                 log(f"[{label}] the pattern generator is not a usable rhythm ({rate:.2f} hand-overs/s, silent {silent:.0%}; "
                     f"needs 1-15/s and < 20% silent); skipping its practice")
                 args.skills = 0.0
+        if args.cpg and args.cpg_trace:
+            practised = {"cpg_trace": {f"{sz:g}": cpg_trace(body, brain, log, np.random.default_rng(6100 + dog), size=sz)
+                                       for sz in (0.1, 0.5)}}
+            args.skills = 0.0
         if args.cpg and args.cpg_feasibility:
             practised = {"cpg_feasibility": cpg_feasibility(body, brain, log, np.random.default_rng(6000 + dog))}
             args.skills = 0.0
