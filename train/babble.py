@@ -118,6 +118,7 @@ CPG_ADAPT_TAU = 0.15     # s: tiring and recovery
 CPG_ADAPT_G = 1.5        # how strongly a firing neuron tires
 CPG_INH = 2.0            # mutual inhibition
 CPG_SEQ = 0.5            # each neuron is inhibited less by its predecessor
+CPG_SUBSTEPS = 10        # integrate it in 2 ms steps: in 20 ms steps it chattered (cpg1: 41.6 hand-overs/s, silent 40%)
 TURN_RATE = 0.5          # rad/s: a turn request is feeling itself turn at this rate (the turning nerve, body z)
 SKILL_PER_TASK = False   # --skill_per_task: dopamine relative to what is usual for that exact request (each foot,
                          # each tilt direction), not for the kind of task. Passive drift (weight sliding back, the nose
@@ -384,11 +385,13 @@ class Brain:
 
     def cpg_step(self, drive):
         u, a = self.cpg["u"], self.cpg["a"]
-        r = np.maximum(u, 0.0)
-        inh = CPG_INH * (r.sum() - r) - CPG_SEQ * np.roll(r, 1)
-        u += BRAIN_DT / CPG_TAU * (-u + drive - inh - CPG_ADAPT_G * a)
-        r = np.maximum(u, 0.0)
-        a += BRAIN_DT / CPG_ADAPT_TAU * (r - a)
+        dt = BRAIN_DT / CPG_SUBSTEPS                                       # its own time scale, not the brain step's
+        for _ in range(CPG_SUBSTEPS):
+            r = np.maximum(u, 0.0)
+            inh = CPG_INH * (r.sum() - r) - CPG_SEQ * np.roll(r, 1)
+            u += dt / CPG_TAU * (-u + drive - inh - CPG_ADAPT_G * a)
+            r = np.maximum(u, 0.0)
+            a += dt / CPG_ADAPT_TAU * (r - a)
         return r
 
     def ctx_init(self):
@@ -1524,9 +1527,11 @@ def cpg_check(brain, log, seconds=10.0):
     switches = int((np.diff(lead) != 0).sum())
     rate = switches / (seconds - 1.0)
     share = [float(np.mean(lead == i)) for i in range(CPG_N)]
+    silent = float(np.mean(lead == -1))
     log(f"CPG check (driven, {seconds - 1:g} s): {rate:.2f} hand-overs/s, a full cycle every "
-        f"{CPG_N / max(rate, 1e-9):.2f} s; share of time each neuron leads " + "/".join(f"{x:.0%}" for x in share))
-    return rate, share
+        f"{CPG_N / max(rate, 1e-9):.2f} s; share of time each neuron leads " + "/".join(f"{x:.0%}" for x in share)
+        + f"; silent {silent:.0%}")
+    return rate, share, silent
 
 
 def main():
@@ -1668,9 +1673,10 @@ def main():
         if args.cpg:
             brain.cpg_init(np.random.default_rng(5000 + dog))
             brain.turn_line = 4 * len(body.joint) + 9
-            rate, share = cpg_check(brain, log)
-            if rate < 0.5:
-                log(f"[{label}] the pattern generator does not oscillate ({rate:.2f} hand-overs/s); skipping its practice")
+            rate, share, silent = cpg_check(brain, log)
+            if not (1.0 <= rate <= 15.0 and silent < 0.2):
+                log(f"[{label}] the pattern generator is not a usable rhythm ({rate:.2f} hand-overs/s, silent {silent:.0%}; "
+                    f"needs 1-15/s and < 20% silent); skipping its practice")
                 args.skills = 0.0
         if args.rhythm:
             practised = {"rhythm": rhythm_diag(body, brain, log, np.random.default_rng(4000 + dog))}
