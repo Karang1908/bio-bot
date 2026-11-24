@@ -6508,6 +6508,26 @@ with the same 0.5 cap. Nothing about legs, phases or gaits is set.
 - **Next:** this is the second flat round on turning (turn1, cpg2). Test the premise before changing any rate: can
   random rhythm-to-motor synapses of a useful size turn this body at all?
 
+### 6.41 Premise check: random rhythm-to-motor synapses cannot turn the dog, at any size up to the cap (25 Nov)
+
+`babble-cpgfeas1` (`22c2c4e`, `--cpg_feasibility`): cpg2 dog 1 brain. No learning. For each size of the
+rhythm-to-motor synapses (norm as a share of the map; 0.5 is the learning cap), 100 random draws; each asks for a left
+turn for 3 s with the reflexes (×0.125) and skill synapses as learned. |share of the asked turn| counts (a mirrored
+draw turns the other way).
+
+| size | \|turn\| median | best (up) | ≥30% and up | still up | mean \|command\| |
+|---|---|---|---|---|---|
+| 0 (10 draws) | 2% | 2% | 0% | 100% | 1.79 |
+| 0.01 | 2% | 2% | 0% | 100% | 1.77 |
+| 0.03 | 2% | 3% | 0% | 100% | 1.76 |
+| 0.1 | 2% | 3% | 0% | 100% | 1.72 |
+| 0.3 | 2% | 5% | 0% | 100% | 1.73 |
+| 0.5 | 2% | 6% | 0% | 100% | 1.74 |
+
+No random draw turns the dog more than 6%, even at the cap. The mean command does not change with size, so the rhythm's
+input does not reach the motor command at all; this is not merely a wrong leg pattern. A higher learning rate would
+change nothing. Next: trace the signal stage by stage to find where it is lost (`--cpg_trace`).
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
