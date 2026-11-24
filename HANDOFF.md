@@ -56,7 +56,17 @@ runaway); posture neurons (§6.27–6.29); steering by test code (§6.18).
 - **Weight shift and back-paw lift:** physically possible (feasibility check, §6.33), yet not learned in five rounds
   (§6.31–6.35). Tuning is stopped there.
 
-**Next question (for the owner):** how should weight shift be learned? A graded curriculum (small shifts first),
+**Update 24 Nov (verified, LOGBOOK §6.36–6.37):**
+- **Graded steps** (`--skill_curriculum`) gave small, unreplicated gains.
+- **Raising the skill cap to 0.5** (`--skill_max 0.5`) gave strong tilt in all four directions in both dogs (dog 1:
+  +109/+99/+102/+81%) and some back-right paw lightening.
+- **Best brains now:** `results/babble-steps2/brain_dog{1,2}.npz`.
+- **Still not learned:** back-left paw, weight onto a front foot.
+- **Single-joint control slips** as skills grow (33 → 20–25%).
+- **Running:** the A/B `babble-ab-level` against `babble-ab-nolevel` (from the steps2 brains, 120 min) tests whether
+  the stay-level term in joint trials causes the slip.
+
+**Earlier next question:** how should weight shift be learned? A graded curriculum (small shifts first),
 larger structured exploration within those trials, or a different whole-body posture representation.
 
 **Earlier state (2 Nov):**
