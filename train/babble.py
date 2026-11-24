@@ -108,6 +108,7 @@ SKILL_NOISE = 0.3        # motor variation, as a share of babbling's
 SKILL_RATE = 1e-3        # skill synapse change per step per unit of (standardised dopamine x eligibility)
 SKILL_TRACE = 0.9        # eligibility kept per step (~0.2 s)
 SKILL_TRIAL_S = 2.0
+TURN_RATE = 0.5          # rad/s: a turn request is feeling itself turn at this rate (the turning nerve, body z)
 SKILL_PER_TASK = False   # --skill_per_task: dopamine relative to what is usual for that exact request (each foot,
                          # each tilt direction), not for the kind of task. Passive drift (weight sliding back, the nose
                          # sagging up) otherwise makes some requests free and others look like failures (skills6).
@@ -303,6 +304,11 @@ class Body:
     def gravity(self):
         """Which way gravity pulls, in the trunk's own frame: (0, 0, -1) when upright."""
         return self.d.xmat[self.base].reshape(3, 3).T @ np.array([0.0, 0.0, -1.0])
+
+    def yaw(self):
+        """True heading of the trunk (rad), for the tests only."""
+        R = self.d.xmat[self.base].reshape(3, 3)
+        return float(np.arctan2(R[1, 0], R[0, 0]))
 
     def tilt(self):
         """True roll and pitch of the trunk (rad), for the tests only."""
@@ -992,6 +998,17 @@ def reflex_tests(body, brain, log, label):
             res[f"lift {foot}"] = {"force_before_N": f0, "force_after_N": f1, "up_after": lifts[-1][3]}
         log(f"[{tag}] lift one paw as asked (its force, before -> after 2 s): "
             + ", ".join(f"{f} {a:.0f}->{b:.0f} N{'' if u else ' (fell)'}" for f, a, b, u in lifts))
+        turns = []
+        for name, rate in (("left", TURN_RATE), ("right", -TURN_RATE)):
+            body.reset("stand")
+            brain.fresh()
+            y0 = body.yaw()
+            intend(body, brain, {4 * J + 9: rate}, 3.0)
+            dy = (body.yaw() - y0 + np.pi) % (2 * np.pi) - np.pi
+            turns.append((name, float(dy / (rate * 3.0)), is_up(body)))
+            res[f"turn {name}"] = {"turned_rad": float(dy), "share": turns[-1][1], "up_after": turns[-1][2]}
+        log(f"[{tag}] turn as asked ({TURN_RATE:g} rad/s for 3 s): "
+            + ", ".join(f"{n} {a:+.0%}{'' if u else ' (fell)'}" for n, a, u in turns) + " of the asked turn")
         # lying on its side, nothing asked: its reflexes' reference is standing still
         ups = 0
         ends = []
@@ -1218,6 +1235,9 @@ def skill_task(body, brain, rng, levels=None):
         base = body.touch()
         L = (levels or {}).get(f"weight {k}", 0.5)                       # ask for this much more weight on the foot
         return {int(touch[k]): float((1 + L) * base[k])}, kind, ("weight", k, base[k] / max(base.sum(), 1e-6), L)
+    if kind == "turn":                                                    # feel itself turning, left or right
+        rate = TURN_RATE * rng.choice([-1.0, 1.0])
+        return {4 * J + 9: rate}, kind, ("turn", rate, body.yaw())
     if kind == "lift":                                                    # take the weight off one paw
         k = int(rng.integers(4))
         base = body.touch()
@@ -1240,6 +1260,10 @@ def skill_score(body, how, r0p0):
         k, s0, L = how[1], how[2], how[3]
         t = body.touch()
         return float((t[k] / max(t.sum(), 1e-6) - s0) / max(L * s0, 1e-6))
+    if how[0] == "turn":
+        rate, y0 = how[1], how[2]
+        dy = (body.yaw() - y0 + np.pi) % (2 * np.pi) - np.pi
+        return float(dy / (rate * SKILL_TRIAL_S))
     if how[0] == "lift":
         k, f0, L = how[1], how[2], how[3]
         return float((f0 - body.touch()[k]) / max(L * f0, 1e-6))
@@ -1276,6 +1300,8 @@ def practice_skills(body, brain, minutes, rng, log, label):
                 task = f"tilt {'roll' if how[1][0] else 'pitch'} {'+' if how[1].sum() > 0 else '-'}"
             elif how[0] in ("weight", "lift"):
                 task = f"{how[0]} {how[1]}"
+            elif how[0] == "turn":
+                task = f"turn {'+' if how[1] > 0 else '-'}"
             elif how[0] == "joint":
                 task = f"joint {how[1]} {'+' if how[3] > how[2] else '-'}"
         if task not in stats:
@@ -1330,7 +1356,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
                     levels[key] = max(lo, levels[key] / 1.25)
                 recent[key] = []
         if (n + 1) % int(5 * 60 / SKILL_TRIAL_S) == 0 or n == trials - 1:
-            by = {k: [w[1] for w in window if w[0] == k] for k in ("tilt", "weight", "lift", "joint", "still")}
+            by = {k: [w[1] for w in window if w[0] == k] for k in ("tilt", "weight", "lift", "joint", "still", "turn")}
             up = float(np.mean([w[2] for w in window]))
             qsize = float(np.linalg.norm(brain.Q)) / max(map_size, 1e-12)
             history.append({"minute": (n + 1) * SKILL_TRIAL_S / 60, "still_up": up, "Q_vs_map": qsize,
@@ -1340,7 +1366,8 @@ def practice_skills(body, brain, minutes, rng, log, label):
                 f"{len(window)} trials: median share of the asked change: tilt "
                 f"{np.median(by['tilt']) if by['tilt'] else float('nan'):+.0%}, weight "
                 f"{np.median(by['weight']) if by['weight'] else float('nan'):+.0%}, lift a paw "
-                f"{np.median(by['lift']) if by['lift'] else float('nan'):+.0%}, joint "
+                f"{np.median(by['lift']) if by['lift'] else float('nan'):+.0%}, turn "
+                f"{np.median(by['turn']) if by['turn'] else float('nan'):+.0%}, joint "
                 f"{np.median(by['joint']) if by['joint'] else float('nan'):+.0%}; still up at the end {up:.0%}; "
                 f"skill synapses {qsize:.2f} of the twitch map's size"
                 + ("" if not levels else "; steps (weight / lift, FL FR RL RR): "
