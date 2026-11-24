@@ -6559,6 +6559,29 @@ synapses (size 0.1, 0.5) and with none. Swing over time per stage (after the fir
 
 **Next:** feasibility at sizes 1, 2, 4, 8 (`babble-cpgfeas2`).
 
+### 6.43 Feasibility at larger sizes: the rhythm can turn the dog, but only in a narrow window (25 Nov)
+
+`babble-cpgfeas2` (`361876f`): as §6.41, sizes 1, 2, 4, 8 × the map, 100 random draws each.
+
+| size | \|turn\| median | best (up) | top-5 up | still up | mean \|command\| |
+|---|---|---|---|---|---|
+| 0 | 2% | 2% | — | 100% | 1.79 |
+| 1 | 3% | 13% | 9–13% | 100% | 1.66 |
+| 2 | 8% | **37%** | 23–37% | 79% | 1.67 |
+| 4 | 18% | 27% | 15–27% | 11% | 2.21 |
+| 8 | 22% | — | — | 0% | 3.14 |
+
+- **Premise holds, narrowly:** the rhythm turns the dog more as it gets stronger. Above about 2 × the map it mostly
+  topples. Random draws are a lower bound; a learned pattern could turn more while staying up.
+- **Why node perturbation could not learn it (cpg2), reasoned from §6.42:** the exploration is the motor noise
+  (0.06 per motor neuron). Through the rhythm, its effect on the turn is about 0.06/0.05 × 0.027 rad × … ≈ nothing
+  measurable, so the reward carries no information about Qc and Qc random-walks.
+- **Next (calculated):** reward-gated synaptic noise on the rhythm synapses (weight perturbation, Seung 2003). Each
+  turn trial explores Qc + ε with |ε| = 1 × the map, a size where random draws already turn the dog by up to 13% and
+  it stays up 100%. Then Qc += η · dz · ε, with Qc capped at 2 × the map.
+- **Effective dimension:** what matters is the drive per joint, 4 × 12 = 48 directions. About 1,500 turn trials per
+  180 min should suffice.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
