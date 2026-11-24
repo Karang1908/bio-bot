@@ -359,6 +359,9 @@ class Brain:
     R = None                 # its reflex synapses once they learn on their own (standing practice); None: the twitch-tuned ones
     Q = None                 # skill synapses, sensory to motor, learned from reward (--skills)
     use_ctx = False          # posture neurons (--contexts)
+    adapt_g = 0.0            # neuron adaptation: a neuron that keeps firing tires (subtracts adapt_g x its recent rate)
+    adapt_tau = 0.3          # s: how fast it tires and recovers
+    adapt = None
 
     def ctx_init(self):
         self.use_ctx = True
@@ -445,8 +448,15 @@ class Brain:
             else:
                 c = self.reflex_cols
                 I[self.motor] -= self.reflex / self.reflex_scale * (Wr[:, c] @ change[c])
+        if self.adapt_g:
+            if self.adapt is None:
+                self.adapt = np.zeros(self.N)
+            I -= self.adapt_g * self.adapt
         self.v += ALPHA * (-self.v + self.W @ self.rates() + I)
-        return self.rates()
+        r = self.rates()
+        if self.adapt_g:
+            self.adapt += BRAIN_DT / self.adapt_tau * (r - self.adapt)
+        return r
 
     motor_baseline = None    # with tone: each motor pool's steady resting drive, adapted away
     rest_baseline = None     # that baseline after settling at rest; every test trial starts from it
@@ -1414,6 +1424,46 @@ def feasibility(body, log, rng, samples=300, seconds=2.0, spread=0.6):
     return {"stayed_up": ok, "best_share_gain": best_share.tolist(), "best_lift": best_lift.tolist(), "poses": best_pose}
 
 
+def rhythm_diag(body, brain, log, rng, gains=(0.0, 0.5, 1.0, 2.0, 4.0), seconds=20.0):
+    """Measure only, no learning: does the brain produce rhythmic motor output by itself while it stands? For each
+    adaptation strength: 20 s set down standing, the learned reflexes (x0.125) and skill synapses on, small motor
+    variation (practice level); once held still (output cut) and once free. Power of each pool's output in the
+    walking band (1-3 Hz) as a share of 0.25-10 Hz, the strongest frequency, and whether it is still up."""
+    J = len(body.joint)
+    brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    out = {}
+    n = int(seconds / BRAIN_DT)
+    freqs = np.fft.rfftfreq(n, BRAIN_DT)
+    band, wide = (freqs >= 1.0) & (freqs <= 3.0), (freqs >= 0.25) & (freqs <= 10.0)
+    for g in gains:
+        brain.adapt_g, brain.adapt = g, None
+        brain.reflex = SKILL_REFLEX
+        settle_reflex(body, brain)
+        for how in ("held still", "free"):
+            body.reset("stand")
+            brain.fresh()
+            noise = np.zeros(len(brain.motor))
+            outs = np.zeros((n, J))
+            for t in range(n):
+                noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
+                r = brain.step(body.feel(), SKILL_NOISE * BABBLE_SIZE * noise)
+                o = brain.command(r)
+                outs[t] = o
+                body.step(o if how == "free" else np.zeros(J))
+            x = outs - outs.mean(0)
+            P = np.abs(np.fft.rfft(x, axis=0)) ** 2
+            share = P[band].sum(0) / np.maximum(P[wide].sum(0), 1e-12)
+            peak = freqs[wide][np.argmax(P[wide], axis=0)]
+            res = {"band_share": float(share.mean()), "peak_hz_median": float(np.median(peak)),
+                   "amplitude": float(x.std(0).mean()), "up_after": is_up(body)}
+            out[f"adapt {g:g} {how}"] = res
+            log(f"RHYTHM adaptation {g:g}, {how}: output swing {res['amplitude']:.3f}; share in 1-3 Hz "
+                f"{res['band_share']:.0%} (random would be ~{band.sum() / wide.sum():.0%}); strongest frequency (median of "
+                f"pools) {res['peak_hz_median']:.2f} Hz; still up {res['up_after']}")
+    brain.adapt_g, brain.adapt, brain.reflex = 0.0, None, 0.0
+    return out
+
+
 def main():
     global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS
     ap = argparse.ArgumentParser()
@@ -1437,6 +1487,7 @@ def main():
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
+    ap.add_argument("--rhythm", action="store_true", help="measure: does the brain make rhythmic motor output (adaptation sweep)?")
     ap.add_argument("--no_level_joints", action="store_true", help="joint-move trials do not count the stay-level term")
     ap.add_argument("--skill_max", type=float, default=SKILL_MAX,
                     help="cap on the skill synapses' size, as a share of the twitch map's (they sat at 0.25 in steps1)")
@@ -1548,6 +1599,8 @@ def main():
         after = None if args.reflex else control_test(body, brain, scores, log, label + f", after {args.minutes:g} min of babbling")
         ground_after = ground_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling", None) if args.ground and not args.reflex else None
         practised = None
+        if args.rhythm:
+            practised = {"rhythm": rhythm_diag(body, brain, log, np.random.default_rng(4000 + dog))}
         if args.skills:
             before_skills = reflex_tests(body, brain, log, label + ", before skill practice")
             practised = {"before": before_skills,
