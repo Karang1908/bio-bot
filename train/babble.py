@@ -108,6 +108,16 @@ SKILL_NOISE = 0.3        # motor variation, as a share of babbling's
 SKILL_RATE = 1e-3        # skill synapse change per step per unit of (standardised dopamine x eligibility)
 SKILL_TRACE = 0.9        # eligibility kept per step (~0.2 s)
 SKILL_TRIAL_S = 2.0
+# --cpg: a small pattern generator, grown append-only. Four neurons inhibit each other and tire (adaptation), so the
+# active one hands over to the next; each is helped a little by its predecessor, which sets an order. It runs only
+# while the brain asks to turn (its descending command), and its synapses onto the motor neurons start at zero and
+# are learned by the same reward practice. Nothing about legs, phases or gaits is set.
+CPG_N = 4
+CPG_TAU = 0.05           # s: membrane
+CPG_ADAPT_TAU = 0.15     # s: tiring and recovery
+CPG_ADAPT_G = 1.5        # how strongly a firing neuron tires
+CPG_INH = 2.0            # mutual inhibition
+CPG_SEQ = 0.5            # each neuron is inhibited less by its predecessor
 TURN_RATE = 0.5          # rad/s: a turn request is feeling itself turn at this rate (the turning nerve, body z)
 SKILL_PER_TASK = False   # --skill_per_task: dopamine relative to what is usual for that exact request (each foot,
                          # each tilt direction), not for the kind of task. Passive drift (weight sliding back, the nose
@@ -151,7 +161,7 @@ def fetch_go2(root: Path) -> Path:
 
 
 BRAIN_KEYS = ("map", "Q", "mean", "var", "seen", "motor_baseline", "rest_baseline", "rest_mean", "rest_sense",
-              "reflex_scale", "drives", "push", "fibre_neuron", "fibre_gain")
+              "reflex_scale", "drives", "push", "fibre_neuron", "fibre_gain", "Qc")
 
 
 def save_brain(brain, path):
@@ -359,9 +369,27 @@ class Brain:
     R = None                 # its reflex synapses once they learn on their own (standing practice); None: the twitch-tuned ones
     Q = None                 # skill synapses, sensory to motor, learned from reward (--skills)
     use_ctx = False          # posture neurons (--contexts)
+    cpg = None               # the grown pattern generator (--cpg)
+    Qc = None
+    turn_line = None
     adapt_g = 0.0            # neuron adaptation: a neuron that keeps firing tires (subtracts adapt_g x its recent rate)
     adapt_tau = 0.3          # s: how fast it tires and recovers
     adapt = None
+
+    def cpg_init(self, rng):
+        self.cpg = {"u": rng.uniform(0.0, 0.1, CPG_N), "a": np.zeros(CPG_N)}
+        if getattr(self, "Qc", None) is None or self.Qc.shape != (len(self.motor), CPG_N):
+            self.Qc = np.zeros((len(self.motor), CPG_N))
+        self.cpg_f = np.zeros(CPG_N)
+
+    def cpg_step(self, drive):
+        u, a = self.cpg["u"], self.cpg["a"]
+        r = np.maximum(u, 0.0)
+        inh = CPG_INH * (r.sum() - r) - CPG_SEQ * np.roll(r, 1)
+        u += BRAIN_DT / CPG_TAU * (-u + drive - inh - CPG_ADAPT_G * a)
+        r = np.maximum(u, 0.0)
+        a += BRAIN_DT / CPG_ADAPT_TAU * (r - a)
+        return r
 
     def ctx_init(self):
         self.use_ctx = True
@@ -434,6 +462,10 @@ class Brain:
         I = np.zeros(self.N)
         np.add.at(I, self.fibre_neuron.ravel(), (self.fibre_gain * zf[:, None]).ravel())
         I[self.motor] += motor_drive
+        if self.cpg is not None:                                         # driven by its own request to turn
+            want = -self.intention[self.turn_line]
+            self.cpg_f = self.cpg_step(min(1.0, abs(want) / 0.25)) * np.sign(want)
+            I[self.motor] += self.Qc @ self.cpg_f
         if self.Q is not None and self.rest_sense is not None:  # learned skills: respond to what it feels vs rest
             I[self.motor] += self.Q @ (self.rates()[self.sense] - self.rest_sense)
         if self.reflex and self.rest_sense is not None:      # its own reflexes: oppose what changed since rest
@@ -469,6 +501,10 @@ class Brain:
             self.motor_baseline[:] = self.rest_baseline
         if self.rest_mean is not None:
             self.mean[:] = self.rest_mean
+        if self.cpg is not None:
+            self.cpg["u"][:] = 0.0
+            self.cpg["u"][0] = 0.1
+            self.cpg["a"][:] = 0.0
 
     def command(self, r):
         net = np.bincount(self.drives, weights=self.push * r[self.motor], minlength=self.n_motors)
@@ -1325,6 +1361,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
         r0p0 = body.tilt()
         noise = np.zeros(len(brain.motor))
         e = np.zeros_like(brain.Q)
+        ec = None if brain.cpg is None else np.zeros_like(brain.Qc)
         prev = None
         for _ in range(trial):
             noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
@@ -1335,6 +1372,9 @@ def practice_skills(body, brain, minutes, rng, log, label):
             body.step(brain.command(r))
             e *= SKILL_TRACE
             e += np.outer(xi, pre)
+            if ec is not None:
+                ec *= SKILL_TRACE
+                ec += np.outer(xi, brain.cpg_f)
             zf = brain.zscore(body.feel())
             dist = float(np.sqrt(np.mean((zf[watch] - aim) ** 2)))
             if SKILL_LEVEL and kind not in ("tilt", "still") and (SKILL_LEVEL_JOINTS or kind != "joint"):  # ...and otherwise level
@@ -1347,6 +1387,11 @@ def practice_skills(body, brain, minutes, rng, log, label):
                 stats[task] = [m, v]
                 dz = float(np.clip((D - m) / np.sqrt(v + 1e-12), -3.0, 3.0))
                 brain.Q += SKILL_RATE * dz * e
+                if ec is not None:
+                    brain.Qc += SKILL_RATE * dz * ec
+                    qc = float(np.linalg.norm(brain.Qc))
+                    if qc > SKILL_MAX * map_size:
+                        brain.Qc *= SKILL_MAX * map_size / qc
                 qn = float(np.linalg.norm(brain.Q))
                 if qn > SKILL_MAX * map_size:
                     brain.Q *= SKILL_MAX * map_size / qn
@@ -1464,6 +1509,26 @@ def rhythm_diag(body, brain, log, rng, gains=(0.0, 0.5, 1.0, 2.0, 4.0), seconds=
     return out
 
 
+def cpg_check(brain, log, seconds=10.0):
+    """Does the grown pattern generator oscillate when driven? Hand-overs per second, period, share of time each leads."""
+    saved = {k: v.copy() for k, v in brain.cpg.items()}
+    brain.cpg["u"][:] = 0.0
+    brain.cpg["u"][0] = 0.1
+    brain.cpg["a"][:] = 0.0
+    lead = []
+    for _ in range(int(seconds / BRAIN_DT)):
+        r = brain.cpg_step(1.0)
+        lead.append(int(np.argmax(r)) if r.max() > 1e-3 else -1)
+    brain.cpg.update(saved)
+    lead = np.array(lead[int(1.0 / BRAIN_DT):])
+    switches = int((np.diff(lead) != 0).sum())
+    rate = switches / (seconds - 1.0)
+    share = [float(np.mean(lead == i)) for i in range(CPG_N)]
+    log(f"CPG check (driven, {seconds - 1:g} s): {rate:.2f} hand-overs/s, a full cycle every "
+        f"{CPG_N / max(rate, 1e-9):.2f} s; share of time each neuron leads " + "/".join(f"{x:.0%}" for x in share))
+    return rate, share
+
+
 def main():
     global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS
     ap = argparse.ArgumentParser()
@@ -1487,6 +1552,7 @@ def main():
     ap.add_argument("--ctx_grow", type=float, default=CTX_GROW, help="grow a posture neuron this far from all others")
     ap.add_argument("--ctx_sigma", type=float, default=CTX_SIGMA, help="how broadly a posture neuron is tuned")
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
+    ap.add_argument("--cpg", action="store_true", help="grow a 4-neuron pattern generator driven by turn requests")
     ap.add_argument("--rhythm", action="store_true", help="measure: does the brain make rhythmic motor output (adaptation sweep)?")
     ap.add_argument("--no_level_joints", action="store_true", help="joint-move trials do not count the stay-level term")
     ap.add_argument("--skill_max", type=float, default=SKILL_MAX,
@@ -1599,6 +1665,13 @@ def main():
         after = None if args.reflex else control_test(body, brain, scores, log, label + f", after {args.minutes:g} min of babbling")
         ground_after = ground_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling", None) if args.ground and not args.reflex else None
         practised = None
+        if args.cpg:
+            brain.cpg_init(np.random.default_rng(5000 + dog))
+            brain.turn_line = 4 * len(body.joint) + 9
+            rate, share = cpg_check(brain, log)
+            if rate < 0.5:
+                log(f"[{label}] the pattern generator does not oscillate ({rate:.2f} hand-overs/s); skipping its practice")
+                args.skills = 0.0
         if args.rhythm:
             practised = {"rhythm": rhythm_diag(body, brain, log, np.random.default_rng(4000 + dog))}
         if args.skills:
