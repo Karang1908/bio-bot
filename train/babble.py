@@ -118,6 +118,10 @@ CPG_ADAPT_TAU = 0.15     # s: tiring and recovery
 CPG_ADAPT_G = 1.5        # how strongly a firing neuron tires
 CPG_INH = 2.0            # mutual inhibition
 CPG_SEQ = 0.5            # each neuron is inhibited less by its predecessor
+CPG_WP = False           # --cpg_wp: learn the rhythm synapses by reward-gated synaptic noise (weight perturbation)
+CPG_WP_SIZE = 1.0        # each turn trial explores Qc + e, |e| = this x the map (random draws this size turn up to 13%, all stay up)
+CPG_WP_MAX = 2.0         # cap on |Qc| (x the map): random draws turn up to 37% at 2x, but topple mostly above it (§6.43)
+CPG_WP_RATE = 0.03       # Qc += rate * dz * e per turn trial (random walk ~0.8 x the map over ~750 trials per direction)
 CPG_SUBSTEPS = 10        # integrate it in 2 ms steps: in 20 ms steps it chattered (cpg1: 41.6 hand-overs/s, silent 40%)
 TURN_RATE = 0.5          # rad/s: a turn request is feeling itself turn at this rate (the turning nerve, body z)
 SKILL_PER_TASK = False   # --skill_per_task: dopamine relative to what is usual for that exact request (each foot,
@@ -379,9 +383,12 @@ class Brain:
 
     def cpg_init(self, rng):
         self.cpg = {"u": rng.uniform(0.0, 0.1, CPG_N), "a": np.zeros(CPG_N)}
-        if getattr(self, "Qc", None) is None or self.Qc.shape != (len(self.motor), CPG_N):
-            self.Qc = np.zeros((len(self.motor), CPG_N))
-        self.cpg_f = np.zeros(CPG_N)
+        if getattr(self, "Qc", None) is None:
+            self.Qc = np.zeros((len(self.motor), 2 * CPG_N))
+        elif self.Qc.shape != (len(self.motor), 2 * CPG_N):
+            raise SystemExit(f"--cpg: the saved rhythm synapses have shape {self.Qc.shape}, expected "
+                             f"{(len(self.motor), 2 * CPG_N)} (one set per turning direction); not re-initialising them")
+        self.cpg_f = np.zeros(2 * CPG_N)
 
     def cpg_step(self, drive):
         u, a = self.cpg["u"], self.cpg["a"]
@@ -467,7 +474,10 @@ class Brain:
         I[self.motor] += motor_drive
         if self.cpg is not None:                                         # driven by its own request to turn
             want = -self.intention[self.turn_line]
-            self.cpg_f = self.cpg_step(min(1.0, abs(want) / 0.25)) * np.sign(want)
+            rc = self.cpg_step(min(1.0, abs(want) / 0.25))
+            # each turning direction has its own synapses from the rhythm (a sign flip of one set is the same gait
+            # half a cycle later, so one set cannot turn both ways)
+            self.cpg_f = np.concatenate([rc * (want > 0), rc * (want < 0)])
             I[self.motor] += self.Qc @ self.cpg_f
         if self.Q is not None and self.rest_sense is not None:  # learned skills: respond to what it feels vs rest
             I[self.motor] += self.Q @ (self.rates()[self.sense] - self.rest_sense)
@@ -1335,6 +1345,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
     stats = {k: [0.0, 1e-4] for k in ("tilt", "weight", "lift", "joint", "still")}     # usual progress per step, per kind
     window, history = [], []
     levels, recent = {}, {}
+    wp_stats = {}
     if SKILL_CURRICULUM:
         for k in range(4):
             levels[f"weight {k}"], levels[f"lift {k}"] = CURRICULUM["weight"][0], CURRICULUM["lift"][0]
@@ -1364,7 +1375,16 @@ def practice_skills(body, brain, minutes, rng, log, label):
         r0p0 = body.tilt()
         noise = np.zeros(len(brain.motor))
         e = np.zeros_like(brain.Q)
-        ec = None if brain.cpg is None else np.zeros_like(brain.Qc)
+        ec = None if brain.cpg is None or CPG_WP else np.zeros_like(brain.Qc)
+        wp = None
+        if CPG_WP and brain.cpg is not None and kind == "turn":            # synaptic noise on this direction's set
+            cols = slice(0, CPG_N) if how[1] > 0 else slice(CPG_N, 2 * CPG_N)
+            wp = np.zeros_like(brain.Qc)
+            wp[:, cols] = rng.standard_normal((len(brain.motor), CPG_N))
+            wp *= CPG_WP_SIZE * map_size / np.linalg.norm(wp)
+            kept_qc = brain.Qc.copy()
+            brain.Qc = kept_qc + wp
+        dists = []
         prev = None
         for _ in range(trial):
             noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
@@ -1382,6 +1402,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
             dist = float(np.sqrt(np.mean((zf[watch] - aim) ** 2)))
             if SKILL_LEVEL and kind not in ("tilt", "still") and (SKILL_LEVEL_JOINTS or kind != "joint"):  # ...and otherwise level
                 dist += float(np.sqrt(np.mean(zf[4 * J + 4:4 * J + 7] ** 2)))
+            dists.append(dist)
             if prev is not None:
                 D = prev - dist                                           # got closer to the asked feeling
                 m, v = stats[task]
@@ -1400,6 +1421,19 @@ def practice_skills(body, brain, minutes, rng, log, label):
                     brain.Q *= SKILL_MAX * map_size / qn
             prev = dist
         brain.intention[:] = 0.0
+        if wp is not None:                                                # dopamine for the whole trial, vs the usual
+            R = -float(np.mean(dists))                                    # for this exact request (felt, not seen)
+            ms = wp_stats.setdefault(task, [R, 0.0, 0])
+            ms[2] += 1
+            if ms[2] > 10:
+                dzt = float(np.clip((R - ms[0]) / np.sqrt(ms[1] + 1e-12), -3.0, 3.0))
+                kept_qc += CPG_WP_RATE * dzt * wp
+                qc = float(np.linalg.norm(kept_qc))
+                if qc > CPG_WP_MAX * map_size:
+                    kept_qc *= CPG_WP_MAX * map_size / qc
+            ms[0] += 0.05 * (R - ms[0])
+            ms[1] += 0.05 * ((R - ms[0]) ** 2 - ms[1])
+            brain.Qc = kept_qc
         score = skill_score(body, how, r0p0)
         window.append((kind, score, is_up(body)))
         if SKILL_CURRICULUM and how[0] in ("weight", "lift"):              # the teacher's steps for this exact request
@@ -1417,7 +1451,9 @@ def practice_skills(body, brain, minutes, rng, log, label):
             by = {k: [w[1] for w in window if w[0] == k] for k in ("tilt", "weight", "lift", "joint", "still", "turn")}
             up = float(np.mean([w[2] for w in window]))
             qsize = float(np.linalg.norm(brain.Q)) / max(map_size, 1e-12)
-            history.append({"minute": (n + 1) * SKILL_TRIAL_S / 60, "still_up": up, "Q_vs_map": qsize,
+            qcsize = [float(np.linalg.norm(brain.Qc[:, :CPG_N])) / max(map_size, 1e-12),
+                      float(np.linalg.norm(brain.Qc[:, CPG_N:])) / max(map_size, 1e-12)] if brain.cpg is not None else None
+            history.append({"minute": (n + 1) * SKILL_TRIAL_S / 60, "still_up": up, "Q_vs_map": qsize, "Qc_vs_map": qcsize,
                             "levels": dict(levels),
                             **{k: (float(np.median(v)) if v else None) for k, v in by.items()}})
             log(f"[{label}] skill practice {(n + 1) * SKILL_TRIAL_S / 60:4.1f} min ({time.time() - t0:4.0f} s), last "
@@ -1428,6 +1464,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
                 f"{np.median(by['turn']) if by['turn'] else float('nan'):+.0%}, joint "
                 f"{np.median(by['joint']) if by['joint'] else float('nan'):+.0%}; still up at the end {up:.0%}; "
                 f"skill synapses {qsize:.2f} of the twitch map's size"
+                + ("" if qcsize is None else f"; rhythm synapses (left / right) {qcsize[0]:.2f} / {qcsize[1]:.2f}")
                 + ("" if not levels else "; steps (weight / lift, FL FR RL RR): "
                    + " ".join(f"{levels[f'weight {k}']:.2f}" for k in range(4)) + " / "
                    + " ".join(f"{levels[f'lift {k}']:.2f}" for k in range(4))))
@@ -1633,7 +1670,7 @@ def cpg_feasibility(body, brain, log, rng, scales=(0.0, 0.01, 0.03, 0.1, 0.3, 0.
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS, CPG_WP
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1661,6 +1698,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--cpg_wp", action="store_true",
+                    help="with --cpg: learn the rhythm synapses by reward-gated synaptic noise on turn trials")
     ap.add_argument("--cpg", action="store_true", help="grow a 4-neuron pattern generator driven by turn requests")
     ap.add_argument("--rhythm", action="store_true", help="measure: does the brain make rhythmic motor output (adaptation sweep)?")
     ap.add_argument("--no_level_joints", action="store_true", help="joint-move trials do not count the stay-level term")
@@ -1708,6 +1747,7 @@ def main():
     SKILL_CURRICULUM = bool(args.skill_curriculum)
     SKILL_MAX = float(args.skill_max)
     SKILL_LEVEL_JOINTS = not bool(args.no_level_joints)
+    CPG_WP = bool(args.cpg_wp)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
