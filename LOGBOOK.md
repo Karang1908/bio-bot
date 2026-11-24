@@ -6392,6 +6392,20 @@ Tilt is now essentially full in every direction. The back-right paw gets 38% lig
 weight are still not learned. Single-joint control keeps slipping as the whole-body skills grow (33% → 20% over the
 skill line); this is a retention cost to address.
 
+Dog 2:
+
+- **Practice:** still up 97–98%; skill synapses 0.32.
+- **×0.125, before → after:**
+  - tilt +96/**+30**/+52 (fell)/+76 → +77/**+106**/+76 (fell)/+81%;
+  - lift FL/FR/RL/RR 25/26/38/40 → 25/27/37/**34** N;
+  - weight not learned; joints 27 → 25%; up 24/24.
+
+Across both dogs, cap 0.5 gives strong tilt in every direction (dog 2's weak roll-right recovered) and some back-right
+lightening. The back-left paw and front-foot weight are still not learned.
+
+**Saved:** `results/babble-steps2/brain_dog{1,2}.npz`, the best brains now.
+
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
