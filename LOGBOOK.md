@@ -6484,7 +6484,29 @@ with the same 0.5 cap. Nothing about legs, phases or gaits is set.
 - **Baseline, before practice:** dog 1 turns −10% left / +14% right (reflexes ×0.125). This is identical to
   `babble-turn1`'s baseline: with zero synapses the pattern generator leaves the brain unchanged.
 
-The turning result after 180 min of practice is pending.
+**Result after 180 min (both dogs; reflexes ×0.125):**
+
+| | turn left/right, before → after | tilt after | lift FL/FR/RL/RR after (N) | joints after |
+|---|---|---|---|---|
+| dog 1 | −10/+14 → −2/+9% | +85/+120/+96/+77% | 34/16/31/30 | 17% |
+| dog 2 | +18/−17 → −2/+6% | +57/+94/+116/+76% | 22/30/42/31 | 30% |
+
+- **Turning not learned.** Dog 1's practice scores track `babble-turn1` almost exactly (at 120 min: tilt +86 vs +87%,
+  weight −133 vs −137%, lift +42/+42%, turn +3/+3%, joint +50/+50%; same seeds). So the generator barely changed the
+  motor output.
+- **Measured from the saved brains:** the rhythm-to-motor synapses Qc grew to only 0.0018 (dog 1) and 0.0020 (dog 2) of
+  the map's size, about 0.008 per generator neuron. For comparison, Q is 0.36 of the map, a median of 0.053 per
+  sensory input, and Q's per-input size is about 7× larger than Qc's.
+- **Signal or noise:** the dog 1 vs dog 2 Qc cosine is −0.005, against a chance 95th percentile of 0.05, despite
+  identical wiring. Within a dog the four columns correlate (0.16–0.73), as expected from overlapping activity sharing
+  the same motor noise. Believed, not proven: what grew is mostly a random walk; the dogs could have found different
+  solutions.
+- **Interpretation:** this run did not test whether a rhythm helps turning, because the rhythm hardly reached the
+  motors.
+- **Mechanism, verified from the code:** Qc gets eligibility only in turn trials (about 2/7 of trials), from 4 inputs
+  starting at zero, at Q's rate.
+- **Next:** this is the second flat round on turning (turn1, cpg2). Test the premise before changing any rate: can
+  random rhythm-to-motor synapses of a useful size turn this body at all?
 
 ## 7. Open problems and next steps
 
