@@ -6612,6 +6612,39 @@ synapses (size 0.1, 0.5) and with none. Swing over time per stage (after the fir
   practice-level wobble, on seeds unused in practice. It compares as learned / rhythm synapses off / random of the
   same size, on both the cpgwp1 brains and the parent steps2 brains.
 
+### 6.45 Turn evaluation on fresh lives: dog 1's turning is learned and caused by the rhythm synapses; it costs standing when turning right (25 Nov)
+
+`--turn_eval` (`163ce52`, fixed in `444d2fd`), 30 fresh lives per side, seeds 7000+ (unused in practice).
+- **First version (`babble-turneval-*`), rejected as an independence test:** practice-level variation alone gave 30
+  identical lives (SE 0%).
+- **Fixed:** each life is set down with the reset's own ±0.2 rad joint variation, with ±0.1 motor wobble on each
+  command (AGENTS.md) plus the practice-level motor variation. Results are `babble-turneval2-cpgwp1` and
+  `babble-turneval2-steps2`.
+
+| | asked left | asked right |
+|---|---|---|
+| **dog 1, cpgwp1 as learned** | **+15% ± 1%**, ≥30% and up 0/30, up 83% | **+46% ± 5%**, 9/30, up **47%** |
+| dog 1, rhythm synapses off | −3% ± 1%, up 97% | +5% ± 1%, up 87% |
+| dog 1, random of the same size | −3% ± 1%, up 93% | +5% ± 2%, up 83% |
+| dog 1, parent steps2 | −11% ± 2%, 0/30, up 83% | +18% ± 3%, 3/30, up 80% |
+| dog 2, cpgwp1 as learned | +16% ± 2%, 3/30, up 43% | −9% ± 1%, 0/30, up 33% |
+| dog 2, rhythm synapses off | +18% ± 2%, up 27% | −19% ± 2%, up 53% |
+| dog 2, parent steps2 | +16% ± 2%, 3/30, up 73% | −18% ± 3%, 0/30, up 60% |
+
+- **Dog 1 turning:** it beats the parent by +10.4 SE (left) and +5.0 SE (right), and the random floor by +10.9 and
+  +8.1 SE. Switching off the learned rhythm synapses removes the turning, so the turning comes from them, not from
+  their size.
+- **Dog 1 standing:** while turning right it stays up 47% vs the parent's 80% (about 2.8 SE worse). Turning left
+  costs nothing (83% vs 83%).
+- **Dog 2:** turning not learned. Left is unchanged; right improves from −18% to −9% (+3.0 SE) but still turns the
+  wrong way. It stays up less.
+- **Note on the protocol:** the varied set-down is harsh. Even the parents fall in 17–40% of lives.
+- **Decision:** not promoted as the overall best (standing regresses while turning right). Established best stays
+  steps2. cpgwp1 dog 1 becomes the **learning restart** for gait work.
+- **Next, reasoned:** practice always starts from the exact stand without wobble, while the test varies both, so the
+  learned right turn topples under variation. Practise under the test's conditions (varied set-down, ±0.1 wobble) so
+  the level term penalises exactly those falls.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
