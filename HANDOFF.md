@@ -10,7 +10,7 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-## 0. Current state: 21 Nov 2026 (this section overrides everything below it)
+## 0. Current state: 25 Nov 2026 (this section overrides everything below it; newest update last)
 
 **Fresh start (owner, 17 Nov).** Body first, no goal tasks, no prediction. The old training code (`baby_dog.py`,
 fetch, PPO) is not the line of work any more. Everything now lives in one standalone script, **`train/babble.py`**,
@@ -65,6 +65,30 @@ runaway); posture neurons (§6.27–6.29); steering by test code (§6.18).
 - **Single-joint control slips** as skills grow (33 → 20–25%).
 - **Running:** the A/B `babble-ab-level` against `babble-ab-nolevel` (from the steps2 brains, 120 min) tests whether
   the stay-level term in joint trials causes the slip.
+
+**Update 25 Nov (verified, LOGBOOK §6.38–6.45). This overrides the 24 Nov "running" note above:**
+- **The A/B is done.** The stay-level term in joint trials does not cause the joint slip (both arms slip, ±1–2 points).
+- **Rhythm is needed and was missing:** the brain makes no stepping rhythm by itself (§6.39). A grown pattern generator
+  (`--cpg`) gives one: four new neurons, 0.62 s cycle, silent 0%. Integrated in 20 ms steps it chattered; it now uses
+  2 ms sub-steps (§6.40).
+- **Turning was not learned at first.** Its synapses started at zero, learned by motor noise, and were capped at
+  0.5 × the map, which gives about 10× too little joint swing (trace, §6.42). Random synapses turn the dog only at
+  about 2 × the map (§6.43).
+- **Fix:** one set of rhythm synapses per turning direction, learned by reward-gated synaptic noise (`--cpg_wp`,
+  |ε| = 1 × the map, cap 2 ×). Flags are as in the run below.
+- **Dog 1 of `babble-cpgwp1` learned to turn (§6.45).** On 30 varied fresh lives per side: +15% left, +46% right of
+  the asked turn, against the parent's −11% and +18% (+10.4 and +5.0 SE). The turning disappears when the learned
+  rhythm synapses are switched off. But turning right it stays up only 47% vs the parent's 80%. Dog 2 did not learn.
+- **Checkpoints:**
+  - **Established best:** `results/babble-steps2/brain_dog{1,2}.npz` (standing, poses).
+  - **Learning restart for gait work:** `results/babble-cpgwp1/brain_dog1.npz` (turning). Not promoted, because it
+    falls while turning right.
+  - Its rhythm synapses have 8 columns; resuming with the old 4-column layout fails explicitly.
+- **Turn evaluation:** `--cpg --turn_eval` (30 lives per side, varied set-down, ±0.1 wobble). Practice-level noise
+  alone gives identical lives (SE 0); do not use it for promotion.
+- **Next measured question:** does practice under the test's conditions (varied set-down, ±0.1 wobble) keep the dog
+  up while turning right, still turning ≥ 30%? The run logs, per turn trial, whether the dopamine tracks the real turn.
+- **Monitoring note:** the `kaggle kernels logs -f` reader can go stale for hours. Poll status as well.
 
 **Earlier next question:** how should weight shift be learned? A graded curriculum (small shifts first),
 larger structured exploration within those trials, or a different whole-body posture representation.
