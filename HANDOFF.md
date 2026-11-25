@@ -90,6 +90,33 @@ runaway); posture neurons (§6.27–6.29); steering by test code (§6.18).
   up while turning right, still turning ≥ 30%? The run logs, per turn trial, whether the dopamine tracks the real turn.
 - **Monitoring note:** the `kaggle kernels logs -f` reader can go stale for hours. Poll status as well.
 
+**Update 25 Nov, late (verified, LOGBOOK §6.46–6.50). This overrides the checkpoint list above:**
+- **NEW ESTABLISHED BEST:** `results/babble-noqturn1/brain_dog1.npz` (Kaggle source
+  `karang1908/bio-bot-babble-noqturn1`). Promoted on fresh lives not used to choose it (seeds 9100+, §6.50).
+  - **Turns on request in both directions:** +27% left and +37% right of the asked turn, request-caused (asked minus
+    its own drift). That is +5.8 and +9.1 SE over the parent. With its learned rhythm synapses off it is about 0%.
+  - **Tilt kept over 30 lives per direction:** no significant loss; nose down and nose up better.
+  - **Standing:** up 87–97%, height 0.18 m.
+  - **Not measured over lives:** joint control, paw lift, weight shift.
+- **Previous best** `babble-steps2` is kept for comparison.
+- **Dog 2 of noqturn1 is not promoted:** its right turn is real (+5.5 SE), its left is not significant, and its nose
+  up tilt regressed.
+- **Configuration that produced it:** resume vary1 with the standard flags plus `cpg=1 cpg_wp=1 cpg_wp_mean=1
+  skill_vary=1 no_q_in_turn=1 skill_mix=tilt,weight,lift,joint,still,turn,turn`. In short:
+  - Practise under the test's conditions.
+  - The turn dopamine is the felt turning added up over the trial; it tracks the real turn at r 0.99, against 0.2–0.6
+    for moment-by-moment closeness.
+  - The skill synapses do not learn on turn trials, because that taught a crouch (0.11 m, §6.47–6.48).
+- **Measure turning relative to drift.** The dogs spin slowly when nothing is asked: the promoted dog drifts 14% of the
+  asked rate to the left, and the parent drifted 13% to the right. Raw turn numbers without the `nothing asked` drift
+  are misleading (§6.49).
+- **Evaluation:**
+  - Command: `--cpg --turn_eval --eval_seed N`. It covers turning as learned, with rhythm synapses off, with random
+    synapses of the same size, the nothing-asked drift, and tilt retention.
+  - Use a new `eval_seed` to confirm a choice. 7000 was used to choose noqturn1.
+- **Next measured question:** with the turning sense added to the "still" task, does the spontaneous spin go
+  (|drift| < 5%) while turning on request stays ≥ 25% each way?
+
 **Earlier next question:** how should weight shift be learned? A graded curriculum (small shifts first),
 larger structured exploration within those trials, or a different whole-body posture representation.
 
