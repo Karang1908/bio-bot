@@ -124,6 +124,10 @@ CPG_WP_SIZE = 1.0        # each turn trial explores Qc + e, |e| = this x the map
 CPG_WP_MAX = 2.0         # cap on |Qc| (x the map): random draws turn up to 37% at 2x, but topple mostly above it (§6.43)
 CPG_WP_RATE = 0.03       # Qc += rate * dz * e per turn trial (random walk ~0.8 x the map over ~750 trials per direction)
 CPG_SUBSTEPS = 10        # integrate it in 2 ms steps: in 20 ms steps it chattered (cpg1: 41.6 hand-overs/s, silent 40%)
+FOOT_FLOOR_N = 20.0      # N: floor on a foot's starting load in weight/lift requests (half its usual ~40 N); with a
+                         # varied set-down a foot can read ~0 N at the start, which blew the scores up (vary1: +198716%)
+CPG_WP_MEAN = False      # --cpg_wp_mean: a turn trial's dopamine is the felt turning added up over the trial (tracks the
+                         # true turn at r 0.98-0.99, vs 0.19-0.59 for moment-by-moment closeness, vary1), plus level
 TURN_RATE = 0.5          # rad/s: a turn request is feeling itself turn at this rate (the turning nerve, body z)
 SKILL_PER_TASK = False   # --skill_per_task: dopamine relative to what is usual for that exact request (each foot,
                          # each tilt direction), not for the kind of task. Passive drift (weight sliding back, the nose
@@ -1292,7 +1296,7 @@ def skill_task(body, brain, rng, levels=None):
         return dict(zip(grav.tolist(), g.tolist())), kind, ("tilt", np.array([roll, pitch]))
     if kind == "weight":
         k = int(rng.integers(4))
-        base = body.touch()
+        base = np.maximum(body.touch(), FOOT_FLOOR_N)                     # a varied set-down can start a foot unloaded
         L = (levels or {}).get(f"weight {k}", 0.5)                       # ask for this much more weight on the foot
         return {int(touch[k]): float((1 + L) * base[k])}, kind, ("weight", k, base[k] / max(base.sum(), 1e-6), L)
     if kind == "turn":                                                    # feel itself turning, left or right
@@ -1300,7 +1304,7 @@ def skill_task(body, brain, rng, levels=None):
         return {4 * J + 9: rate}, kind, ("turn", rate, body.yaw())
     if kind == "lift":                                                    # take the weight off one paw
         k = int(rng.integers(4))
-        base = body.touch()
+        base = np.maximum(body.touch(), FOOT_FLOOR_N)
         L = (levels or {}).get(f"lift {k}", 1.0)                         # take this share of the paw's weight off
         return {int(touch[k]): float((1 - L) * base[k])}, kind, ("lift", k, float(base[k]), L)
     if kind == "joint":
@@ -1386,7 +1390,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
             wp *= CPG_WP_SIZE * map_size / np.linalg.norm(wp)
             kept_qc = brain.Qc.copy()
             brain.Qc = kept_qc + wp
-        dists, felt_turn = [], []
+        dists, felt_turn, levels_felt = [], [], []
         prev = None
         for _ in range(trial):
             noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
@@ -1410,6 +1414,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
             dists.append(dist)
             if kind == "turn":
                 felt_turn.append(float(zf[watch][0]))
+                levels_felt.append(float(np.sqrt(np.mean(zf[4 * J + 4:4 * J + 7] ** 2))))
             if prev is not None:
                 D = prev - dist                                           # got closer to the asked feeling
                 m, v = stats[task]
@@ -1430,6 +1435,8 @@ def practice_skills(body, brain, minutes, rng, log, label):
         brain.intention[:] = 0.0
         if wp is not None:                                                # dopamine for the whole trial, vs the usual
             R = -float(np.mean(dists))                                    # for this exact request (felt, not seen)
+            if CPG_WP_MEAN:                                               # the turn it felt over the trial, and level
+                R = -abs(float(np.mean(felt_turn)) - float(aim[0])) - (float(np.mean(levels_felt)) if SKILL_LEVEL else 0.0)
             ms = wp_stats.setdefault(task, [R, 0.0, 0])
             ms[2] += 1
             if ms[2] > 10:
@@ -1743,7 +1750,7 @@ def cpg_feasibility(body, brain, log, rng, scales=(0.0, 0.01, 0.03, 0.1, 0.3, 0.
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS, CPG_WP, SKILL_VARY
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS, CPG_WP, SKILL_VARY, CPG_WP_MEAN
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1773,6 +1780,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--cpg_wp_mean", action="store_true",
+                    help="with --cpg_wp: a turn trial's dopamine is the felt turning over the whole trial (plus level)")
     ap.add_argument("--skill_vary", action="store_true",
                     help="skill practice set down a little differently each trial and with the +-0.1 motor wobble")
     ap.add_argument("--cpg_wp", action="store_true",
@@ -1826,6 +1835,7 @@ def main():
     SKILL_LEVEL_JOINTS = not bool(args.no_level_joints)
     CPG_WP = bool(args.cpg_wp)
     SKILL_VARY = bool(args.skill_vary)
+    CPG_WP_MEAN = bool(args.cpg_wp_mean)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
