@@ -1346,6 +1346,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
     window, history = [], []
     levels, recent = {}, {}
     wp_stats = {}
+    turn_log = []
     if SKILL_CURRICULUM:
         for k in range(4):
             levels[f"weight {k}"], levels[f"lift {k}"] = CURRICULUM["weight"][0], CURRICULUM["lift"][0]
@@ -1384,7 +1385,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
             wp *= CPG_WP_SIZE * map_size / np.linalg.norm(wp)
             kept_qc = brain.Qc.copy()
             brain.Qc = kept_qc + wp
-        dists = []
+        dists, felt_turn = [], []
         prev = None
         for _ in range(trial):
             noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
@@ -1403,6 +1404,8 @@ def practice_skills(body, brain, minutes, rng, log, label):
             if SKILL_LEVEL and kind not in ("tilt", "still") and (SKILL_LEVEL_JOINTS or kind != "joint"):  # ...and otherwise level
                 dist += float(np.sqrt(np.mean(zf[4 * J + 4:4 * J + 7] ** 2)))
             dists.append(dist)
+            if kind == "turn":
+                felt_turn.append(float(zf[watch][0]))
             if prev is not None:
                 D = prev - dist                                           # got closer to the asked feeling
                 m, v = stats[task]
@@ -1436,6 +1439,9 @@ def practice_skills(body, brain, minutes, rng, log, label):
             brain.Qc = kept_qc
         score = skill_score(body, how, r0p0)
         window.append((kind, score, is_up(body)))
+        if kind == "turn":                                                # for the record only: does the dopamine
+            turn_log.append((task, -float(np.mean(dists)),                # track the turn actually made?
+                             -abs(float(np.mean(felt_turn)) - float(aim[0])), float(score), bool(is_up(body))))
         if SKILL_CURRICULUM and how[0] in ("weight", "lift"):              # the teacher's steps for this exact request
             key = f"{how[0]} {how[1]}"
             lo, hi = CURRICULUM[how[0]]
@@ -1469,6 +1475,19 @@ def practice_skills(body, brain, minutes, rng, log, label):
                    + " ".join(f"{levels[f'weight {k}']:.2f}" for k in range(4)) + " / "
                    + " ".join(f"{levels[f'lift {k}']:.2f}" for k in range(4))))
             window = []
+    if turn_log:
+        for t in sorted({x[0] for x in turn_log}):
+            rows = np.array([x[1:4] for x in turn_log if x[0] == t])
+            up = np.array([x[4] for x in turn_log if x[0] == t])
+            c = lambda a, b: float(np.corrcoef(a, b)[0, 1]) if len(a) > 2 and a.std() > 0 and b.std() > 0 else float("nan")
+            rec = {"trials": int(len(rows)), "corr_reward_vs_turn": c(rows[:, 0], rows[:, 2]),
+                   "corr_mean_felt_turn_vs_turn": c(rows[:, 1], rows[:, 2]), "up": float(up.mean()),
+                   "turn_median": float(np.median(rows[:, 2]))}
+            history.append({"turn_reward_check": t, **rec})
+            log(f"[{label}] {t}: does the dopamine track the turn actually made? {rec['trials']} trials; correlation of the "
+                f"trial's dopamine (closeness, moment by moment, plus level) with the true turn {rec['corr_reward_vs_turn']:+.2f}; "
+                f"of the felt turning averaged over the trial {rec['corr_mean_felt_turn_vs_turn']:+.2f}; median turn "
+                f"{rec['turn_median']:+.0%}; up {rec['up']:.0%}")
     return history
 
 
