@@ -1650,6 +1650,24 @@ def turn_eval(body, brain, log, rng, lives=30, seconds=3.0):
             + "; ".join(f"{side} {r['mean']:+.0%} +- {r['se']:.0%} (SE), >=30% and up {r['k_ge_30_up']}/{r['n']}, "
                         f"up {r['up_frac']:.0%}" for side, r in res.items()))
     brain.Qc = kept
+    drift, up = [], []                                                    # nothing asked: does it drift by itself?
+    for _ in range(lives):
+        body.reset("stand", rng)
+        brain.fresh()
+        y0 = body.yaw()
+        noise = np.zeros(len(brain.motor))
+        for _ in range(int(seconds / BRAIN_DT)):
+            noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
+            r = brain.step(body.feel(), SKILL_NOISE * BABBLE_SIZE * noise)
+            body.step(np.clip(brain.command(r) + rng.uniform(-0.1, 0.1, J), -1.0, 1.0))
+        dy = (body.yaw() - y0 + np.pi) % (2 * np.pi) - np.pi
+        drift.append(float(dy / (TURN_RATE * seconds)))
+        up.append(is_up(body))
+    drift, up = np.array(drift), np.array(up)
+    out["nothing asked"] = {"drift_share_of_left_turn": drift.tolist(), "up": up.tolist(), "mean": float(drift.mean()),
+                            "se": float(drift.std(ddof=1) / np.sqrt(len(drift))), "up_frac": float(up.mean())}
+    log(f"TURN EVAL nothing asked ({lives} fresh lives, same conditions): drifts {drift.mean():+.0%} +- "
+        f"{drift.std(ddof=1) / np.sqrt(len(drift)):.0%} (SE) of a left turn (+ is left), up {up.mean():.0%}")
     brain.reflex = 0.0
     return out
 
