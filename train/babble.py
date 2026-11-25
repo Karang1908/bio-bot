@@ -1590,6 +1590,54 @@ def cpg_check(brain, log, seconds=10.0):
     return rate, share, silent
 
 
+def turn_eval(body, brain, log, rng, lives=30, seconds=3.0):
+    """Promotion check for turning, on fresh lives (seeds never used in practice): each life starts set down standing,
+    with the practice-level motor wobble, and is asked to turn left or right for 3 s. Three versions of this brain:
+    as learned; with its rhythm synapses switched off (does the turning come from them?); with them replaced by random
+    synapses of the same size per direction (the random floor). Reports mean share of the asked turn +- SE, k/n lives
+    turning >= 30% the asked way and still up, and lives still up."""
+    J = len(body.joint)
+    brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    brain.reflex = SKILL_REFLEX
+    settle_reflex(body, brain)
+    kept = brain.Qc.copy()
+    rand = rng.standard_normal(kept.shape)
+    for c in (slice(0, CPG_N), slice(CPG_N, 2 * CPG_N)):
+        n_ = np.linalg.norm(rand[:, c])
+        rand[:, c] *= (np.linalg.norm(kept[:, c]) / n_) if n_ > 0 else 0.0
+    out = {}
+    for name, Qc in (("as learned", kept), ("rhythm synapses off", np.zeros_like(kept)), ("random, same size", rand)):
+        brain.Qc = Qc
+        res = {}
+        for side, rate in (("left", TURN_RATE), ("right", -TURN_RATE)):
+            sh, up = [], []
+            for _ in range(lives):
+                body.reset("stand")
+                brain.fresh()
+                brain.intention[4 * J + 9] = -(rate - brain.mean[4 * J + 9]) / np.sqrt(brain.var[4 * J + 9] + 1e-6)
+                y0 = body.yaw()
+                noise = np.zeros(len(brain.motor))
+                for _ in range(int(seconds / BRAIN_DT)):
+                    noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
+                    r = brain.step(body.feel(), SKILL_NOISE * BABBLE_SIZE * noise)
+                    body.step(brain.command(r))
+                brain.intention[:] = 0.0
+                dy = (body.yaw() - y0 + np.pi) % (2 * np.pi) - np.pi
+                sh.append(float(dy / (rate * seconds)))
+                up.append(is_up(body))
+            sh, up = np.array(sh), np.array(up)
+            k = int(((sh >= 0.3) & up).sum())
+            res[side] = {"share": sh.tolist(), "up": up.tolist(), "mean": float(sh.mean()),
+                         "se": float(sh.std(ddof=1) / np.sqrt(len(sh))), "k_ge_30_up": k, "n": len(sh), "up_frac": float(up.mean())}
+        out[name] = res
+        log(f"TURN EVAL {name} ({lives} fresh lives per side, practice-level wobble): "
+            + "; ".join(f"{side} {r['mean']:+.0%} +- {r['se']:.0%} (SE), >=30% and up {r['k_ge_30_up']}/{r['n']}, "
+                        f"up {r['up_frac']:.0%}" for side, r in res.items()))
+    brain.Qc = kept
+    brain.reflex = 0.0
+    return out
+
+
 def cpg_trace(body, brain, log, rng, size=0.5, seconds=3.0):
     """Measurement only: where does the rhythm's signal go? One turn request with random rhythm-to-motor synapses of
     the given size, and the same with none. At each stage (the generator's drive and output, its input to the motor
@@ -1713,6 +1761,8 @@ def main():
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
     ap.add_argument("--cpg_sizes", default="0,0.01,0.03,0.1,0.3,0.5",
                     help="--cpg_feasibility: sizes of the random rhythm-to-motor synapses, as a share of the map's size")
+    ap.add_argument("--turn_eval", action="store_true",
+                    help="with --cpg: turning on fresh lives, as learned vs rhythm synapses off vs random of the same size")
     ap.add_argument("--cpg_trace", action="store_true",
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
@@ -1841,6 +1891,9 @@ def main():
                 log(f"[{label}] the pattern generator is not a usable rhythm ({rate:.2f} hand-overs/s, silent {silent:.0%}; "
                     f"needs 1-15/s and < 20% silent); skipping its practice")
                 args.skills = 0.0
+        if args.cpg and args.turn_eval:
+            practised = {"turn_eval": turn_eval(body, brain, log, np.random.default_rng(7000 + dog))}
+            args.skills = 0.0
         if args.cpg and args.cpg_trace:
             practised = {"cpg_trace": {f"{sz:g}": cpg_trace(body, brain, log, np.random.default_rng(6100 + dog), size=sz)
                                        for sz in (0.1, 0.5)}}
