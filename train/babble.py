@@ -1668,6 +1668,33 @@ def turn_eval(body, brain, log, rng, lives=30, seconds=3.0):
                             "se": float(drift.std(ddof=1) / np.sqrt(len(drift))), "up_frac": float(up.mean())}
     log(f"TURN EVAL nothing asked ({lives} fresh lives, same conditions): drifts {drift.mean():+.0%} +- "
         f"{drift.std(ddof=1) / np.sqrt(len(drift)):.0%} (SE) of a left turn (+ is left), up {up.mean():.0%}")
+    grav = 4 * J + 4 + np.arange(3)                                       # retention: tilt on request, same conditions
+    tilt = {}
+    for name, (roll, pitch) in {"roll left": (0.25, 0.0), "roll right": (-0.25, 0.0), "nose down": (0.0, 0.25),
+                                "nose up": (0.0, -0.25)}.items():
+        sh, up = [], []
+        g = np.array([np.sin(pitch), -np.sin(roll), -np.cos(roll) * np.cos(pitch)])
+        want = np.array([roll, pitch])
+        for _ in range(lives):
+            body.reset("stand", rng)
+            brain.fresh()
+            t0 = np.array(body.tilt())
+            for l, gv in zip(grav.tolist(), g.tolist()):
+                brain.intention[l] = -(gv - brain.mean[l]) / np.sqrt(brain.var[l] + 1e-6)
+            noise = np.zeros(len(brain.motor))
+            for _ in range(int(2.0 / BRAIN_DT)):
+                noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
+                r = brain.step(body.feel(), SKILL_NOISE * BABBLE_SIZE * noise)
+                body.step(np.clip(brain.command(r) + rng.uniform(-0.1, 0.1, J), -1.0, 1.0))
+            brain.intention[:] = 0.0
+            sh.append(float((np.array(body.tilt()) - t0) @ want / (want @ want)))
+            up.append(is_up(body))
+        sh, up = np.array(sh), np.array(up)
+        tilt[name] = {"share": sh.tolist(), "up": up.tolist(), "mean": float(sh.mean()),
+                      "se": float(sh.std(ddof=1) / np.sqrt(len(sh))), "up_frac": float(up.mean())}
+    out["tilt"] = tilt
+    log(f"TURN EVAL retention, tilt 0.25 rad as asked ({lives} fresh lives each, same conditions): "
+        + "; ".join(f"{n} {t['mean']:+.0%} +- {t['se']:.0%}, up {t['up_frac']:.0%}" for n, t in tilt.items()))
     brain.reflex = 0.0
     return out
 
@@ -1795,6 +1822,8 @@ def main():
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
     ap.add_argument("--cpg_sizes", default="0,0.01,0.03,0.1,0.3,0.5",
                     help="--cpg_feasibility: sizes of the random rhythm-to-motor synapses, as a share of the map's size")
+    ap.add_argument("--eval_seed", type=int, default=7000,
+                    help="--turn_eval: seed of its fresh lives (7000 was used to choose noqturn1; confirm on others)")
     ap.add_argument("--turn_eval", action="store_true",
                     help="with --cpg: turning on fresh lives, as learned vs rhythm synapses off vs random of the same size")
     ap.add_argument("--cpg_trace", action="store_true",
@@ -1935,7 +1964,7 @@ def main():
                     f"needs 1-15/s and < 20% silent); skipping its practice")
                 args.skills = 0.0
         if args.cpg and args.turn_eval:
-            practised = {"turn_eval": turn_eval(body, brain, log, np.random.default_rng(7000 + dog))}
+            practised = {"turn_eval": turn_eval(body, brain, log, np.random.default_rng(int(args.eval_seed) + dog))}
             args.skills = 0.0
         if args.cpg and args.cpg_trace:
             practised = {"cpg_trace": {f"{sz:g}": cpg_trace(body, brain, log, np.random.default_rng(6100 + dog), size=sz)
