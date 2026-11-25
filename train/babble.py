@@ -1591,8 +1591,10 @@ def cpg_check(brain, log, seconds=10.0):
 
 
 def turn_eval(body, brain, log, rng, lives=30, seconds=3.0):
-    """Promotion check for turning, on fresh lives (seeds never used in practice): each life starts set down standing,
-    with the practice-level motor wobble, and is asked to turn left or right for 3 s. Three versions of this brain:
+    """Promotion check for turning, on fresh lives (seeds never used in practice): each life is set down standing with
+    its joints a little different (the reset's own +-0.2 rad), runs with the standing motor wobble (+-0.1 on each
+    command, AGENTS.md) on top of the practice-level motor variation, and is asked to turn left or right for 3 s.
+    (Practice-level variation alone gave 30 identical lives, SE 0: not independent.) Three versions of this brain:
     as learned; with its rhythm synapses switched off (does the turning come from them?); with them replaced by random
     synapses of the same size per direction (the random floor). Reports mean share of the asked turn +- SE, k/n lives
     turning >= 30% the asked way and still up, and lives still up."""
@@ -1612,7 +1614,7 @@ def turn_eval(body, brain, log, rng, lives=30, seconds=3.0):
         for side, rate in (("left", TURN_RATE), ("right", -TURN_RATE)):
             sh, up = [], []
             for _ in range(lives):
-                body.reset("stand")
+                body.reset("stand", rng)
                 brain.fresh()
                 brain.intention[4 * J + 9] = -(rate - brain.mean[4 * J + 9]) / np.sqrt(brain.var[4 * J + 9] + 1e-6)
                 y0 = body.yaw()
@@ -1620,7 +1622,7 @@ def turn_eval(body, brain, log, rng, lives=30, seconds=3.0):
                 for _ in range(int(seconds / BRAIN_DT)):
                     noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
                     r = brain.step(body.feel(), SKILL_NOISE * BABBLE_SIZE * noise)
-                    body.step(brain.command(r))
+                    body.step(np.clip(brain.command(r) + rng.uniform(-0.1, 0.1, J), -1.0, 1.0))
                 brain.intention[:] = 0.0
                 dy = (body.yaw() - y0 + np.pi) % (2 * np.pi) - np.pi
                 sh.append(float(dy / (rate * seconds)))
@@ -1630,7 +1632,7 @@ def turn_eval(body, brain, log, rng, lives=30, seconds=3.0):
             res[side] = {"share": sh.tolist(), "up": up.tolist(), "mean": float(sh.mean()),
                          "se": float(sh.std(ddof=1) / np.sqrt(len(sh))), "k_ge_30_up": k, "n": len(sh), "up_frac": float(up.mean())}
         out[name] = res
-        log(f"TURN EVAL {name} ({lives} fresh lives per side, practice-level wobble): "
+        log(f"TURN EVAL {name} ({lives} fresh lives per side: varied set-down, +-0.1 wobble): "
             + "; ".join(f"{side} {r['mean']:+.0%} +- {r['se']:.0%} (SE), >=30% and up {r['k_ge_30_up']}/{r['n']}, "
                         f"up {r['up_frac']:.0%}" for side, r in res.items()))
     brain.Qc = kept
