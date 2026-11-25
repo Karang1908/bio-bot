@@ -6645,6 +6645,55 @@ synapses (size 0.1, 0.5) and with none. Swing over time per stage (after the fir
   learned right turn topples under variation. Practise under the test's conditions (varied set-down, ±0.1 wobble) so
   the level term penalises exactly those falls.
 
+### 6.46 Practice under the test's conditions keeps the dog up while turning; the turn dopamine barely tracks the real turn (25 Nov)
+
+`babble-vary1` (`0237f4d`, `--skill_vary`) resumes the cpgwp1 brains for +180 min. Each practice trial is set down
+with the reset's ±0.2 rad variation and runs with ±0.1 command wobble; otherwise the flags are as in §6.44.
+Evaluation: `babble-turneval2-vary1`, 30 varied fresh lives per side.
+
+| | left: turn, up, k (≥30% and up) | right: turn, up, k |
+|---|---|---|
+| dog 1, vary1 | **+20% ± 2%, 100%, 3/30** | **+32% ± 3%, 80%, 15/30** |
+| dog 1, cpgwp1 | +15% ± 1%, 83%, 0/30 | +46% ± 5%, 47%, 9/30 |
+| dog 1, parent steps2 | −11% ± 2%, 83%, 0/30 | +18% ± 3%, 80%, 3/30 |
+| dog 1, vary1 with rhythm synapses off | +1% ± 1%, 100% | +1% ± 1%, 100% |
+| dog 2, vary1 | +18% ± 2%, 93%, 6/30 | −2% ± 1%, 100%, 0/30 |
+| dog 2, cpgwp1 | +16% ± 2%, 43%, 3/30 | −9% ± 1%, 33%, 0/30 |
+
+**Standing while turning is fixed:**
+- Dog 1 right: up 47 → 80% (+2.9 SE). Dog 1 left: up 83 → 100% (+2.4 SE).
+- Dog 2: up 43 → 93% (left, +4.9 SE) and 33 → 100% (right, +7.7 SE).
+
+**Dog 1 against its parent:**
+- Left turn: +31 points. Right turn: +14 points (+3.3 SE). It stays up as often (100/80 vs 83/80%).
+- Good right turns (≥30% and up): 15/30 vs 3/30.
+- Its right turn is weaker than cpgwp1's (−2.6 SE), but cpgwp1 got its larger turn while falling.
+
+**Retention, one test life each:**
+- Dog 1 tilt +62/+69/+98/+83% vs steps2's +109/+99/+102/+81%; joints 15% vs 20%.
+- This needs checking on many lives before promotion. Status: turning restart, not promoted. Established best stays
+  steps2.
+
+**Dopamine check (per turn trial, about 760–780 trials per row):**
+
+| | dog 1 left | dog 1 right | dog 2 left | dog 2 right |
+|---|---|---|---|---|
+| practice dopamine (moment-by-moment closeness plus level) vs true turn | +0.59 | +0.22 | +0.19 | +0.36 |
+| felt turning added up over the trial vs true turn | +0.99 | +0.98 | +0.99 | +0.99 |
+
+- The practice dopamine is a weak proxy for the turn actually made. The stepping wobble dominates moment-by-moment
+  closeness.
+- The dog's own felt turning, added up over the trial, tracks the true turn almost perfectly. It is felt, not
+  privileged.
+
+**Score artifact:** with a varied set-down a foot can read about 0 N at the start, so the weight and lift practice
+scores, and the curriculum steps built on them, blew up (+198716%, −6874%). Fixed by a 20 N floor on the starting
+load (`5d977db`; at a normal set-down the feet read about 40 N, so earlier runs are unaffected).
+
+**Next:** `babble-wpmean1` (`5d977db`, `--cpg_wp_mean`) resumes the vary1 brains under the test's conditions, with a
+turn dopamine of −|felt turning averaged over the trial − asked| − mean level. Prediction: dog 1 reaches ≥30% both
+sides with up ≥80%; dog 2's right turn becomes positive.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
