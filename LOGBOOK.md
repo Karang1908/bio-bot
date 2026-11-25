@@ -6809,6 +6809,49 @@ as a share of an asked left turn. `babble-turneval3-{noqturn1,steps2}`, seeds 70
 - **Confirmation:** `babble-turneval4-{noqturn1,steps2}` (`5336c4e`) runs on new seeds 9100+, with tilt retention
   over 30 lives per direction.
 
+### 6.50 Confirmed on new seeds: dog 1 of noqturn1 turns on request both ways and keeps its tilt; promoted (25 Nov)
+
+`babble-turneval4-{noqturn1,steps2}` (`5336c4e`, `--eval_seed 9100`): fresh lives never used for selection. 30 lives
+per condition, varied set-down, ±0.1 wobble.
+
+**Dog 1, turning caused by the request (asked − drift):**
+
+| | child noqturn1 | child, rhythm synapses off | parent steps2 | difference |
+|---|---|---|---|---|
+| left | **+27% ± 3%** (raw +41%, up 87%, ≥30% and up 22/30) | +0% | +6% ± 2% (up 97%) | **+5.8 SE** |
+| right | **+37% ± 2%** (raw +23%, up 97%) | +2% | +5% ± 3% (up 83%) | **+9.1 SE** |
+
+Drift with nothing asked: child +14% ± 1% (left, up 87%); parent −13% ± 2% (right, up 90%).
+
+**Dog 1, tilt retention (0.25 rad asked, 30 lives each):**
+
+| | roll left | roll right | nose down | nose up |
+|---|---|---|---|---|
+| child | +71% ± 6%, up 97% | +53% ± 11%, up 93% | +82% ± 4%, up 80% | +75% ± 2%, up 100% |
+| parent | +81% ± 10%, up 93% | +79% ± 18%, up 77% | +54% ± 7%, up 63% | +64% ± 4%, up 97% |
+| difference | −0.9 SE | −1.2 SE | **+3.4 SE** | **+2.6 SE** |
+
+The single-life roll right of +28% (§6.48) was noise.
+
+**Dog 2:**
+- Turning: right caused +21% (+5.5 SE vs parent); left +9% (+1.5 SE, not significant); drift +16%.
+- Tilt: nose up regresses (+45 vs +67%, −2.8 SE).
+- Not promoted.
+
+**PROMOTED:** `results/babble-noqturn1/brain_dog1.npz` is the new established best.
+- **Learned:** turning on request in both directions (about 30% of the asked turn, request-caused, ≥ 5.8 SE over the
+  parent on fresh lives), caused by the learned rhythm synapses (off: about 0%).
+- **Kept:** tilt (no significant loss; nose down and nose up better), standing (up 87–97% vs 83–97%) and its height
+  (0.18 m).
+- **Not measured over lives:** joint control (single life 15% vs 20%) and paw lift/weight.
+
+**Remaining weakness:** with nothing asked it spins left at about 14% of the asked rate (about 4°/s). Nothing in practice
+penalises it, because the "still" task watches touch and gravity, not the turning sense.
+
+**Next:** include the turning sense (body z) in the "still" task, so not rotating is part of staying still. Resume the
+promoted brain with noqturn1's configuration. Prediction: |drift| < 5% with request-caused turning still ≥ 25% each
+way.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
