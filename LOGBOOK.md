@@ -6774,6 +6774,41 @@ turn must overcome a left drift that a left turn gets for free.
 **Next (measure, not tune):** is the left drift there when nothing is asked (posture/body asymmetry), or only when a turn
 is asked (the request pathway)? Add a "nothing asked" condition to `--turn_eval`.
 
+### 6.49 The "trade-off" was spontaneous drift: corrected for it, dog 1 turns about 30% both ways on request (25 Nov)
+
+`turn_eval` gained a nothing-asked condition (`8693fc4`): same lives, same conditions, no request, measuring yaw drift
+as a share of an asked left turn. `babble-turneval3-{noqturn1,steps2}`, seeds 7000+ (the same lives as turneval2).
+
+| | nothing asked: drift (+ = left) | asked left | asked right |
+|---|---|---|---|
+| dog 1, noqturn1 | **+13% ± 1%**, up 97% | +39% | +21% |
+| dog 1, parent steps2 | **−11% ± 2%**, up 87% | −11% | +18% |
+| dog 2, noqturn1 | +14% ± 2%, up 83% | +22% | +5% |
+| dog 2, parent steps2 | +14% ± 2%, up 53% | +16% | −18% |
+
+- **The dogs drift by themselves.** The parents' "turning" numbers equal their drift, so they never turned on request.
+- **Dog 1's drift flipped from right to left over the turning practice.** That produced the apparent left/right
+  trade-off of §6.44–6.48.
+- **Nothing in practice penalises spinning:** the "still" task watches touch and gravity, not the turning sense.
+
+**Turn caused by the request (asked − drift, SE combined):**
+
+| | left | right |
+|---|---|---|
+| dog 1, noqturn1 | **+26% ± 3%** | **+34% ± 2%** |
+| dog 1, noqturn1 with rhythm synapses off | +1% | +2% |
+| dog 1, parent | 0% | +7% |
+| dog 1, child vs parent | **+6.8 SE** | **+7.6 SE** |
+| dog 2, noqturn1 | +8% (+1.4 SE vs parent) | **+18%** (+5.7 SE) |
+
+- Dog 1's request-caused turning is balanced and comes entirely from the learned rhythm synapses.
+- **Caveats:**
+  - These lives (seeds 7000+) were also used to choose noqturn1.
+  - The drift correction was defined after seeing the data.
+  - Tilt retention has single-life numbers only (dog 1 roll right +28% vs the parent's +99%).
+- **Confirmation:** `babble-turneval4-{noqturn1,steps2}` (`5336c4e`) runs on new seeds 9100+, with tilt retention
+  over 30 lives per direction.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
