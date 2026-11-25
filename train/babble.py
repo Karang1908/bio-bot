@@ -118,6 +118,7 @@ CPG_ADAPT_TAU = 0.15     # s: tiring and recovery
 CPG_ADAPT_G = 1.5        # how strongly a firing neuron tires
 CPG_INH = 2.0            # mutual inhibition
 CPG_SEQ = 0.5            # each neuron is inhibited less by its predecessor
+SKILL_VARY = False       # --skill_vary: practise under the test's conditions (varied set-down, +-0.1 wobble), §6.45
 CPG_WP = False           # --cpg_wp: learn the rhythm synapses by reward-gated synaptic noise (weight perturbation)
 CPG_WP_SIZE = 1.0        # each turn trial explores Qc + e, |e| = this x the map (random draws this size turn up to 13%, all stay up)
 CPG_WP_MAX = 2.0         # cap on |Qc| (x the map): random draws turn up to 37% at 2x, but topple mostly above it (§6.43)
@@ -1352,7 +1353,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
             levels[f"weight {k}"], levels[f"lift {k}"] = CURRICULUM["weight"][0], CURRICULUM["lift"][0]
     t0 = time.time()
     for n in range(trials):
-        body.reset("stand")
+        body.reset("stand", rng if SKILL_VARY else None)                  # --skill_vary: set down a little differently
         brain.fresh()
         targets, kind, how = skill_task(body, brain, rng, levels)
         task = kind
@@ -1393,7 +1394,10 @@ def practice_skills(body, brain, minutes, rng, log, label):
             pre = brain.rates()[brain.sense] - brain.rest_sense
             felt = body.feel()
             r = brain.step(felt, xi)
-            body.step(brain.command(r))
+            cmd = brain.command(r)
+            if SKILL_VARY:                                                # ...and with the +-0.1 motor wobble
+                cmd = np.clip(cmd + rng.uniform(-0.1, 0.1, J), -1.0, 1.0)
+            body.step(cmd)
             e *= SKILL_TRACE
             e += np.outer(xi, pre)
             if ec is not None:
@@ -1739,7 +1743,7 @@ def cpg_feasibility(body, brain, log, rng, scales=(0.0, 0.01, 0.03, 0.1, 0.3, 0.
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS, CPG_WP
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS, CPG_WP, SKILL_VARY
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1769,6 +1773,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--skill_vary", action="store_true",
+                    help="skill practice set down a little differently each trial and with the +-0.1 motor wobble")
     ap.add_argument("--cpg_wp", action="store_true",
                     help="with --cpg: learn the rhythm synapses by reward-gated synaptic noise on turn trials")
     ap.add_argument("--cpg", action="store_true", help="grow a 4-neuron pattern generator driven by turn requests")
@@ -1819,6 +1825,7 @@ def main():
     SKILL_MAX = float(args.skill_max)
     SKILL_LEVEL_JOINTS = not bool(args.no_level_joints)
     CPG_WP = bool(args.cpg_wp)
+    SKILL_VARY = bool(args.skill_vary)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
