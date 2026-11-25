@@ -6734,6 +6734,46 @@ crouch does that.
 - Prediction if the hypothesis holds: stand height ≥ 0.16 m and up rates back near vary1's, with turning similar to
   wpmean1's.
 
+### 6.48 A/B: the crouch came from Q learning on turn trials; turning shows a left bias without the rhythm (25 Nov)
+
+`babble-noqturn1` (`24ce241`): wpmean1's exact configuration and seeds from the vary1 brains, plus `--no_q_in_turn`
+(the skill synapses do not learn on turn trials). Control: wpmean1 (§6.47).
+
+**Crouch (one test life each):** dog 1 stands at **0.18 m**, against 0.11 m in wpmean1; dog 2 at 0.18 m (wpmean1
+0.17 m). This supports the hypothesis that Q, learning from the per-step dopamine on turn trials, taught the crouch.
+Single-life tilt is still weak rolling right: +72/+28/+88/+83% (dog 1) and +34/+20/+66/+47% (dog 2).
+
+**Turn evaluation** (`babble-turneval2-noqturn1`, 30 varied fresh lives per side):
+
+| | left: turn, up, k | right: turn, up, k |
+|---|---|---|
+| dog 1, noqturn1 | **+39% ± 3%**, 83%, **20/30** | +21% ± 2%, 87%, 4/30 |
+| dog 1, rhythm synapses off | +14%, 100% | **−12%**, 97% |
+| dog 1, random of the same size | +14%, 40% | −19%, 77% |
+| dog 2, noqturn1 | +22% ± 2%, 93%, 5/30 | **+5% ± 1%**, 100%, 0/30 |
+| dog 2, rhythm synapses off | +18%, 80% | −16%, 80% |
+
+Dog 1 against the other brains:
+
+| dog 1 vs | left turn | right turn | up |
+|---|---|---|---|
+| parent steps2 | +15.1 SE | +1.0 SE | equal |
+| vary1 | +6.4 SE | −3.3 SE | −17% on the left (−2.4 SE) |
+| wpmean1 | +1.7 SE | +1.6 SE | right +17% |
+
+**Dog 2:** right turn +8.5 SE over the parent (+5.3 over vary1), and it is up 100% (+4.5 SE).
+
+**Status:** not promoted, because dog 1's right turn is only +1.0 SE over the parent. Established best stays steps2.
+The turning restart is vary1 dog 1 or noqturn1 dog 1 depending on the side; noqturn1 is preferred (no crouch, better
+left, dog 2 turns both ways).
+
+**Pattern across cpgwp1 → vary1 → wpmean1 → noqturn1:** one direction improves as the other regresses. With the
+rhythm synapses off, both dogs turn LEFT whichever way they are asked (dog 1 +14 / −12%, dog 2 +18 / −16%). So a right
+turn must overcome a left drift that a left turn gets for free.
+
+**Next (measure, not tune):** is the left drift there when nothing is asked (posture/body asymmetry), or only when a turn
+is asked (the request pathway)? Add a "nothing asked" condition to `--turn_eval`.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
