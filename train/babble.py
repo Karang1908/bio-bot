@@ -126,6 +126,8 @@ CPG_WP_RATE = 0.03       # Qc += rate * dz * e per turn trial (random walk ~0.8 
 CPG_SUBSTEPS = 10        # integrate it in 2 ms steps: in 20 ms steps it chattered (cpg1: 41.6 hand-overs/s, silent 40%)
 FOOT_FLOOR_N = 20.0      # N: floor on a foot's starting load in weight/lift requests (half its usual ~40 N); with a
                          # varied set-down a foot can read ~0 N at the start, which blew the scores up (vary1: +198716%)
+SKILL_NO_Q_TURN = False  # --no_q_in_turn: the skill synapses do not learn on turn trials (their per-step dopamine
+                         # tracks the true turn at r 0.2-0.6; suspected of teaching the crouch in wpmean1, §6.47)
 CPG_WP_MEAN = False      # --cpg_wp_mean: a turn trial's dopamine is the felt turning added up over the trial (tracks the
                          # true turn at r 0.98-0.99, vs 0.19-0.59 for moment-by-moment closeness, vary1), plus level
 TURN_RATE = 0.5          # rad/s: a turn request is feeling itself turn at this rate (the turning nerve, body z)
@@ -1422,7 +1424,8 @@ def practice_skills(body, brain, minutes, rng, log, label):
                 v += 0.002 * ((D - m) ** 2 - v)
                 stats[task] = [m, v]
                 dz = float(np.clip((D - m) / np.sqrt(v + 1e-12), -3.0, 3.0))
-                brain.Q += SKILL_RATE * dz * e
+                if not (SKILL_NO_Q_TURN and kind == "turn"):               # --no_q_in_turn: turning is the rhythm's job
+                    brain.Q += SKILL_RATE * dz * e
                 if ec is not None:
                     brain.Qc += SKILL_RATE * dz * ec
                     qc = float(np.linalg.norm(brain.Qc))
@@ -1750,7 +1753,7 @@ def cpg_feasibility(body, brain, log, rng, scales=(0.0, 0.01, 0.03, 0.1, 0.3, 0.
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS, CPG_WP, SKILL_VARY, CPG_WP_MEAN
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS, CPG_WP, SKILL_VARY, CPG_WP_MEAN, SKILL_NO_Q_TURN
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1780,6 +1783,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--no_q_in_turn", action="store_true",
+                    help="the skill synapses do not learn on turn trials (the rhythm synapses learn turning)")
     ap.add_argument("--cpg_wp_mean", action="store_true",
                     help="with --cpg_wp: a turn trial's dopamine is the felt turning over the whole trial (plus level)")
     ap.add_argument("--skill_vary", action="store_true",
@@ -1836,6 +1841,7 @@ def main():
     CPG_WP = bool(args.cpg_wp)
     SKILL_VARY = bool(args.skill_vary)
     CPG_WP_MEAN = bool(args.cpg_wp_mean)
+    SKILL_NO_Q_TURN = bool(args.no_q_in_turn)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
