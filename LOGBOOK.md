@@ -6582,6 +6582,36 @@ synapses (size 0.1, 0.5) and with none. Swing over time per stage (after the fir
 - **Effective dimension:** what matters is the drive per joint, 4 × 12 = 48 directions. About 1,500 turn trials per
   180 min should suffice.
 
+### 6.44 Rhythm synapses per direction, learned by synaptic noise: dog 1 turns both ways in the test (25 Nov)
+
+`babble-cpgwp1` (`199af29`): resumes the steps2 brains for +180 min of the usual mix plus turn ×2.
+- **Two changes:**
+  1. Separate rhythm-to-motor synapses per turning direction (8 columns). With one set and a sign flip, a left and a
+     right request drive the same gait half a cycle apart, differing only by a constant lean.
+  2. `--cpg_wp`: on each turn trial the active direction's synapses explore Qc + ε (|ε| = 1 × the map). The trial's
+     dopamine, felt (−mean distance of felt turning rate and level from the asked) and standardised per exact request,
+     gates Qc += 0.03 · dz · ε. Qc is capped at 2 × the map and starts at zero.
+- **Rhythm check:** 6.44 hand-overs/s, 0.62 s cycle, silent 0%.
+
+| ×0.125, before → after | turn L / R | tilt | lift FL/FR/RL/RR (N) | joints | practice still up |
+|---|---|---|---|---|---|
+| dog 1 | −10/+14 → **+20/+49%** | +109/+99/+102/+81 → +77/+94/+91/+81% | 31/23/37/24 → 31/23/**18**/34 | 20 → 16% | 97–100% |
+| dog 2 | +18/−17 → +21/−6% | +77/+106/+76 (fell)/+81 → +152/+21 (fell)/+40/+64% | 25/27/37/34 → 52/24/**7**/44 | 25 → 22% (others 0.475 rad, 20/24 up) | 68–97% |
+
+- **Dog 1:** turns the asked way in both directions for the first time (one test life per side). Tilt is
+  largely kept; the back-left paw lightens (39 → 18 N). Practice turn medians fluctuated: +8% (60), +3% (90),
+  +11% (120), +44% (150), +31% (180).
+- **Dog 2:** not clearly learned (right still turns the wrong way). Its practice was unsteady from the first minutes
+  (still up 87% at 15 min; 68% at 120 min); this brain showed similar dips before (turn1: 86–91%). Its tilt and
+  joint control degraded. Its back-left paw does lift (39 → 7 N).
+- **Rhythm synapses** reached 0.88/0.91 (dog 1) and 0.77/0.89 (dog 2) × the map. That is about the random-walk
+  expectation (≈ 0.83), so their size alone does not show learning.
+- **The per-trial dopamine-vs-turn record** (`b38aecf`) was added after this run was launched, so it is not in this
+  log.
+- **Not yet promotable:** one test life per side. Next is `--turn_eval` (`163ce52`): 30 fresh lives per side with
+  practice-level wobble, on seeds unused in practice. It compares as learned / rhythm synapses off / random of the
+  same size, on both the cpgwp1 brains and the parent steps2 brains.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
