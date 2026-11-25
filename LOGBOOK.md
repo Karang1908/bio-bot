@@ -6694,6 +6694,46 @@ load (`5d977db`; at a normal set-down the feet read about 40 N, so earlier runs 
 turn dopamine of −|felt turning averaged over the trial − asked| − mean level. Prediction: dog 1 reaches ≥30% both
 sides with up ≥80%; dog 2's right turn becomes positive.
 
+### 6.47 Turn dopamine from felt turning over the trial: left improves, right regresses, dog 1 crouches (25 Nov)
+
+`babble-wpmean1` (`5d977db`) resumes the vary1 brains for +180 min, flags as vary1 plus `--cpg_wp_mean`: the rhythm
+synapses' trial dopamine is −|felt turning averaged over the trial − asked| − mean level. Evaluation:
+`babble-turneval2-wpmean1` (30 varied fresh lives per side).
+
+| | left: turn, up, k | right: turn, up, k |
+|---|---|---|
+| dog 1, wpmean1 | **+33% ± 2%**, 87%, 14/30 | +17% ± 2%, 70%, 1/30 |
+| dog 1, vary1 | +20% ± 2%, 100%, 3/30 | +32% ± 3%, 80%, 15/30 |
+| dog 1, wpmean1 with rhythm synapses off | +9%, 93% | −7%, 80% |
+| dog 2, wpmean1 | +20% ± 2%, 83%, 0/30 | +1% ± 1%, 97%, 0/30 |
+| dog 2, vary1 | +18% ± 2%, 93%, 6/30 | −2% ± 1%, 100%, 0/30 |
+
+**Dog 1:**
+- Left turn +4.9 SE; right turn −4.6 SE; up −13% (left, −2.1 SE) and −10% (right).
+- It now **crouches**: standing with nothing asked, 0.11 m after 5 s, against 0.18–0.20 m in every earlier brain
+  (vary1 0.18 m). Single-life tilt is +62/+34/+84/+79%.
+- Not better than vary1 overall.
+
+**Dog 2:** its right turn becomes barely positive (+2.5 SE).
+
+**Ruled out offline:** the brain's felt "normal" (sense means) is identical in steps2, cpgwp1, vary1 and wpmean1, so
+the crouch is not a drift of its felt reference.
+
+**Rhythm synapses** are at 1.40/1.43 (dog 1) and 1.33/1.49 (dog 2) × the map. The skill synapses grew
+3.41 → 3.62.
+
+**Hypothesis (not measured):** on turn trials the skill synapses Q still learn from the per-step dopamine (closeness of
+the instantaneous turning rate plus level). That dopamine tracks the true turn at r 0.2–0.6 (§6.46). With stronger
+rhythm-driven stepping, the per-step dopamine mostly rewards keeping the trunk level while the legs step, and a low
+crouch does that.
+
+**This is the third adjustment round on turning (cpgwp1 → vary1 → wpmean1).** Test the premise:
+- Run `wpmean1`'s exact configuration and seeds from vary1, with Q not learning on turn trials (turning is the rhythm
+  synapses' job).
+- `wpmean1` is the control, since resumed runs reproduce exactly.
+- Prediction if the hypothesis holds: stand height ≥ 0.16 m and up rates back near vary1's, with turning similar to
+  wpmean1's.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
