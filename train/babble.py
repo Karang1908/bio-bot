@@ -126,6 +126,9 @@ CPG_WP_RATE = 0.03       # Qc += rate * dz * e per turn trial (random walk ~0.8 
 CPG_SUBSTEPS = 10        # integrate it in 2 ms steps: in 20 ms steps it chattered (cpg1: 41.6 hand-overs/s, silent 40%)
 FOOT_FLOOR_N = 20.0      # N: floor on a foot's starting load in weight/lift requests (half its usual ~40 N); with a
                          # varied set-down a foot can read ~0 N at the start, which blew the scores up (vary1: +198716%)
+ACTIVE_REST = False      # --active_rest: record the at-rest senses while it stands by itself (brain on). With the
+                         # output cut, active standing differs a little, and the skill synapses answer that constant
+                         # difference with a constant push: the spin with nothing asked (§6.52)
 STILL_TURN = False       # --still_turn: "still" also means not turning (body z); the promoted dog spins ~4 deg/s when
                          # nothing is asked and nothing penalised it (§6.49-6.50)
 SKILL_NO_Q_TURN = False  # --no_q_in_turn: the skill synapses do not learn on turn trials (their per-step dopamine
@@ -952,6 +955,15 @@ def settle_reflex(body, brain, seconds=SETTLE_S):
     brain.rest_baseline = None if brain.motor_baseline is None else brain.motor_baseline.copy()
     brain.adapting, brain.adapt_var = False, True
     brain.reflex = reflex
+    if ACTIVE_REST and reflex > 0:                                        # --active_rest: rest is how it feels standing
+        for _ in range(2):                                                # by itself (brain on), not with its output cut
+            rest = []
+            for i in range(int(3.0 / BRAIN_DT)):
+                r = brain.step(body.feel(), np.zeros(len(brain.motor)))
+                body.step(brain.command(r))
+                if i >= int(1.0 / BRAIN_DT):
+                    rest.append(r[brain.sense].copy())
+            brain.rest_sense = np.mean(rest, 0)
 
 
 def intend(body, brain, targets, seconds):
@@ -1843,7 +1855,7 @@ def cpg_feasibility(body, brain, log, rng, scales=(0.0, 0.01, 0.03, 0.1, 0.3, 0.
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS, CPG_WP, SKILL_VARY, CPG_WP_MEAN, SKILL_NO_Q_TURN, STILL_TURN
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS, CPG_WP, SKILL_VARY, CPG_WP_MEAN, SKILL_NO_Q_TURN, STILL_TURN, ACTIVE_REST
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1877,6 +1889,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--active_rest", action="store_true",
+                    help="record the at-rest senses while standing with the brain on (reflexes and skill synapses)")
     ap.add_argument("--still_turn", action="store_true",
                     help="the 'still' task also watches the turning sense (body z): staying still means not rotating")
     ap.add_argument("--no_q_in_turn", action="store_true",
@@ -1939,6 +1953,7 @@ def main():
     CPG_WP_MEAN = bool(args.cpg_wp_mean)
     SKILL_NO_Q_TURN = bool(args.no_q_in_turn)
     STILL_TURN = bool(args.still_turn)
+    ACTIVE_REST = bool(args.active_rest)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
