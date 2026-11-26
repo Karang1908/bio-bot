@@ -1467,8 +1467,9 @@ def practice_skills(body, brain, minutes, rng, log, label):
             ms[2] += 1
             if ms[2] > 10:
                 dzt = float(np.clip((R - ms[0]) / np.sqrt(ms[1] + 1e-12), -3.0, 3.0))
-                brain.Q += SKILL_RATE * dzt * e_sum
-                qn = float(np.linalg.norm(brain.Q))
+                brain.Q += SKILL_RATE * dzt * e_sum / np.sqrt(trial)       # 1/sqrt(T): the per-step rule's net change per
+                qn = float(np.linalg.norm(brain.Q))                        # trial is a random walk ~sqrt(T)|e|; one dz on
+                                                                           # the whole sum (~T|e|) ran away (stilltrial1)
                 if qn > SKILL_MAX * map_size:
                     brain.Q *= SKILL_MAX * map_size / qn
             ms[0] += 0.05 * (R - ms[0])
