@@ -6852,6 +6852,37 @@ penalises it, because the "still" task watches touch and gravity, not the turnin
 promoted brain with noqturn1's configuration. Prediction: |drift| < 5% with request-caused turning still ≥ 25% each
 way.
 
+### 6.51 "Still" with the turning sense does not stop the spin: the spin is too small to be felt moment by moment (26 Nov)
+
+`babble-still1` (`a5b9af2`) resumes the promoted noqturn1 brains for +180 min with noqturn1's configuration plus
+`--still_turn` (the still task also watches turning about body z). Evaluation: `babble-turneval4-still1`, seeds 9100+,
+the same lives as noqturn1's confirmation (§6.50).
+
+| dog 1 | still1 | noqturn1 (promoted) | difference |
+|---|---|---|---|
+| drift, nothing asked | +15% ± 2% | +14% ± 1% | \|drift\| +0.5 SE |
+| turn caused, left | +34% ± 4% (up 67%) | +27% ± 3% (up 87%) | +1.3 SE |
+| turn caused, right | +33% ± 2% (up 77%) | +37% ± 2% (up 97%) | −1.7 SE |
+| tilt roll left / right / nose down / nose up | +50 / +69 / +88 / +70% | +71 / +53 / +82 / +75% | −2.7 / +1.4 / +1.1 / −1.2 SE |
+
+Dog 2: drift +18% vs +16%; caused turns +4/+18% vs +9/+21%.
+
+**Flat:** the spin is unchanged and the dog stays up less while turning. Not promoted; noqturn1 stays the established
+best.
+
+**Pinpointed from the saved brain:**
+- In felt units the spin (0.07 rad/s) is **0.115 sd** of the turning sense (sd 0.61 rad/s); an asked turn is 0.82 sd.
+- The still dopamine is the moment-by-moment RMS distance over 8 lines, including touch lines with sd 8–90 N whose
+  deviations dominate under varied set-downs.
+- So the spin is invisible to it. This is the same flaw as the moment-by-moment turn dopamine (§6.46).
+
+**Open premise:** where does the spin come from?
+- It flips sign between the parent (−13%) and the promoted brain (+14%), so something learned is involved.
+- It happens with no request and the rhythm silent, so it is not the rhythm synapses.
+
+**Next (measure):** `--drift_diag` (`263f030`), the nothing-asked drift with the skill synapses, the reflexes, the
+motor wobble, and the varied set-down each switched off in turn. Run on noqturn1 and steps2, seeds 9100+.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
