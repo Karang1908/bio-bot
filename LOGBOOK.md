@@ -6996,6 +6996,35 @@ Walking on request needs that sense.
 
 **Verified:** the new sense changes nothing the dogs already do. They are ready to learn with it.
 
+### 6.56 Walking on request: design and baseline (26 Nov)
+
+**Built (`c86cb0a`, `--walk`, needs `--cpg --accel`). It follows the turning recipe; nothing about gait is set:**
+- **Request:** walk forward/back is a felt-reference shift of ±0.5 m/s² on the forward-accelerometer nerve. It drives
+  the pattern generator (drive = max of the turn and walk requests).
+- **Rhythm synapses:** one set per walking direction (forward, back), appended after the 8 turning columns (Qc
+  370 × 16). They start at zero and are learned by reward-gated synaptic noise. The turning and walking groups are
+  capped separately (2 × the map each), so walking cannot shrink the learned turning.
+- **Dopamine:** trial-level. The felt forward speed (the accelerometer added up) averaged over the trial, against
+  ±0.3 m/s, minus mean level.
+- **Q:** does not learn on walk trials (as for turns, §6.48).
+- **Test score:** true distance along the starting heading as a share of 0.3 m/s × trial time.
+- **`turn_eval` with `--walk`:** forward / back / nothing asked, 30 lives each, as learned and with the rhythm synapses
+  off.
+
+**Baseline `babble-walkbase1`:** promoted stilltrial2 brains with walking on and walking synapses zero; seeds 9100+.
+Because the drawn random synapses are larger with `--walk`, the lives differ from the earlier turn evaluations, so
+this is the paired baseline for `--walk` runs.
+- The log confirms, for both dogs, "3 new nerves appended after its 58" and "rhythm synapses for walking forward/back
+  appended after the 8 turning ones".
+- **Dog 1:** forward −10% ± 1%, back −10% ± 0%, nothing asked −10% ± 1% (up 83–87%).
+- **Dog 2:** −9 / −9 / −9% (up 80–97%).
+- With synapses off: the same within 2%.
+- **Result:** no walking yet, as expected. Both dogs drift slightly backward by themselves (about 9 cm over 3 s).
+  Walking will be scored relative to that drift.
+
+**Practice running:** `babble-walk1` resumes stilltrial2 for +180 min with its flags plus `accel walk`, mix tilt,
+weight, lift, joint, still ×2, turn ×2, walk ×2.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
