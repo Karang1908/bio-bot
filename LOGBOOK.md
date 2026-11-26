@@ -6915,6 +6915,26 @@ only, on the noqturn1 brains (`babble-activerest1`, seeds 9100+).
 trial (as for turns, where it tracks the true turn at r 0.99) plus level. Q is updated once at trial end with the
 summed eligibility.
 
+### 6.53 Trial-level still learning: the skill synapses ran away, dog 1 collapses (rejected, 26 Nov)
+
+`babble-stilltrial1` (`322365e`) resumes the promoted noqturn1 brains, noqturn1 configuration plus `--still_trial`;
+mix tilt, weight, lift, joint, still ×2, turn ×2.
+
+- **Dog 1:** practice still up 81% at 60 min → **0% at 180 min**. Skill synapses 0.39 → **0.49** × the map (cap 0.5).
+  After: stands at 0.11 m on 1/4 feet; every tilt and turn test falls.
+- **Dog 2:** still up 53% at 180 min; after, several tilts and both turns fall.
+- **REJECTED. Do not resume `results/babble-stilltrial1/brain_dog*.npz`.**
+
+**Mechanism (reasoned after the fact):**
+- The per-step rule adds SKILL_RATE · dz_t · e_t with dz_t of varying sign, so its net change per trial is about
+  √T · |e| (a random walk).
+- The trial rule added SKILL_RATE · dz · Σ_t e_t, one sign applied to the sum of T = 100 traced (correlated)
+  eligibilities, about T · |e|: roughly 10× larger and always directed. So Q ran away to the cap.
+- My pre-launch claim of "the same scale with constant dz" ignored that the per-step dz average out. That was wrong.
+
+**Fix:** scale the trial update by 1/√T. This matches the per-step rule's typical net change per trial, now in the
+direction of the trial's dopamine.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
