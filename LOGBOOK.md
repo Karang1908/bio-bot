@@ -6935,6 +6935,45 @@ mix tilt, weight, lift, joint, still ×2, turn ×2.
 **Fix:** scale the trial update by 1/√T. This matches the per-step rule's typical net change per trial, now in the
 direction of the trial's dopamine.
 
+### 6.54 Trial-level still learning at the right scale: the spin is gone, turning and tilt kept, both dogs turn both ways; promoted (26 Nov)
+
+`babble-stilltrial2` (`baf0851`): as stilltrial1 (§6.53), with the trial update scaled by 1/√T. It resumes the promoted
+noqturn1 brains for +180 min. Practice: still up 91–96% (dog 1) and 77–93% (dog 2); skill synapses stay at 0.39–0.40 ×
+the map. After: stands at 0.21 m (dog 1) and 0.19 m (dog 2).
+
+Evaluation `babble-turneval4-stilltrial2`: seeds 9100+ (the same lives as noqturn1's and steps2's confirmations, so a
+paired comparison), 30 lives per condition.
+
+**Dog 1:**
+
+| | stilltrial2 | noqturn1 | parent steps2 |
+|---|---|---|---|
+| drift, nothing asked | **+2% ± 1%** (up 93%) | +14% ± 1% (**−7.0 SE**) | −13% |
+| turn caused, left | **+25% ± 3%** (raw +27%, up 83%, k 9/30; rhythm off +0%) | +27% (−0.6 SE) | +6% (**+5.0 SE**) |
+| turn caused, right | **+35% ± 3%** (raw +34%, up 80%, k 17/30; rhythm off +2%) | +37% (−0.6 SE), up 97% | +5% (**+7.7 SE**) |
+| tilt roll left / roll right / nose down / nose up | +59 / +131 (± 40) / +73 / +81% | −1.0 / +1.9 / −1.3 / +2.0 SE | −1.6 / +1.2 / +2.1 / +3.9 SE |
+
+**Dog 2:**
+
+| | stilltrial2 | noqturn1 | parent steps2 |
+|---|---|---|---|
+| drift | **+9% ± 1%** | +16% (**−3.1 SE**) | +14% |
+| turn caused, left | **+17% ± 3%** | +9% (+2.0 SE) | +2% (**+3.3 SE**) |
+| turn caused, right | **+24% ± 2%** | +21% (+1.0 SE) | +1% (**+6.4 SE**) |
+| tilt roll left / roll right / nose down / nose up | +42 / +49 / +58 / +60% | −1.4 / +1.5 / +1.1 / +2.0 SE | −0.1 / +0.1 / +0.6 / −0.9 SE |
+
+**Results:**
+- **The spin is fixed.** Dog 1's raw turns are now balanced (+27 / +34%) and equal the request-caused turns.
+- **Turning is kept, and replicated:** both dogs now turn on request both ways, significantly over their parents.
+- **Tilt:** no significant loss against either reference.
+- **Trade-off:** dog 1 is up 80% while turning right, against noqturn1's 97% (−2.1 SE).
+
+**PROMOTED:** `results/babble-stilltrial2/brain_dog{1,2}.npz` is the new established best.
+- It stands still without spinning.
+- It turns on request both ways, caused by the learned rhythm synapses (off: about 0%).
+- Tilt and standing are kept.
+- Not measured over lives: joint control, paw lift, weight shift.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
