@@ -1702,6 +1702,48 @@ def turn_eval(body, brain, log, rng, lives=30, seconds=3.0):
     return out
 
 
+def drift_diag(body, brain, log, rng, lives=30, seconds=3.0):
+    """Measurement only: where does the spin with nothing asked come from? The nothing-asked drift (share of a 0.5 rad/s
+    left turn, + is left) with each candidate switched off in turn: as is; skill synapses off; reflexes off; no motor
+    wobble; no varied set-down. Same conditions otherwise (practice-level motor variation)."""
+    J = len(body.joint)
+    brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    keptQ = brain.Q
+    out = {}
+    for name, q_on, reflex, wobble, vary in (("as is", True, SKILL_REFLEX, True, True),
+                                             ("skill synapses off", False, SKILL_REFLEX, True, True),
+                                             ("reflexes off", True, 0.0, True, True),
+                                             ("no motor wobble", True, SKILL_REFLEX, False, True),
+                                             ("no varied set-down", True, SKILL_REFLEX, True, False)):
+        brain.Q = keptQ if q_on else np.zeros_like(keptQ)
+        brain.reflex = reflex
+        settle_reflex(body, brain)
+        drift, up = [], []
+        for _ in range(lives):
+            body.reset("stand", rng if vary else None)
+            brain.fresh()
+            y0 = body.yaw()
+            noise = np.zeros(len(brain.motor))
+            for _ in range(int(seconds / BRAIN_DT)):
+                noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
+                r = brain.step(body.feel(), SKILL_NOISE * BABBLE_SIZE * noise)
+                cmd = brain.command(r)
+                if wobble:
+                    cmd = np.clip(cmd + rng.uniform(-0.1, 0.1, J), -1.0, 1.0)
+                body.step(cmd)
+            dy = (body.yaw() - y0 + np.pi) % (2 * np.pi) - np.pi
+            drift.append(float(dy / (TURN_RATE * seconds)))
+            up.append(is_up(body))
+        drift, up = np.array(drift), np.array(up)
+        out[name] = {"drift": drift.tolist(), "up": up.tolist(), "mean": float(drift.mean()),
+                     "se": float(drift.std(ddof=1) / np.sqrt(len(drift))), "up_frac": float(up.mean())}
+        log(f"DRIFT {name} ({lives} lives): {drift.mean():+.0%} +- {drift.std(ddof=1) / np.sqrt(len(drift)):.0%} (SE) of a "
+            f"left turn (+ is left), up {up.mean():.0%}")
+    brain.Q = keptQ
+    brain.reflex = 0.0
+    return out
+
+
 def cpg_trace(body, brain, log, rng, size=0.5, seconds=3.0):
     """Measurement only: where does the rhythm's signal go? One turn request with random rhythm-to-motor synapses of
     the given size, and the same with none. At each stage (the generator's drive and output, its input to the motor
@@ -1825,6 +1867,8 @@ def main():
     ap.add_argument("--skill_rate", type=float, default=SKILL_RATE, help="skill synapse learning rate")
     ap.add_argument("--cpg_sizes", default="0,0.01,0.03,0.1,0.3,0.5",
                     help="--cpg_feasibility: sizes of the random rhythm-to-motor synapses, as a share of the map's size")
+    ap.add_argument("--drift_diag", action="store_true",
+                    help="measure the nothing-asked spin with skill synapses / reflexes / wobble / varied set-down off in turn")
     ap.add_argument("--eval_seed", type=int, default=7000,
                     help="--turn_eval: seed of its fresh lives (7000 was used to choose noqturn1; confirm on others)")
     ap.add_argument("--turn_eval", action="store_true",
@@ -1969,6 +2013,9 @@ def main():
                 log(f"[{label}] the pattern generator is not a usable rhythm ({rate:.2f} hand-overs/s, silent {silent:.0%}; "
                     f"needs 1-15/s and < 20% silent); skipping its practice")
                 args.skills = 0.0
+        if args.drift_diag:
+            practised = {"drift_diag": drift_diag(body, brain, log, np.random.default_rng(int(args.eval_seed) + dog))}
+            args.skills = 0.0
         if args.cpg and args.turn_eval:
             practised = {"turn_eval": turn_eval(body, brain, log, np.random.default_rng(int(args.eval_seed) + dog))}
             args.skills = 0.0
