@@ -10,7 +10,7 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-## 0. Current state: 25 Nov 2026 (this section overrides everything below it; newest update last)
+## 0. Current state: 26 Nov 2026 (this section overrides everything below it; newest update last)
 
 **Fresh start (owner, 17 Nov).** Body first, no goal tasks, no prediction. The old training code (`baby_dog.py`,
 fetch, PPO) is not the line of work any more. Everything now lives in one standalone script, **`train/babble.py`**,
@@ -116,6 +116,31 @@ runaway); posture neurons (§6.27–6.29); steering by test code (§6.18).
   - Use a new `eval_seed` to confirm a choice. 7000 was used to choose noqturn1.
 - **Next measured question:** with the turning sense added to the "still" task, does the spontaneous spin go
   (|drift| < 5%) while turning on request stays ≥ 25% each way?
+
+**Update 26 Nov (verified, LOGBOOK §6.51–6.54). This overrides the 25 Nov checkpoint above:**
+- **NEW ESTABLISHED BEST:** `results/babble-stilltrial2/brain_dog{1,2}.npz` (Kaggle source
+  `karang1908/bio-bot-babble-stilltrial2`), both dogs. Measured on seeds 9100+, the same lives as the earlier
+  confirmations (§6.54).
+  - **Stands still without spinning:** dog 1 drift +2% (was +14%); dog 2 +9% (was +16%).
+  - **Turns on request both ways:** dog 1 +25 / +35%, dog 2 +17 / +24%, all ≥ 3.3 SE over the parent. It is about 0%
+    with the rhythm synapses off.
+  - **Tilt kept;** stands at 0.19–0.21 m.
+  - **Trade-off:** dog 1 is up 80% while turning right (noqturn1 97%).
+  - **Not measured over lives:** joint control, paw lift, weight shift.
+- **Configuration:** resume noqturn1 with its flags plus `still_trial=1`, mix
+  `tilt,weight,lift,joint,still,still,turn,turn`. On still trials the skill synapses learn once per trial, at trial
+  end, from the felt turning averaged over the trial plus level, scaled 1/√T.
+- **Why the spin existed:**
+  - The skill synapses answer the small constant difference between active standing and the passive (output-cut)
+    `rest_sense` with a constant push (§6.52).
+  - Moment by moment the spin (0.115 sd) is invisible, so `--still_turn` failed (§6.51).
+- **Rejected; do not repeat or resume:**
+  - `--active_rest`: recording rest with the brain on makes the dogs fall (§6.52).
+  - `babble-stilltrial1`: an unscaled trial update ran away; do not resume it (§6.53).
+  - `babble-still1`: flat (§6.51).
+- **Next step:** walking forward/back on request needs a felt forward motion. The body has no sense of linear motion
+  (it senses joints, touch, gravity and turning). Planned: an accelerometer nerve, appended like the real Go2's IMU;
+  append-only and keeping the existing draws. The owner was told and has not objected yet.
 
 **Earlier next question:** how should weight shift be learned? A graded curriculum (small shifts first),
 larger structured exploration within those trials, or a different whole-body posture representation.
