@@ -128,6 +128,8 @@ FOOT_FLOOR_N = 20.0      # N: floor on a foot's starting load in weight/lift req
                          # varied set-down a foot can read ~0 N at the start, which blew the scores up (vary1: +198716%)
 STILL_TRIAL = False      # --still_trial: on still trials the skill synapses learn once per trial, from the felt
                          # turning averaged over the trial plus level (the spin is 0.115 sd, invisible moment by moment)
+GROW_NERVES = False      # --accel: a saved brain may continue with new nerves appended after its own (prefix-equal)
+NEW_NERVE_VAR = 1.0      # an appended nerve's starting spread: 1 (m/s^2) for the accelerometer
 ACTIVE_REST = False      # --active_rest: record the at-rest senses while it stands by itself (brain on). With the
                          # output cut, active standing differs a little, and the skill synapses answer that constant
                          # difference with a constant push: the spin with nothing asked (§6.52)
@@ -192,8 +194,13 @@ def save_brain(brain, path):
 def load_brain(brain, path):
     """Continue an existing brain. Its fixed wiring must match exactly; learned parts must all be present."""
     with np.load(path) as z:
+        n_old = len(z["fibre_neuron"])
         for k in ("drives", "push", "fibre_neuron", "fibre_gain"):
-            if not np.array_equal(z[k], getattr(brain, k)):
+            cur = getattr(brain, k)
+            same = np.array_equal(z[k], cur)
+            grown = (GROW_NERVES and k in ("fibre_neuron", "fibre_gain") and len(z[k]) < len(cur)
+                     and np.array_equal(z[k], cur[:len(z[k])]))                # new nerves appended after the old ones
+            if not (same or grown):
                 raise SystemExit(f"{path}: its wiring '{k}' differs from this genome; refusing to continue a different brain")
         for k in ("map", "mean", "var", "seen"):
             if k not in z.files:
@@ -205,6 +212,13 @@ def load_brain(brain, path):
             setattr(brain, k, v.item() if v.shape == () else v.copy())
         if brain.map.shape != (len(brain.motor), len(brain.sense)):
             raise SystemExit(f"{path}: map shape {brain.map.shape} does not fit this brain")
+        n_new = len(brain.fibre_neuron)
+        if n_old < n_new:                                                 # appended nerves: at rest they report zero,
+            for k, fill in (("mean", 0.0), ("var", NEW_NERVE_VAR), ("rest_mean", 0.0)):   # with a spread of 1 (m/s^2)
+                v = getattr(brain, k)
+                if v is not None and len(v) == n_old:
+                    setattr(brain, k, np.concatenate([v, np.full(n_new - n_old, fill)]))
+            print(f"{path}: {n_new - n_old} new nerves appended after its {n_old}; existing wiring unchanged", flush=True)
 
 
 def load_core():
@@ -218,8 +232,10 @@ class Body:
     """The Go2: held in the air by its trunk, or free on the ground. Torque motors; every joint has a hard limit.
     On the ground it also has touch in each foot and an inner ear (which way gravity pulls, and how it is turning)."""
 
-    def __init__(self, go2: Path, held: bool = True, tone: bool = False, leak: bool = False):
+    def __init__(self, go2: Path, held: bool = True, tone: bool = False, leak: bool = False, accel: bool = False):
         import mujoco
+        self.accel = accel                         # --accel: the IMU's accelerometer (trunk frame), appended nerves
+        self._acc, self._v_prev = np.zeros(3), None
         self.mj = mujoco
         self.m = mujoco.MjModel.from_xml_path(str(go2 / "scene.xml"))
         self.d = mujoco.MjData(self.m)
@@ -246,6 +262,7 @@ class Body:
         """Held: back in the parent's hands. On the ground: set down standing, on its belly, or on one side."""
         self.mj.mj_resetDataKeyframe(self.m, self.d, self.m.keyframe("home").id)
         self.d.xfrc_applied[:] = 0.0                                     # no hands left on it from before
+        self._acc, self._v_prev = np.zeros(3), None
         if self.held:
             self.hold()
             self.mj.mj_forward(self.m, self.d)
@@ -281,6 +298,8 @@ class Body:
     def step(self, out):
         """out: each motor pool's output in [-1, 1]. Without tone it is a torque (share of the motor's maximum); with
         tone it moves the joint's set point, and the muscle pulls toward it."""
+        if self.accel and self._v_prev is None:
+            self._v_prev = self.trunk_velocity()
         if self.tone:
             relax = (self.target - self.rest_q) * BRAIN_DT / self.leak_s if self.leak else 0.0
             self.target = np.clip(self.target + self.set_speed * BRAIN_DT * out - relax, self.lo - 0.1, self.hi + 0.1)
@@ -294,6 +313,14 @@ class Body:
             self.mj.mj_step(self.m, self.d)
             if self.held:
                 self.hold()
+        if self.accel:                                                    # how fast the trunk's own velocity changed
+            v = self.trunk_velocity()
+            self._acc = (v - self._v_prev) / BRAIN_DT
+            self._v_prev = v
+
+    def trunk_velocity(self):
+        R = self.d.xmat[self.base].reshape(3, 3)
+        return R.T @ self.d.qvel[0:3]                                     # free joint: world-frame linear velocity
 
     def hands(self):
         """The parent's hands: a spring-damper up toward standing height (0.27 m) and a spring-damper turning the
@@ -318,7 +345,10 @@ class Body:
         joints = [self.d.qpos[self.qadr], self.d.qvel[self.vadr], self.d.actuator_force, self.d.qfrc_constraint[self.vadr]]
         if self.held:
             return np.concatenate(joints)
-        return np.concatenate([*joints, self.touch(), self.gravity(), self.d.qvel[3:6]])
+        lines = [*joints, self.touch(), self.gravity(), self.d.qvel[3:6]]
+        if self.accel:                                                    # appended last: earlier nerves keep their wiring
+            lines.append(self._acc)
+        return np.concatenate(lines)
 
     def touch(self):
         f = np.zeros(4)
@@ -1878,7 +1908,7 @@ def cpg_feasibility(body, brain, log, rng, scales=(0.0, 0.01, 0.03, 0.1, 0.3, 0.
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS, CPG_WP, SKILL_VARY, CPG_WP_MEAN, SKILL_NO_Q_TURN, STILL_TURN, ACTIVE_REST, STILL_TRIAL
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS, CPG_WP, SKILL_VARY, CPG_WP_MEAN, SKILL_NO_Q_TURN, STILL_TURN, ACTIVE_REST, STILL_TRIAL, GROW_NERVES
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -1912,6 +1942,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--accel", action="store_true",
+                    help="on the ground: the IMU's accelerometer as three appended nerves (resumed brains grow them)")
     ap.add_argument("--still_trial", action="store_true",
                     help="still trials: skill synapses learn at trial end from the felt turning over the trial plus level")
     ap.add_argument("--active_rest", action="store_true",
@@ -1980,6 +2012,7 @@ def main():
     STILL_TURN = bool(args.still_turn)
     ACTIVE_REST = bool(args.active_rest)
     STILL_TRIAL = bool(args.still_trial)
+    GROW_NERVES = bool(args.accel)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
@@ -1990,7 +2023,8 @@ def main():
         print(msg, flush=True)
         lines_out.append(msg)
 
-    body = Body(fetch_go2(Path(tempfile.gettempdir())), held=not args.ground, tone=bool(args.tone), leak=bool(args.leak))
+    body = Body(fetch_go2(Path(tempfile.gettempdir())), held=not args.ground, tone=bool(args.tone), leak=bool(args.leak),
+                accel=bool(args.accel) and bool(args.ground))
     body.leak_s = float(args.leak_s)
     body.set_speed = float(args.set_speed)
     core = load_core()
