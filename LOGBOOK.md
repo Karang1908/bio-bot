@@ -6883,6 +6883,38 @@ best.
 **Next (measure):** `--drift_diag` (`263f030`), the nothing-asked drift with the skill synapses, the reflexes, the
 motor wobble, and the varied set-down each switched off in turn. Run on noqturn1 and steps2, seeds 9100+.
 
+### 6.52 The spin comes from the skill synapses; recording "rest" with the brain on is rejected, the dogs fall (26 Nov)
+
+**Source** (`263f030`, `--drift_diag`, seeds 9100+, 30 lives each): nothing-asked drift (+ = left), with one thing
+switched off at a time.
+
+| | as is | skill synapses off | reflexes off | no wobble | no varied set-down |
+|---|---|---|---|---|---|
+| noqturn1 dog 1 | +13% | **+3%** | +17% (up 57%) | +12% | +11% (SE 0) |
+| noqturn1 dog 2 | +19% | **+1%** | +24% (up 20%) | +13% | +13% (SE 0) |
+| steps2 dog 1 | −13% | **+3%** | −15% | −13% | −12% (SE 0) |
+| steps2 dog 2 | +16% | **+1%** | +37% (up 3%) | +14% | +16% (SE 0) |
+
+- **Pinpointed:** the skill synapses Q cause the spin. Switched off, it goes in all four brains; nothing else removes
+  it. With no varied set-down it is identical in every life, so it is a constant push.
+- **Without Q** the dogs stay up as often (83–90%).
+- **Mechanism (from the code):** Q acts on the sensory deviation from `rest_sense`, which `settle_reflex` records with
+  the brain's output cut. Active standing differs slightly, so Q answers a constant offset with a constant push; its
+  direction depends on what each brain learned.
+
+**Tried: `--active_rest`** (`b5d41cf`): record `rest_sense` while standing with the brain on (2 × 3 s). Evaluation
+only, on the noqturn1 brains (`babble-activerest1`, seeds 9100+).
+- **REJECTED.** In the turn evaluation the dogs are up in 0–3% of lives (vs 87–97%), and tilt goes wild (dog 2 −110 /
+  +110 / −95 / +88%).
+- In the drift check, which re-settles for each condition, dog 1 degrades to −40% and up 0% by the last condition.
+- **Mechanism:** a reference recorded while the brain acts follows whatever the body drifts into during settling,
+  including falling. The reflexes then defend that state. The passive, output-cut reference is the anchor and must
+  stay.
+
+**Next:** learn the spin away. On "still" trials, Q's dopamine becomes trial-level: the felt turning averaged over the
+trial (as for turns, where it tracks the true turn at r 0.99) plus level. Q is updated once at trial end with the
+summed eligibility.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
