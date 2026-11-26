@@ -6974,6 +6974,28 @@ paired comparison), 30 lives per condition.
 - Tilt and standing are kept.
 - Not measured over lives: joint control, paw lift, weight shift.
 
+### 6.55 The IMU's accelerometer added as three appended nerves: wiring kept, behaviour unchanged (26 Nov)
+
+**Why:** DogMind.md's sense table lists the Go2's IMU as "angular velocity, acceleration, orientation". The simulated
+dog had orientation (gravity) and angular velocity (turning) but no acceleration, so it could not feel itself speed up.
+Walking on request needs that sense.
+
+**Built (`49fc1fb`, `--accel`):**
+- Three nerves (forward, sideways, up) carry the change of the trunk's own velocity per brain step, in trunk frame.
+- They are appended after the 58 existing nerves. The genome's fibre shuffle is drawn once before slicing, so the
+  first 58 nerves' fibres and gains are identical.
+- `load_brain` accepts a saved brain whose wiring equals the new wiring's prefix (only with `--accel`). New nerves start
+  at rest value 0 with spread 1 m/s². Anything else still fails loudly.
+
+**Check `babble-accelcheck1`:** the promoted stilltrial2 brains with `--accel`, no learning, `--turn_eval` with seeds
+9100+ (the same lives as §6.54).
+- The log confirms 61 nerves and, for both dogs, "3 new nerves appended after its 58; existing wiring unchanged".
+- **Dog 1:** drift +1% (was +2%); turn caused +26 / +36% (was +25 / +35%; +0.2 / 0.0 SE); tilt +73 / +100 / +70 / +80%
+  (within 0.8 SE); up the same or better.
+- **Dog 2:** drift +9% (was +9%); turns +17 / +24% (unchanged); tilt within 0.3 SE.
+
+**Verified:** the new sense changes nothing the dogs already do. They are ready to learn with it.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
