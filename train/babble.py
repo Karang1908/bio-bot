@@ -128,6 +128,8 @@ FOOT_FLOOR_N = 20.0      # N: floor on a foot's starting load in weight/lift req
                          # varied set-down a foot can read ~0 N at the start, which blew the scores up (vary1: +198716%)
 STILL_TRIAL = False      # --still_trial: on still trials the skill synapses learn once per trial, from the felt
                          # turning averaged over the trial plus level (the spin is 0.115 sd, invisible moment by moment)
+WALK_V = 0.3             # m/s: a walk request asks to move forward/back at this speed (felt through the accelerometer)
+WALK_ACC = 0.5           # m/s^2: the walk request as a shift of the forward-acceleration nerve's felt reference
 GROW_NERVES = False      # --accel: a saved brain may continue with new nerves appended after its own (prefix-equal)
 NEW_NERVE_VAR = 1.0      # an appended nerve's starting spread: 1 (m/s^2) for the accelerometer
 ACTIVE_REST = False      # --active_rest: record the at-rest senses while it stands by itself (brain on). With the
@@ -419,6 +421,7 @@ class Brain:
     Q = None                 # skill synapses, sensory to motor, learned from reward (--skills)
     use_ctx = False          # posture neurons (--contexts)
     cpg = None               # the grown pattern generator (--cpg)
+    walk_line = None         # --walk: the forward-acceleration nerve; its request drives the generator too
     Qc = None
     turn_line = None
     adapt_g = 0.0            # neuron adaptation: a neuron that keeps firing tires (subtracts adapt_g x its recent rate)
@@ -427,12 +430,16 @@ class Brain:
 
     def cpg_init(self, rng):
         self.cpg = {"u": rng.uniform(0.0, 0.1, CPG_N), "a": np.zeros(CPG_N)}
+        cols = 2 * CPG_N * (2 if self.walk_line is not None else 1)
         if getattr(self, "Qc", None) is None:
-            self.Qc = np.zeros((len(self.motor), 2 * CPG_N))
-        elif self.Qc.shape != (len(self.motor), 2 * CPG_N):
+            self.Qc = np.zeros((len(self.motor), cols))
+        elif self.Qc.shape == (len(self.motor), 2 * CPG_N) and cols == 4 * CPG_N:   # --walk: new sets appended after
+            self.Qc = np.concatenate([self.Qc, np.zeros((len(self.motor), 2 * CPG_N))], 1)  # the learned turning ones
+            print(f"--walk: rhythm synapses for walking forward/back appended after the {2 * CPG_N} turning ones", flush=True)
+        elif self.Qc.shape != (len(self.motor), cols):
             raise SystemExit(f"--cpg: the saved rhythm synapses have shape {self.Qc.shape}, expected "
-                             f"{(len(self.motor), 2 * CPG_N)} (one set per turning direction); not re-initialising them")
-        self.cpg_f = np.zeros(2 * CPG_N)
+                             f"{(len(self.motor), cols)} (one set per turning/walking direction); not re-initialising them")
+        self.cpg_f = np.zeros(cols)
 
     def cpg_step(self, drive):
         u, a = self.cpg["u"], self.cpg["a"]
@@ -518,10 +525,14 @@ class Brain:
         I[self.motor] += motor_drive
         if self.cpg is not None:                                         # driven by its own request to turn
             want = -self.intention[self.turn_line]
-            rc = self.cpg_step(min(1.0, abs(want) / 0.25))
+            wantw = -self.intention[self.walk_line] if self.walk_line is not None else 0.0
+            rc = self.cpg_step(min(1.0, max(abs(want), abs(wantw)) / 0.25))
             # each turning direction has its own synapses from the rhythm (a sign flip of one set is the same gait
-            # half a cycle later, so one set cannot turn both ways)
-            self.cpg_f = np.concatenate([rc * (want > 0), rc * (want < 0)])
+            # half a cycle later, so one set cannot turn both ways); so does each walking direction (--walk)
+            parts = [rc * (want > 0), rc * (want < 0)]
+            if self.walk_line is not None:
+                parts += [rc * (wantw > 0), rc * (wantw < 0)]
+            self.cpg_f = np.concatenate(parts)
             I[self.motor] += self.Qc @ self.cpg_f
         if self.Q is not None and self.rest_sense is not None:  # learned skills: respond to what it feels vs rest
             I[self.motor] += self.Q @ (self.rates()[self.sense] - self.rest_sense)
@@ -1350,6 +1361,9 @@ def skill_task(body, brain, rng, levels=None):
     if kind == "turn":                                                    # feel itself turning, left or right
         rate = TURN_RATE * rng.choice([-1.0, 1.0])
         return {4 * J + 9: rate}, kind, ("turn", rate, body.yaw())
+    if kind == "walk":                                                    # feel itself move forward or back
+        sign = float(rng.choice([-1.0, 1.0]))
+        return {4 * J + 10: WALK_ACC * sign}, kind, ("walk", sign, body.d.qpos[:2].copy(), body.yaw())
     if kind == "lift":                                                    # take the weight off one paw
         k = int(rng.integers(4))
         base = np.maximum(body.touch(), FOOT_FLOOR_N)
@@ -1372,6 +1386,10 @@ def skill_score(body, how, r0p0):
         k, s0, L = how[1], how[2], how[3]
         t = body.touch()
         return float((t[k] / max(t.sum(), 1e-6) - s0) / max(L * s0, 1e-6))
+    if how[0] == "walk":                                                  # test only: true distance along its heading
+        sign, p0, y0 = how[1], how[2], how[3]
+        fwd = float((body.d.qpos[:2] - p0) @ np.array([np.cos(y0), np.sin(y0)]))
+        return fwd / (sign * WALK_V * SKILL_TRIAL_S)
     if how[0] == "turn":
         rate, y0 = how[1], how[2]
         dy = (body.yaw() - y0 + np.pi) % (2 * np.pi) - np.pi
@@ -1416,6 +1434,8 @@ def practice_skills(body, brain, minutes, rng, log, label):
                 task = f"{how[0]} {how[1]}"
             elif how[0] == "turn":
                 task = f"turn {'+' if how[1] > 0 else '-'}"
+            elif how[0] == "walk":
+                task = f"walk {'+' if how[1] > 0 else '-'}"
             elif how[0] == "joint":
                 task = f"joint {how[1]} {'+' if how[3] > how[2] else '-'}"
         if task not in stats:
@@ -1432,14 +1452,16 @@ def practice_skills(body, brain, minutes, rng, log, label):
         e = np.zeros_like(brain.Q)
         ec = None if brain.cpg is None or CPG_WP else np.zeros_like(brain.Qc)
         wp = None
-        if CPG_WP and brain.cpg is not None and kind == "turn":            # synaptic noise on this direction's set
-            cols = slice(0, CPG_N) if how[1] > 0 else slice(CPG_N, 2 * CPG_N)
+        if CPG_WP and brain.cpg is not None and kind in ("turn", "walk"):  # synaptic noise on this direction's set
+            k0 = (0 if kind == "turn" else 2) + (0 if how[1] > 0 else 1)
+            cols = slice(k0 * CPG_N, (k0 + 1) * CPG_N)
             wp = np.zeros_like(brain.Qc)
             wp[:, cols] = rng.standard_normal((len(brain.motor), CPG_N))
             wp *= CPG_WP_SIZE * map_size / np.linalg.norm(wp)
             kept_qc = brain.Qc.copy()
             brain.Qc = kept_qc + wp
         dists, felt_turn, levels_felt = [], [], []
+        v_felt = 0.0
         trial_q = STILL_TRIAL and kind == "still"                         # --still_trial: Q learns once, at trial end
         e_sum = np.zeros_like(brain.Q) if trial_q else None
         still_turn, still_level = [], []
@@ -1472,6 +1494,10 @@ def practice_skills(body, brain, minutes, rng, log, label):
             if kind == "turn":
                 felt_turn.append(float(zf[watch][0]))
                 levels_felt.append(float(np.sqrt(np.mean(zf[4 * J + 4:4 * J + 7] ** 2))))
+            if kind == "walk":                                            # its accelerometer, added up: felt speed
+                v_felt += float(body.feel()[4 * J + 10]) * BRAIN_DT
+                felt_turn.append(v_felt)
+                levels_felt.append(float(np.sqrt(np.mean(zf[4 * J + 4:4 * J + 7] ** 2))))
             if prev is not None:
                 D = prev - dist                                           # got closer to the asked feeling
                 m, v = stats[task]
@@ -1479,7 +1505,7 @@ def practice_skills(body, brain, minutes, rng, log, label):
                 v += 0.002 * ((D - m) ** 2 - v)
                 stats[task] = [m, v]
                 dz = float(np.clip((D - m) / np.sqrt(v + 1e-12), -3.0, 3.0))
-                if not (SKILL_NO_Q_TURN and kind == "turn") and not trial_q:  # --no_q_in_turn: turning is the rhythm's job
+                if not (SKILL_NO_Q_TURN and kind in ("turn", "walk")) and not trial_q:  # --no_q_in_turn: turning is the rhythm's job
                     brain.Q += SKILL_RATE * dz * e
                 if ec is not None:
                     brain.Qc += SKILL_RATE * dz * ec
@@ -1506,16 +1532,19 @@ def practice_skills(body, brain, minutes, rng, log, label):
             ms[1] += 0.05 * ((R - ms[0]) ** 2 - ms[1])
         if wp is not None:                                                # dopamine for the whole trial, vs the usual
             R = -float(np.mean(dists))                                    # for this exact request (felt, not seen)
-            if CPG_WP_MEAN:                                               # the turn it felt over the trial, and level
+            if kind == "walk":                                            # the speed it felt over the trial, and level
+                R = -abs(float(np.mean(felt_turn)) - how[1] * WALK_V) - (float(np.mean(levels_felt)) if SKILL_LEVEL else 0.0)
+            elif CPG_WP_MEAN:                                             # the turn it felt over the trial, and level
                 R = -abs(float(np.mean(felt_turn)) - float(aim[0])) - (float(np.mean(levels_felt)) if SKILL_LEVEL else 0.0)
             ms = wp_stats.setdefault(task, [R, 0.0, 0])
             ms[2] += 1
             if ms[2] > 10:
                 dzt = float(np.clip((R - ms[0]) / np.sqrt(ms[1] + 1e-12), -3.0, 3.0))
                 kept_qc += CPG_WP_RATE * dzt * wp
-                qc = float(np.linalg.norm(kept_qc))
-                if qc > CPG_WP_MAX * map_size:
-                    kept_qc *= CPG_WP_MAX * map_size / qc
+                grp = slice(0, 2 * CPG_N) if kind == "turn" else slice(2 * CPG_N, 4 * CPG_N)   # turning and walking
+                qc = float(np.linalg.norm(kept_qc[:, grp]))                # sets are capped separately, so walking
+                if qc > CPG_WP_MAX * map_size:                             # cannot shrink the learned turning
+                    kept_qc[:, grp] *= CPG_WP_MAX * map_size / qc
             ms[0] += 0.05 * (R - ms[0])
             ms[1] += 0.05 * ((R - ms[0]) ** 2 - ms[1])
             brain.Qc = kept_qc
@@ -1536,11 +1565,11 @@ def practice_skills(body, brain, minutes, rng, log, label):
                     levels[key] = max(lo, levels[key] / 1.25)
                 recent[key] = []
         if (n + 1) % int(5 * 60 / SKILL_TRIAL_S) == 0 or n == trials - 1:
-            by = {k: [w[1] for w in window if w[0] == k] for k in ("tilt", "weight", "lift", "joint", "still", "turn")}
+            by = {k: [w[1] for w in window if w[0] == k] for k in ("tilt", "weight", "lift", "joint", "still", "turn", "walk")}
             up = float(np.mean([w[2] for w in window]))
             qsize = float(np.linalg.norm(brain.Q)) / max(map_size, 1e-12)
-            qcsize = [float(np.linalg.norm(brain.Qc[:, :CPG_N])) / max(map_size, 1e-12),
-                      float(np.linalg.norm(brain.Qc[:, CPG_N:])) / max(map_size, 1e-12)] if brain.cpg is not None else None
+            qcsize = [float(np.linalg.norm(brain.Qc[:, k * CPG_N:(k + 1) * CPG_N])) / max(map_size, 1e-12)
+                      for k in range(brain.Qc.shape[1] // CPG_N)] if brain.cpg is not None else None
             history.append({"minute": (n + 1) * SKILL_TRIAL_S / 60, "still_up": up, "Q_vs_map": qsize, "Qc_vs_map": qcsize,
                             "levels": dict(levels),
                             **{k: (float(np.median(v)) if v else None) for k, v in by.items()}})
@@ -1549,10 +1578,12 @@ def practice_skills(body, brain, minutes, rng, log, label):
                 f"{np.median(by['tilt']) if by['tilt'] else float('nan'):+.0%}, weight "
                 f"{np.median(by['weight']) if by['weight'] else float('nan'):+.0%}, lift a paw "
                 f"{np.median(by['lift']) if by['lift'] else float('nan'):+.0%}, turn "
-                f"{np.median(by['turn']) if by['turn'] else float('nan'):+.0%}, joint "
+                f"{np.median(by['turn']) if by['turn'] else float('nan'):+.0%}, walk "
+                f"{np.median(by['walk']) if by['walk'] else float('nan'):+.0%}, joint "
                 f"{np.median(by['joint']) if by['joint'] else float('nan'):+.0%}; still up at the end {up:.0%}; "
                 f"skill synapses {qsize:.2f} of the twitch map's size"
-                + ("" if qcsize is None else f"; rhythm synapses (left / right) {qcsize[0]:.2f} / {qcsize[1]:.2f}")
+                + ("" if qcsize is None else "; rhythm synapses (turn left / right" + (", walk fwd / back" if len(qcsize) > 2 else "")
+                   + ") " + " / ".join(f"{q:.2f}" for q in qcsize))
                 + ("" if not levels else "; steps (weight / lift, FL FR RL RR): "
                    + " ".join(f"{levels[f'weight {k}']:.2f}" for k in range(4)) + " / "
                    + " ".join(f"{levels[f'lift {k}']:.2f}" for k in range(4))))
@@ -1736,6 +1767,36 @@ def turn_eval(body, brain, log, rng, lives=30, seconds=3.0):
                             "se": float(drift.std(ddof=1) / np.sqrt(len(drift))), "up_frac": float(up.mean())}
     log(f"TURN EVAL nothing asked ({lives} fresh lives, same conditions): drifts {drift.mean():+.0%} +- "
         f"{drift.std(ddof=1) / np.sqrt(len(drift)):.0%} (SE) of a left turn (+ is left), up {up.mean():.0%}")
+    if brain.walk_line is not None:                                       # walking on request, same conditions
+        wl = brain.walk_line
+        for name, Qc in (("as learned", kept), ("rhythm synapses off", np.zeros_like(kept))):
+            brain.Qc = Qc
+            res = {}
+            for side, sign in (("forward", 1.0), ("back", -1.0), ("nothing asked", 0.0)):
+                sh, up = [], []
+                for _ in range(lives):
+                    body.reset("stand", rng)
+                    brain.fresh()
+                    if sign:
+                        brain.intention[wl] = -(WALK_ACC * sign - brain.mean[wl]) / np.sqrt(brain.var[wl] + 1e-6)
+                    p0, y0 = body.d.qpos[:2].copy(), body.yaw()
+                    noise = np.zeros(len(brain.motor))
+                    for _ in range(int(seconds / BRAIN_DT)):
+                        noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
+                        r = brain.step(body.feel(), SKILL_NOISE * BABBLE_SIZE * noise)
+                        body.step(np.clip(brain.command(r) + rng.uniform(-0.1, 0.1, J), -1.0, 1.0))
+                    brain.intention[:] = 0.0
+                    fwd = float((body.d.qpos[:2] - p0) @ np.array([np.cos(y0), np.sin(y0)]))
+                    sh.append(fwd / (WALK_V * seconds))                   # + is forward, as a share of the asked walk
+                    up.append(is_up(body))
+                sh, up = np.array(sh), np.array(up)
+                res[side] = {"share_forward": sh.tolist(), "up": up.tolist(), "mean": float(sh.mean()),
+                             "se": float(sh.std(ddof=1) / np.sqrt(len(sh))), "up_frac": float(up.mean())}
+            out[f"walk, {name}"] = res
+            log(f"TURN EVAL walk, {name} ({lives} lives each; distance along its heading as a share of {WALK_V:g} m/s x "
+                f"{seconds:g} s, + is forward): " + "; ".join(f"{k} {v['mean']:+.0%} +- {v['se']:.0%}, up {v['up_frac']:.0%}"
+                                                            for k, v in res.items()))
+        brain.Qc = kept
     grav = 4 * J + 4 + np.arange(3)                                       # retention: tilt on request, same conditions
     tilt = {}
     for name, (roll, pitch) in {"roll left": (0.25, 0.0), "roll right": (-0.25, 0.0), "nose down": (0.0, 0.25),
@@ -1942,6 +2003,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--walk", action="store_true",
+                    help="with --cpg --accel: walk forward/back on request (rhythm synapses per direction, felt speed)")
     ap.add_argument("--accel", action="store_true",
                     help="on the ground: the IMU's accelerometer as three appended nerves (resumed brains grow them)")
     ap.add_argument("--still_trial", action="store_true",
@@ -2081,6 +2144,10 @@ def main():
         ground_after = ground_tests(body, brain, log, label + f", after {args.minutes:g} min of babbling", None) if args.ground and not args.reflex else None
         practised = None
         if args.cpg:
+            if args.walk:
+                if not body.accel:
+                    raise SystemExit("--walk needs --accel (the request and its felt speed live on the accelerometer)")
+                brain.walk_line = 4 * len(body.joint) + 10
             brain.cpg_init(np.random.default_rng(5000 + dog))
             brain.turn_line = 4 * len(body.joint) + 9
             rate, share, silent = cpg_check(brain, log)
