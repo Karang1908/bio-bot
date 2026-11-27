@@ -7245,6 +7245,30 @@ as §6.63, then the same support check (seeds 1700+, the same lives).
 - dog 2 brain: no-help mean > 6 s, ≥ 5/20 up;
 - dog 1 brain: help 0.25 ≥ 15/20.
 
+### 6.65 Dog walking premise: random walk-forward rhythm synapses almost never move it forward (27 Nov)
+
+`babble-walkfeas1` (`6389fae`, `--walk_feasibility`) uses the walk1 dog 1 brain.
+- **Setup:** random synapses only in the walk-forward set (the learned turning sets kept), asked to walk forward 3 s.
+  Score: distance along the starting heading as a share of 0.3 m/s × 3 s.
+
+| size × the map | forward median | best forward (up) | best either way (up) | ≥30% forward and up | still up |
+|---|---|---|---|---|---|
+| 0 (10 draws) | −11% | −11% | 11% | 0% | 100% |
+| 1 | −12% | −9% | 13% | 0% | 100% |
+| **2 (the cap)** | −11% | **0%** | 16% | 0% | 91% |
+| 4 | −4% | +38% | 38% | 2% | 21% |
+
+**Results:**
+- Unlike turning (best 37% at 2 ×, §6.43), random rhythm patterns within the cap never move the dog forward.
+- At 4 × a forward walk appears in 2 of 100 draws, but 79% of draws topple it.
+- This is why walk1 stayed flat (§6.57): there was almost nothing within reach to find.
+
+**Believed, not measured:** forward walking needs coordinated leg phases, which a random mapping from 4 rhythm neurons
+rarely gives.
+
+**Status:** dog walking is parked. Fixing it means changing how the rhythm reaches the legs (a design question), not
+more practice. The owner's current priority is the humanoid (27 Nov).
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
