@@ -1928,6 +1928,47 @@ def cpg_trace(body, brain, log, rng, size=0.5, seconds=3.0):
     return out
 
 
+def walk_feasibility(body, brain, log, rng, scales=(0.0, 1.0, 2.0, 4.0), samples=100, seconds=3.0):
+    """Premise check for walking, no learning: random synapses in the walk-forward set only (the learned turning sets
+    kept), of each size (x the map), asked to walk forward for 3 s; distance along the starting heading as a share of
+    0.3 m/s x 3 s. A sign flip of a rhythm set is the same gait half a cycle later, so direction is not mirrored: report
+    the signed forward share and how far it travels either way."""
+    J = len(body.joint)
+    brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    map_size = float(np.linalg.norm(brain.map)) / brain.reflex_scale
+    brain.reflex = SKILL_REFLEX
+    settle_reflex(body, brain)
+    kept = brain.Qc.copy()
+    fwd = slice(2 * CPG_N, 3 * CPG_N)
+    out = {}
+    for sc in scales:
+        sh, up = [], []
+        for _ in range(samples if sc > 0 else 10):
+            Qc = kept.copy()
+            r_ = rng.standard_normal((len(brain.motor), CPG_N))
+            Qc[:, fwd] = r_ * (sc * map_size / np.linalg.norm(r_)) if sc > 0 else 0.0
+            brain.Qc = Qc
+            body.reset("stand")
+            brain.fresh()
+            p0, y0 = body.d.qpos[:2].copy(), body.yaw()
+            intend(body, brain, {brain.walk_line: WALK_ACC}, seconds)
+            sh.append(float((body.d.qpos[:2] - p0) @ np.array([np.cos(y0), np.sin(y0)])) / (WALK_V * seconds))
+            up.append(is_up(body))
+        sh, up = np.array(sh), np.array(up)
+        res = {"share_forward": sh.tolist(), "up": up.tolist(), "median": float(np.median(sh)),
+               "best_forward_up": float((sh * up).max()), "best_either_up": float((np.abs(sh) * up).max()),
+               "frac_fwd_ge_30_up": float(np.mean((sh >= 0.3) & up)), "frac_either_ge_30_up": float(np.mean((np.abs(sh) >= 0.3) & up)),
+               "up_frac": float(up.mean())}
+        out[f"{sc:g}"] = res
+        log(f"WALK FEASIBILITY size {sc:g} of the map ({len(sh)} random draws in the walk-forward set): forward share median "
+            f"{res['median']:+.0%}, best forward (up) {res['best_forward_up']:+.0%}, best either way (up) "
+            f"{res['best_either_up']:.0%}; >=30% forward and up {res['frac_fwd_ge_30_up']:.0%}, >=30% either way and up "
+            f"{res['frac_either_ge_30_up']:.0%}; still up {res['up_frac']:.0%}")
+    brain.Qc = kept
+    brain.reflex = 0.0
+    return out
+
+
 def cpg_feasibility(body, brain, log, rng, scales=(0.0, 0.01, 0.03, 0.1, 0.3, 0.5), samples=100, seconds=3.0):
     """Premise check, no learning: can the grown rhythm turn this body at all? For each size (norm of the rhythm-to-motor
     synapses as a share of the map's size; 0.5 is the cap learning is held to), draw random synapses, ask for a left turn
@@ -2003,6 +2044,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--walk_feasibility", action="store_true",
+                    help="with --walk: premise check, can random walk-forward rhythm synapses move the body forward at all?")
     ap.add_argument("--walk", action="store_true",
                     help="with --cpg --accel: walk forward/back on request (rhythm synapses per direction, felt speed)")
     ap.add_argument("--accel", action="store_true",
@@ -2164,6 +2207,9 @@ def main():
         if args.cpg and args.cpg_trace:
             practised = {"cpg_trace": {f"{sz:g}": cpg_trace(body, brain, log, np.random.default_rng(6100 + dog), size=sz)
                                        for sz in (0.1, 0.5)}}
+            args.skills = 0.0
+        if args.cpg and args.walk and args.walk_feasibility:
+            practised = {"walk_feasibility": walk_feasibility(body, brain, log, np.random.default_rng(6200 + dog))}
             args.skills = 0.0
         if args.cpg and args.cpg_feasibility:
             practised = {"cpg_feasibility": cpg_feasibility(body, brain, log, np.random.default_rng(6000 + dog),
