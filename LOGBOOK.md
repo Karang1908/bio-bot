@@ -7219,6 +7219,32 @@ Also, does the brain alone (no wobble, no added variation) knock it over?
 
 **Next `babble-g1balance2`:** resumes g1balance1 for +120 min with 5 s trials, then the same support check.
 
+### 6.64 Longer balance trials: the humanoid's balance keeps improving; first 10 s stand with no help (27 Nov)
+
+`babble-g1balance2` (`61fe4a1`) resumes g1balance1 for +120 min of G1 balance practice with **5 s trials**, otherwise
+as §6.63, then the same support check (seeds 1700+, the same lives).
+
+**Practice:** with 5 s trials the parent's help settles at an honest level, 0.23–0.27 (dog 1 brain) and 0.18–0.25 (dog
+2 brain), not 0.05; up at the end 65–82% of trials. The G1's skill synapses reach 0.03 of its map.
+
+**Support check, the same 20 lives as before:**
+
+| | before practice | +60 min (2 s trials) | +120 min (5 s trials) |
+|---|---|---|---|
+| dog 1 brain, no help: stayed up | 1.26 s (median) | 2.07 s | **2.77 ± 0.22 s** (median 2.44, max 5.26), 0/20 |
+| dog 2 brain, no help: stayed up | 1.42 s | 3.00 s | **4.48 ± 0.47 s** (median 4.03, max 10.0), **1/20 up at 10 s** |
+| dog 1 brain, help 0.25: up at 10 s | 0/20 | 5/20 | **9/20** (8.33 ± 0.48 s) |
+| dog 2 brain, help 0.25: up at 10 s | 0/20 | 10/20 | **18/20** (9.76 ± 0.20 s) |
+
+**Results:**
+- The humanoid's balance keeps improving in the same brain.
+- With dog 2's brain, the G1 stood the full 10 s with no help in 1 of 20 lives.
+- Learning is slow: the skill synapses are 0.03 of the map, against 0.4 in the trained dog.
+
+**Next:** `babble-g1balance3`, +240 min at the same settings. Prediction:
+- dog 2 brain: no-help mean > 6 s, ≥ 5/20 up;
+- dog 1 brain: help 0.25 ≥ 15/20.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
