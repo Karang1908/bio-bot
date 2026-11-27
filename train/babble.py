@@ -32,6 +32,7 @@ import numpy as np
 
 MENAGERIE_URL = "https://github.com/google-deepmind/mujoco_menagerie.git"
 MENAGERIE_COMMIT = "367e3d9884401dcf6f9c27fa69f118992539039f"
+GENOME_FLY = 20261128    # the fly's wiring (grown after the G1's, 28 Nov)
 GENOME_G1 = 20261127     # the G1's wiring: which copied neurons it reaches (grown when the humanoid arrives, 27 Nov)
 COPY_NOISE = 0.1         # a copied neuron's synapses: the template's, each x (1 + 0.1 N(0,1)), clipped to keep its sign
 SLOT_KEYS = ("sense", "motor", "drives", "push", "n_motors", "fibre_neuron", "fibre_gain", "fibre_col", "intention",
@@ -50,6 +51,8 @@ HELD_AT = 0.6            # m: the trunk is held in the air at this height, as a 
 REPOSITION_S = 15.0      # s: on the ground, a parent sets the dog down somewhere new this often (as babies get moved)
 POSES = ("stand", "belly", "left_side", "right_side")
 FOOT_LOADED_N = 5.0      # N: a foot counts as bearing weight above this (the dog weighs ~150 N)
+G1_SET_SPEED = 4.0       # rad/s: the G1's set-point speed inside grown-brain runs. It was the unset default (4) in every
+                         # G1 learning run (g1babble1 .. g1balance4); --body g1 runs used --set_speed (9). §6.68
 G1_TRIAL_S = 2.0         # s: a G1 balance trial (--g1_trial_s). Unhelped it falls in ~2 s, so a 2 s trial counted a
                          # fall already under way as a success (g1balance1, §6.63)
 G1_HELP_START = 0.5      # balance practice starts with the parent carrying half (it always stays up at 0.5, §6.62)
@@ -764,7 +767,7 @@ def babble(body, brain, minutes, rng, log, label, diag=None, held=False):
     for t in range(steps):
         if not body.held and t % every == 0:
             pose = POSES[rng.integers(len(POSES))] if body.kind == "go2" else "stand"
-            body.support = 0.0 if body.kind == "go2" else G1_BABBLE_HELP   # the G1 cannot stand yet: always held up
+            body.support = G1_BABBLE_HELP if body.kind == "g1" else 0.0     # the G1 cannot stand yet: always held up
             if held and rng.random() < HELD_BABBLE_SHARE:
                 pose = "stand"
                 body.support = HELD_BABBLE_HELP
@@ -2363,6 +2366,9 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--grow_fly", action="store_true",
+                    help="with --grow_g1: grow the fly's own sensory and motor neurons by copying, after the G1's")
+    ap.add_argument("--fly_babble", type=float, default=0.0, help="with --grow_fly: minutes of babbling in the fly")
     ap.add_argument("--g1_trial_s", type=float, default=2.0, help="length of a G1 balance trial (s)")
     ap.add_argument("--g1_balance", type=float, default=0.0,
                     help="with --grow_g1: minutes of balance practice in the G1 (reward, fading parent's help)")
@@ -2493,7 +2499,7 @@ def main():
         print("DONE", flush=True)
         return
     results = []
-    g1_body = None
+    g1_body = fly_body = None
     for dog in range(args.dogs):
         brain = Brain(core, len(body.feel()), len(body.joint), np.random.default_rng(GENOME))     # same genome
         if body.tone:
@@ -2524,9 +2530,12 @@ def main():
             explored = babble(body, brain, args.minutes, np.random.default_rng(1000 + dog), log, label, diag,
                               held=bool(args.held_babble))
         g1_results = {}
+        if args.grow_fly and not args.grow_g1:
+            raise SystemExit("--grow_fly is grown after the G1 (neuron order); use it with --grow_g1")
         if args.grow_g1:                                                  # the humanoid arrives: grow its periphery
             g1 = g1_body or Body(fetch_model(Path(tempfile.gettempdir()), "unitree_g1"), held=False, tone=True,
                                  leak=bool(args.leak), accel=bool(args.accel))
+            g1.set_speed = G1_SET_SPEED                                   # explicit: what every G1 run so far used
             g1_body = g1
             n_s, n_m, n_syn = brain.grow_body("g1", len(g1.feel()), len(g1.joint), np.random.default_rng(GENOME_G1))
             log(f"[{label}] grew the G1's periphery by copying: {n_s} sensory neurons ({len(g1.feel())} nerves x "
@@ -2534,6 +2543,24 @@ def main():
                 f"{brain.N} neurons. The dog's neurons, wiring and learned parts are unchanged.")
             if args.resume and load_body_parts(brain, found[0], "g1"):
                 log(f"[{label}] restored what it learned in the G1 from {found[0]}")
+            if args.grow_fly:                                             # the fly arrives too (after the G1, so every
+                fly = fly_body or Body(fetch_model(Path(tempfile.gettempdir()), "flybody"), held=False, tone=True,
+                                       leak=bool(args.leak), accel=bool(args.accel))     # earlier neuron keeps its index)
+                fly.leak_s, fly.set_speed = float(args.leak_s), float(args.set_speed)
+                fly_body = fly
+                n_s, n_m, n_syn = brain.grow_body("fly", len(fly.feel()), len(fly.joint), np.random.default_rng(GENOME_FLY))
+                log(f"[{label}] grew the fly's periphery by copying: {n_s} sensory neurons ({len(fly.feel())} nerves x "
+                    f"{NERVE_FIBRES}), {n_m} motor neurons ({len(fly.joint)} motors), {n_syn} copied synapses; brain now "
+                    f"{brain.N} neurons. The dog's and the G1's neurons, wiring and learned parts are unchanged.")
+                if args.resume and load_body_parts(brain, found[0], "fly"):
+                    log(f"[{label}] restored what it learned in the fly from {found[0]}")
+                if args.fly_babble:                                       # the same brain, plugged into the fly
+                    brain.use("fly")
+                    brain.adapting, brain.adapt_var, brain.reflex = True, True, 0.0
+                    babble(fly, brain, args.fly_babble, np.random.default_rng(2500 + dog), log, label + ", in the fly")
+                    brain.adapting = False
+                    brain.use("go2")
+                    log(f"[{label}] back in the dog after babbling in the fly")
             if args.g1_babble:                                            # the same brain, plugged into the humanoid
                 brain.use("g1")
                 brain.adapting, brain.adapt_var, brain.reflex = True, True, 0.0
