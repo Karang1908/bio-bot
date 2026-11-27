@@ -7129,6 +7129,33 @@ again).
 **Next:** can the G1's own reflexes (−map^T from its new map) keep it standing longer than the 2.2 s it lasts with no
 brain (§6.58)?
 
+### 6.61 The G1's own reflexes do not hold it up; the running brain makes it fall faster (27 Nov)
+
+`babble-g1reflex1` (`8818dcc`, `--g1_reflex`) uses the g1babble1 brains (G1 parts restored after a wiring check).
+- **Setup:** brain plugged into the G1, no hands, ±0.1 wobble, practice-level motor variation, 20 lives × 10 s per
+  reflex strength (−map^T from its learned G1 map).
+
+| | stayed up, median (dog 1 brain / dog 2 brain) | up at 10 s |
+|---|---|---|
+| no brain (§6.58) | 2.18 s | 0% |
+| brain on, reflexes ×0 | 1.38 / 1.24 s | 0% |
+| ×0.125 | 1.29 / 1.50 s | 0% |
+| ×0.25 | 1.14 / 1.30 s | 0% |
+| ×0.5 | 0.97 / 1.08 s | 0% |
+| ×1 | 0.49 / 0.68 s | 0% |
+
+**Results:**
+- The running brain alone shortens standing (about 1.3 s vs 2.2 s); its spontaneous motor activity adds to the wobble.
+- Stronger reflexes topple it faster.
+- The dog's twitch-tuned reflex (each joint opposes its own felt change) does not balance a biped.
+
+**Believed, not measured:** an inverted pendulum needs coordinated ankle/hip corrections driven by trunk tilt.
+
+**Conclusion:** the G1 must learn balance by reward with fading hands.
+
+**Next (measure):** how much hand support it needs to stay up with the brain on, the starting point of the fading.
+Also, does the brain alone (no wobble, no added variation) knock it over?
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
