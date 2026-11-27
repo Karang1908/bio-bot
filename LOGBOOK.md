@@ -7113,6 +7113,22 @@ seeds 9100+, compared entry by entry with `babble-accelcheck1` (the same run wit
 parent's hands (it cannot stand alone, §6.58). Then back in the dog for the same evaluation (expected bit-identical
 again).
 
+### 6.60 H3: the same brain learns the humanoid's body map in under 5 minutes; the dog stays bit-identical (27 Nov)
+
+`babble-g1babble1` (`9efa861`): CHECK-ALPHA brains (stilltrial2) with `--accel --grow_g1 --g1_babble 30`.
+- **Setup:** the brain is plugged into the G1 (its own slot) and babbles 30 min, held up by a parent's hands (support
+  1.0; standing set-downs with the reset's ±0.2 rad variation every 15 s). Then it goes back to the dog for `--turn_eval`
+  (seeds 9100+).
+- **G1 body map:** right joint and right joint + direction **100% / 100%** (chance 3% / 2%). Dog 2 is there by 5 min,
+  dog 1 by 10 min. Range explored 74–75% (least 48–49%); limits felt 22–23 of 58.
+- **The dog afterwards:** 0 differing entries from accelcheck1 for both dogs. Learning the humanoid left the dog's
+  skills exactly as they were.
+- **Saved:** `brain_dog{1,2}.npz` now carry `g1_map` (370 × 2,032), `g1_mean`, `g1_var`, `g1_seen`, the G1's wiring
+  (`g1_drives`, `g1_push`, `g1_fibre_neuron`, `g1_fibre_gain`) and `g1_motor_baseline`.
+
+**Next:** can the G1's own reflexes (−map^T from its new map) keep it standing longer than the 2.2 s it lasts with no
+brain (§6.58)?
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
