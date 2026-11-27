@@ -7050,6 +7050,45 @@ trunk-frame rotation). So the dopamine should track walking.
 **Next: the physical premise.** Can random walk-forward rhythm synapses (1, 2, 4 × the map) move the dog forward at all?
 Run `babble-walkfeas1` (`6389fae`).
 
+### 6.58 CHECK-ALPHA saved; the humanoid begins: the G1 stands only as a statue and falls within ~2 s under the wobble (27 Nov)
+
+**CHECK-ALPHA (owner, 27 Nov):** the folder `CHECK-ALPHA/` freezes the code, the learned weights (stilltrial2, the
+established best, plus walk1), the connectome core and the evidence logs, with a README and SHA-256 hashes. The `.npz`
+weights stay on disk (git-ignored) and are hosted as Kaggle outputs. Everything else is committed.
+
+**Owner, 27 Nov:** "take the exact same brain right now, with the brain that has half learned the dog, and teach it the
+human robot." The agreed target is the Unitree G1 (DogMind.md, TechnicalDesign.md): MuJoCo Menagerie, the same pinned
+commit as the Go2, 29 position actuators (kp 500), floating pelvis, `stand` keyframe.
+
+**Plan (Embodiogenesis.md §2.4):** grow the G1's periphery by copying cell types.
+- **Sensory copies** keep only their template's outgoing synapses; the G1's nerves feed them.
+- **Motor copies** keep only their template's incoming synapses; they drive the G1's motors.
+- **Learned parts:** the G1 gets its own map, Q and rhythm synapses. The central brain and the pattern generator are
+  shared.
+- **Why copies:** without the G1 plugged in, the copies are silent or drive nothing, so the dog should be bit-identical.
+  Reusing the dog's neurons would overwrite its learned parts, and only 291 of 1,219 sensory neurons are free against
+  about 2,000 needed.
+
+**H1, body (`bb2e0df`, `--body g1`):**
+- The position servo is the muscle and the brain moves its set point (leaky set points as for the dog).
+- Two feet (the ankle-roll links' contact spheres). Up means pelvis > 0.60 m, upright, ≥ 1 foot loaded.
+- Dog defaults are unchanged.
+
+**H1 check `babble-g1stand1` (`--g1_stand`, no brain, 10 s, set points leak over 0.5 s, set speed 9 rad/s):**
+
+| | up at the end | stayed up, median (min) | pelvis at the end |
+|---|---|---|---|
+| joints held still (1 life, deterministic) | 100% | 10 s | 0.79 m |
+| ±0.1 motor wobble (20 lives) | **0%** | **2.18 s** (1.24) | 0.06 m |
+| set-down ±0.05 rad + wobble (20 lives) | **0%** | **1.41 s** (0.98) | 0.06 m |
+
+**Result:** unlike the dog, the G1 cannot stand passively under the standing ±0.1 wobble. It falls in about 2 s.
+Balance is its first lesson.
+
+**Next:**
+- **H2:** grow the G1 periphery by copying; check the dog stays bit-identical.
+- **H3:** G1 babbling with the parent's hands (support that fades), as the dog did.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
