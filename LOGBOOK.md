@@ -7292,6 +7292,33 @@ the same brains and seeds:
 - `babble-g1balance4b`: +180 min at rate 3.6e-5 (3×).
 - Then the same support check.
 
+### 6.67 Learning-rate A/B for G1 balance: 3× is worse, 1× has plateaued; test the command-interface premise (28 Nov)
+
+`babble-g1balance4a` (rate 1.2e-5) and `babble-g1balance4b` (3.6e-5) both resume g1balance3 for +180 min with the same
+seeds, then the same support check (the same 20 lives).
+- A first launch of this A/B was broken: zsh did not word-split `$arm`, so the jobs got `skill_rate=''` and job names
+  with a space. Relaunched with explicit values; the pushed job arguments were verified.
+
+| | parent g1balance3 | 1× (4a) | 3× (4b) |
+|---|---|---|---|
+| dog 1 brain, no help: stayed up | 4.82 s | 4.40 ± 0.36 s (−0.7 SE vs parent) | **2.43 ± 0.22 s** (−4.7 SE vs 1×) |
+| dog 2 brain, no help | 3.65 s | 4.77 ± 0.48 s (+1.8 SE) | **1.17 ± 0.06 s** (−7.5 SE) |
+| dog 1 brain, help 0.25: up | 18/20 | 15/20 | 20/20 (+2.2 SE) |
+| dog 2 brain, help 0.25: up | 19/20 | 19/20 | **14/20** (−4.2 SE) |
+
+- **Practice:** skill synapses 0.07 (1×) vs 0.11–0.14 (3×); felt tilt 0.81–0.87 vs 1.13–1.15.
+- **Results:** a faster rate harms (noisier updates). At 1× the unassisted standing time is flat (about 4–5 s) over this
+  round and the previous one for dog 2's brain.
+- **Two flat rounds:** stop tuning and test the premise.
+
+**Premise to test (hypothesis):** the brain commands each joint's set-point *velocity*. That is integral control, which
+cannot catch a falling inverted pendulum; it needs a correction proportional to the lean, at once. The dog is
+statically stable, so it never mattered there.
+
+**Test `--g1_interface` (physics diagnostic only, never in the brain):** a simple feedback from the trunk tilt the
+inner ear feels, under the same ±0.1 wobble, applied either through the set-point velocity (the brain's interface) or
+as direct set-point position offsets. Sweep gains and signs.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
