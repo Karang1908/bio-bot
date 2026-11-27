@@ -18,6 +18,7 @@ Measured (truth known only to the test, never to the brain):
 Kaggle CPU:  scripts/kaggle_job.py push babble --machine CPU --dataset bio-bot-cores
 """
 JOB_ARGS: dict = {}   # filled in by scripts/kaggle_job.py
+EMBEDDED: dict = {}   # repo files shipped inside the job (--embed), e.g. world/scale.py for the fly
 
 import argparse
 import json
@@ -52,6 +53,7 @@ G1_TRIAL_S = 2.0         # s: a G1 balance trial (--g1_trial_s). Unhelped it fal
                          # fall already under way as a success (g1balance1, §6.63)
 G1_HELP_START = 0.5      # balance practice starts with the parent carrying half (it always stays up at 0.5, §6.62)
 G1_BABBLE_HELP = 1.0     # the G1 babbles in a parent's hands that carry its weight (it falls in ~2 s alone, §6.58)
+FLY_FOOT_LOADED_N = 0.3  # N: the enlarged fly weighs ~10 N on six feet (~1.6 N each); a foot bears weight above this
 G1_UP_HEIGHT = 0.60      # m: the G1's pelvis above this counts as up (it stands at 0.79)
 STANDING_HEIGHT = 0.16   # m: trunk above this counts as up on its legs (measured: lying 0.07-0.14; with tone it stands at 0.19)
 # --tone: muscle tone. Each joint springs toward a set point (the Go2's standard stiffness and damping); the motor
@@ -196,6 +198,20 @@ def fetch_model(root: Path, folder: str) -> Path:
     return d / folder
 
 
+def scale_module():
+    """The project's dimensional scaling (world/scale.py): shipped inside the job, or from the repo when local."""
+    import importlib.util
+    if "scale.py" in EMBEDDED:
+        path = Path(tempfile.gettempdir()) / "bio_bot_scale.py"
+        path.write_bytes(__import__("base64").b64decode(EMBEDDED["scale.py"]))
+    else:
+        path = Path(__file__).resolve().parent.parent / "world" / "scale.py"
+    spec = importlib.util.spec_from_file_location("bio_bot_scale", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def fetch_go2(root: Path) -> Path:
     return fetch_model(root, "unitree_go2")
 
@@ -283,22 +299,49 @@ class Body:
         self.accel = accel                         # --accel: the IMU's accelerometer (trunk frame), appended nerves
         self._acc, self._v_prev = np.zeros(3), None
         self.mj = mujoco
-        self.kind = "g1" if (go2 / "g1.xml").exists() else "go2"         # --body g1: the humanoid
-        self.m = mujoco.MjModel.from_xml_path(str(go2 / "scene.xml"))
+        self.kind = "fly" if (go2 / "fruitfly.xml").exists() else "g1" if (go2 / "g1.xml").exists() else "go2"
+        if self.kind == "fly":                     # flybody (cm-g-s) enlarged 100x by dimensional scaling, as in the
+            sc = scale_module()                    # world (TechnicalDesign: ~1 kg, 1 ms step); fluid drag off
+            spec = mujoco.MjSpec.from_file(str(go2 / "scene.xml"))
+            sc.scale_spec(spec, *sc.cgs_to_si_factors(100.0))
+            spec.option.timestep = 0.001
+            spec.option.gravity = [0.0, 0.0, -9.81]
+            spec.option.density, spec.option.viscosity = 0.0, 0.0
+            self.m = spec.compile()
+        else:
+            self.m = mujoco.MjModel.from_xml_path(str(go2 / "scene.xml"))
         self.d = mujoco.MjData(self.m)
         self.subs = max(1, round(BRAIN_DT / self.m.opt.timestep))
-        self.joint = [int(self.m.actuator_trnid[a, 0]) for a in range(self.m.nu)]       # the joint each motor turns
+        if self.kind == "fly":                     # the brain drives its position-servo joints (legs, head, mouthparts);
+            self.act = np.array([a for a in range(self.m.nu)          # wings, tendons and adhesion stay passive for now
+                                 if self.m.actuator_trntype[a] == mujoco.mjtTrn.mjTRN_JOINT
+                                 and self.m.actuator_biastype[a] == mujoco.mjtBias.mjBIAS_AFFINE])
+        else:
+            self.act = np.arange(self.m.nu)
+        self.joint = [int(self.m.actuator_trnid[a, 0]) for a in self.act]       # the joint each motor turns
         self.qadr = np.array([self.m.jnt_qposadr[j] for j in self.joint])
         self.vadr = np.array([self.m.jnt_dofadr[j] for j in self.joint])
         self.lo, self.hi = self.m.jnt_range[self.joint, 0].copy(), self.m.jnt_range[self.joint, 1].copy()
-        self.tmax = self.m.actuator_ctrlrange[:, 1].copy()
+        self.tmax = self.m.actuator_ctrlrange[self.act, 1].copy()
+        unlimited = ~self.m.jnt_limited[self.joint].astype(bool)
+        self.lo[unlimited], self.hi[unlimited] = -np.pi, np.pi
         self.names = [self.m.joint(j).name.replace("_joint", "") for j in self.joint]
         self.held = held
         self.tone = tone
         self.leak = leak
         self.leak_s = TONE_LEAK_S
         self.set_speed = SET_SPEED
-        if self.kind == "g1":                       # position servos (kp 500): the servo is the muscle, ctrl its set point
+        self.foot_loaded, self.floor = FOOT_LOADED_N, 0.0
+        if self.kind == "fly":                      # six feet (each leg's tarsus segments and claw); default pose stands
+            self.base = self.m.body("thorax").id
+            legs = [f"T{i}_{s}" for i in (1, 2, 3) for s in ("left", "right")]
+            self.feet = [{g for g in range(self.m.ngeom) if self.m.geom_contype[g] and
+                          self.m.body(int(self.m.geom_bodyid[g])).name.endswith(leg) and
+                          self.m.body(int(self.m.geom_bodyid[g])).name.startswith(("tarsus", "claw"))} for leg in legs]
+            self.floor = float(self.m.geom("floor").pos[2])
+            self.key, self.min_feet, self.foot_loaded = None, 3, FLY_FOOT_LOADED_N
+            self.stand_height, self.up_height = 0.0, self.floor + 0.6 * (0.0 - self.floor)
+        elif self.kind == "g1":                     # position servos (kp 500): the servo is the muscle, ctrl its set point
             self.base = self.m.body("pelvis").id
             feet = [self.m.body(f).id for f in ("left_ankle_roll_link", "right_ankle_roll_link")]
             self.feet = [{g for g in range(self.m.ngeom) if self.m.geom_bodyid[g] == b and self.m.geom_contype[g]} for b in feet]
@@ -314,7 +357,10 @@ class Body:
 
     def reset(self, pose: str = "stand", rng=None):
         """Held: back in the parent's hands. On the ground: set down standing, on its belly, or on one side."""
-        self.mj.mj_resetDataKeyframe(self.m, self.d, self.m.keyframe(self.key).id)
+        if self.key is None:
+            self.mj.mj_resetData(self.m, self.d)                         # the fly: its default pose stands
+        else:
+            self.mj.mj_resetDataKeyframe(self.m, self.d, self.m.keyframe(self.key).id)
         self.d.xfrc_applied[:] = 0.0                                     # no hands left on it from before
         self._acc, self._v_prev = np.zeros(3), None
         if self.held:
@@ -363,8 +409,8 @@ class Body:
             self.d.ctrl[:] = np.clip(self.tmax * out, -self.tmax, self.tmax)
         for _ in range(self.subs):
             self.d.xfrc_applied[self.base] = self.hands() if self.support > 0 else 0.0
-            if self.tone and self.kind == "g1":
-                self.d.ctrl[:] = self.target                             # the position servo pulls toward it
+            if self.tone and self.kind in ("g1", "fly"):
+                self.d.ctrl[self.act] = self.target                      # the position servo pulls toward it
             elif self.tone:
                 pull = TONE_KP * (self.target - self.d.qpos[self.qadr]) - TONE_KD * self.d.qvel[self.vadr]
                 self.d.ctrl[:] = np.clip(pull, -self.tmax, self.tmax)
@@ -387,8 +433,9 @@ class Body:
         kz = mg / SUPPORT_SAG
         cz = np.sqrt(kz * self.mass)
         fz = np.clip(kz * (self.stand_height - self.d.qpos[2]) - cz * self.d.qvel[2], -mg, mg)
+        lever = self.stand_height - self.floor                 # how tall it stands above the floor
         R = self.d.xmat[self.base].reshape(3, 3)
-        kr = 2.0 * mg * self.stand_height                      # twice the tipping torque per radian of tilt
+        kr = 2.0 * mg * lever                                  # twice the tipping torque per radian of tilt
         cr = 2.0 * np.sqrt(kr * 0.1)
         w = R @ self.d.qvel[3:6]                               # trunk turning, world frame
         tq = kr * np.cross(R[:, 2], [0.0, 0.0, 1.0]) - cr * np.array([w[0], w[1], 0.0])
@@ -400,7 +447,7 @@ class Body:
     def feel(self):
         """What the joints' own sense organs report: angle, speed, effort, and the push-back at a limit. On the
         ground also: the pressure under each foot, and the inner ear."""
-        joints = [self.d.qpos[self.qadr], self.d.qvel[self.vadr], self.d.actuator_force, self.d.qfrc_constraint[self.vadr]]
+        joints = [self.d.qpos[self.qadr], self.d.qvel[self.vadr], self.d.actuator_force[self.act], self.d.qfrc_constraint[self.vadr]]
         if self.held:
             return np.concatenate(joints)
         lines = [*joints, self.touch(), self.gravity(), self.d.qvel[3:6]]
@@ -1144,7 +1191,7 @@ def intend(body, brain, targets, seconds):
 
 
 def is_up(body):
-    return bool(-body.gravity()[2] > 0.8 and body.d.qpos[2] > body.up_height and (body.touch() > FOOT_LOADED_N).sum() >= body.min_feet)
+    return bool(-body.gravity()[2] > 0.8 and body.d.qpos[2] > body.up_height and (body.touch() > body.foot_loaded).sum() >= body.min_feet)
 
 
 def reflex_tests(body, brain, log, label):
@@ -2194,7 +2241,7 @@ def g1_stand_check(body, log, rng, lives=20, seconds=10.0):
             ups.append(is_up(body)); times.append(stayed); heights.append(float(body.d.qpos[2]))
         out[name] = {"up": ups, "stayed_s": times, "height_end": heights, "up_frac": float(np.mean(ups)),
                      "median_stayed_s": float(np.median(times))}
-        log(f"G1 STAND {name} ({len(ups)} lives, {seconds:g} s, no brain): up at the end {np.mean(ups):.0%}; stayed up "
+        log(f"{body.kind.upper()} STAND {name} ({len(ups)} lives, {seconds:g} s, no brain): up at the end {np.mean(ups):.0%}; stayed up "
             f"median {np.median(times):.2f} s (min {np.min(times):.2f}); pelvis at the end median {np.median(heights):.2f} m")
     return out
 
@@ -2326,7 +2373,7 @@ def main():
                     help="with --grow_g1: minutes of babbling in the G1 (held up by a parent's hands)")
     ap.add_argument("--grow_g1", action="store_true",
                     help="grow the G1 humanoid's own sensory and motor neurons by copying (the dog stays unchanged)")
-    ap.add_argument("--body", default="go2", choices=("go2", "g1"), help="which body: the Go2 dog or the G1 humanoid")
+    ap.add_argument("--body", default="go2", choices=("go2", "g1", "fly"), help="which body: the Go2 dog, the G1 humanoid, the fly")
     ap.add_argument("--g1_stand", action="store_true", help="physics premise, no brain: can the G1 stay up with joints held?")
     ap.add_argument("--walk_feasibility", action="store_true",
                     help="with --walk: premise check, can random walk-forward rhythm synapses move the body forward at all?")
@@ -2414,9 +2461,10 @@ def main():
         print(msg, flush=True)
         lines_out.append(msg)
 
-    if args.body == "g1" and not (args.ground and args.tone):
-        raise SystemExit("--body g1 needs --ground and --tone (its joints are position servos)")
-    body = Body(fetch_model(Path(tempfile.gettempdir()), "unitree_g1" if args.body == "g1" else "unitree_go2"),
+    if args.body in ("g1", "fly") and not (args.ground and args.tone):
+        raise SystemExit(f"--body {args.body} needs --ground and --tone (its joints are position servos)")
+    folder = {"go2": "unitree_go2", "g1": "unitree_g1", "fly": "flybody"}[args.body]
+    body = Body(fetch_model(Path(tempfile.gettempdir()), folder),
                 held=not args.ground, tone=bool(args.tone), leak=bool(args.leak), accel=bool(args.accel) and bool(args.ground))
     body.leak_s = float(args.leak_s)
     body.set_speed = float(args.set_speed)
@@ -2428,7 +2476,7 @@ def main():
         if body.leak:
             where += (f", which relax back to the set-down posture over {body.leak_s:g} s (set points move up to "
                       f"{body.set_speed:g} rad/s, reach up to {body.set_speed * body.leak_s:g} rad)")
-    log(f"body: {'G1' if body.kind == 'g1' else 'Go2'}, {len(body.joint)} joints ({', '.join(body.names)}); {where}; {len(body.feel())} nerves; "
+    log(f"body: {dict(go2='Go2', g1='G1', fly='fly (flybody x100)')[body.kind]}, {len(body.joint)} joints ({', '.join(body.names)}); {where}; {len(body.feel())} nerves; "
         f"physics {body.subs} steps per brain step")
     log(f"brain: fly connectome, {len(core['role'])} neurons, {len(core['pre'])} connections; it is told nothing about the body")
     if args.g1_stand:
