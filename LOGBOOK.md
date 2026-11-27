@@ -7156,6 +7156,33 @@ brain (§6.58)?
 **Next (measure):** how much hand support it needs to stay up with the brain on, the starting point of the fading.
 Also, does the brain alone (no wobble, no added variation) knock it over?
 
+### 6.62 How much help the G1 needs: it always stays up at half the parent's help, never at a quarter (27 Nov)
+
+`babble-g1support1` (`0226201`, `--g1_support`) uses the g1babble1 brains in the G1.
+- **Setup:** brain on, reflexes ×0.125, ±0.1 wobble, practice-level variation, 20 lives × 10 s. The parent's hands
+  carry a share of the weight plus a level-restoring torque.
+
+| parent's help | up at 10 s (both brains) | stayed up, median (dog 1 / dog 2 brain) |
+|---|---|---|
+| 0 | 0% | 1.26 / 1.42 s |
+| 0.25 | 0% | 2.12 / 2.21 s |
+| **0.5** | **100%** | 10 / 10 s |
+| 0.75, 1 | 100% | 10 / 10 s |
+| brain alone, no wobble, no variation, no help (1 life) | 0% | 1.96 / 2.30 s |
+
+**Results:**
+- The threshold lies between 0.25 and 0.5 help, so balance practice starts at 0.5.
+- The brain's own resting output (no wobble, no variation) tips it over in about 2 s, while the joints held still
+  stand indefinitely (§6.58). Learning has to change the brain's own output, not only resist the wobble.
+
+**Next `babble-g1balance1` (`bc385ba`, `--g1_balance 60`):**
+- 60 min of balance practice: 2 s "stand still" trials, ±0.1 wobble, reflexes off.
+- The G1's skill synapses learn once per trial from the felt level over the trial, standardised (summed eligibility
+  × 1/√T).
+- The parent's help starts at 0.5: × 0.9 after ≥ 80% of 10 trials end up, otherwise × 1.1.
+- Then the same support check (paired, same seeds) to see whether less help is needed.
+- The pattern generator now runs only for a body that has a turn nerve (the G1 has none yet).
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
