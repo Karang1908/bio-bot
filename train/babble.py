@@ -2040,6 +2040,36 @@ def cpg_trace(body, brain, log, rng, size=0.5, seconds=3.0):
     return out
 
 
+def g1_reflex_stand(body, brain, log, rng, gains=(0.0, 0.125, 0.25, 0.5, 1.0), lives=20, seconds=10.0):
+    """Can the brain's own reflexes, from the map it learned in the G1, keep the G1 standing? Brain plugged into the G1,
+    no hands, the +-0.1 motor wobble and practice-level motor variation, at each reflex strength. Per life: how long it
+    stayed up. Compare: 2.2 s with no brain at all (§6.58)."""
+    J = len(body.joint)
+    brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    out = {}
+    for g in gains:
+        brain.reflex = g
+        settle_reflex(body, brain)
+        ups, times = [], []
+        for _ in range(lives):
+            body.reset("stand")
+            brain.fresh()
+            noise = np.zeros(len(brain.motor))
+            stayed = seconds
+            for t in range(int(seconds / BRAIN_DT)):
+                noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
+                r = brain.step(body.feel(), SKILL_NOISE * BABBLE_SIZE * noise)
+                body.step(np.clip(brain.command(r) + rng.uniform(-0.1, 0.1, J), -1.0, 1.0))
+                if stayed == seconds and not is_up(body):
+                    stayed = (t + 1) * BRAIN_DT
+            ups.append(is_up(body)); times.append(stayed)
+        out[f"x{g:g}"] = {"up": ups, "stayed_s": times, "up_frac": float(np.mean(ups)), "median_stayed_s": float(np.median(times))}
+        log(f"G1 REFLEX STAND own reflexes x{g:g} ({lives} lives, {seconds:g} s, no hands, +-0.1 wobble): up at the end "
+            f"{np.mean(ups):.0%}; stayed up median {np.median(times):.2f} s (min {np.min(times):.2f}, max {np.max(times):.2f})")
+    brain.reflex = 0.0
+    return out
+
+
 def g1_stand_check(body, log, rng, lives=20, seconds=10.0):
     """Physics premise for the humanoid, no brain: can the G1 stay up with its joints only held (position servos at the
     set-down posture, leaky set points as for the dog)? (a) held still; (b) with the +-0.1 motor wobble on every
@@ -2185,6 +2215,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--g1_reflex", action="store_true",
+                    help="with --grow_g1: can the brain's own reflexes from its G1 map keep the G1 standing (no hands)?")
     ap.add_argument("--g1_babble", type=float, default=0.0,
                     help="with --grow_g1: minutes of babbling in the G1 (held up by a parent's hands)")
     ap.add_argument("--grow_g1", action="store_true",
@@ -2353,6 +2385,10 @@ def main():
                 brain.adapting = False
                 brain.use("go2")
                 log(f"[{label}] back in the dog after babbling in the G1 (the G1's map and senses learned; the dog's untouched)")
+            if args.g1_reflex:                                            # can its new reflexes hold the G1 up?
+                brain.use("g1")
+                g1_reflex_stand(g1, brain, log, np.random.default_rng(1600 + dog))
+                brain.use("go2")
         diag_report = diagnose(body, brain, diag, log, label, out, dog + 1) if diag is not None else None
         ctx_report = ctx_diag(body, brain, log, label) if args.contexts else None
         scores = joint_scores(brain, body)
