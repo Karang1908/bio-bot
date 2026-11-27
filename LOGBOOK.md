@@ -7032,7 +7032,7 @@ lift, joint, still ×2, turn ×2, walk ×2.
 
 | | practice walk median (raw, includes the −10% drift) at 60 / 120 / 180 min | walk synapses fwd / back at 180 min | turn synapses |
 |---|---|---|---|
-| dog 1 | −10 / −15 / −7% | 0.67 / 0.6x | 1.41 / 1.42 (unchanged) |
+| dog 1 | −10 / −15 / −7% | 0.67 / 0.69 | 1.41 / 1.42 (unchanged) |
 | dog 2 | +10 / −13 / −4% | 0.71 / 0.66 | 1.34 / 1.49 (unchanged) |
 
 - **Not learned:** the walk scores stay at the baseline drift (−10%, §6.56).
