@@ -1,0 +1,57 @@
+body: Go2, 12 joints (FL_hip, FL_thigh, FL_calf, FR_hip, FR_thigh, FR_calf, RL_hip, RL_thigh, RL_calf, RR_hip, RR_thigh, RR_calf); free on the ground, with foot touch and an inner ear; set down somewhere new every 15 s; muscle tone (stiffness 20 N m/rad, damping 0.5), the brain moves the set points, which relax back to the set-down posture over 0.5 s (set points move up to 9 rad/s, reach up to 4.5 rad); 58 nerves; physics 10 steps per brain step
+brain: fly connectome, 7019 neurons, 502438 connections; it is told nothing about the body
+[dog 1/2] continuing the saved brain /kaggle/input/notebooks/karang1908/bio-bot-babble-stilltrial2/brain_dog1.npz (it has felt 150000 brain steps; skill synapses present)
+CPG check (driven, 9 s): 6.44 hand-overs/s, a full cycle every 0.62 s; share of time each neuron leads 26%/25%/24%/26%; silent 0%
+TURN EVAL as learned (30 fresh lives per side: varied set-down, +-0.1 wobble): left +27% +- 3% (SE), >=30% and up 9/30, up 83%; right +34% +- 2% (SE), >=30% and up 17/30, up 80%
+TURN EVAL rhythm synapses off (30 fresh lives per side: varied set-down, +-0.1 wobble): left +2% +- 1% (SE), >=30% and up 0/30, up 93%; right -0% +- 1% (SE), >=30% and up 0/30, up 100%
+TURN EVAL random, same size (30 fresh lives per side: varied set-down, +-0.1 wobble): left +6% +- 1% (SE), >=30% and up 0/30, up 90%; right +10% +- 2% (SE), >=30% and up 0/30, up 80%
+TURN EVAL nothing asked (30 fresh lives, same conditions): drifts +2% +- 1% (SE) of a left turn (+ is left), up 93%
+TURN EVAL retention, tilt 0.25 rad as asked (30 fresh lives each, same conditions): roll left +59% +- 10%, up 97%; roll right +131% +- 40%, up 90%; nose down +73% +- 6%, up 93%; nose up +81% +- 2%, up 100%
+[dog 1/2, after 30 min of babbling, own reflexes x0.125] set down standing, nothing asked, after 5 s: trunk 0.21 m, feet bearing weight 4/4, upright 1.00
+[dog 1/2, after 30 min of babbling, own reflexes x0.125] move one joint to one end: 14% of the way on average (0% of 24 reach 80%); other joints move 0.158 rad; still standing after 24/24
+[dog 1/2, after 30 min of babbling, own reflexes x0.125] tilt 0.25 rad as asked (roll left/right, nose down/up): +61%, +63%, +89%, +85% of the asked tilt
+[dog 1/2, after 30 min of babbling, own reflexes x0.125] more weight on one foot as asked (its share, before -> after 2 s): FL 26%->17%, FR 26%->33%, RL 24%->27%, RR 24%->42%
+[dog 1/2, after 30 min of babbling, own reflexes x0.125] lift one paw as asked (its force, before -> after 2 s): FL 42->22 N, FR 42->41 N, RL 39->13 N, RR 39->34 N
+[dog 1/2, after 30 min of babbling, own reflexes x0.125] turn as asked (0.5 rad/s for 3 s): left +26%, right +32% of the asked turn
+[dog 1/2, after 30 min of babbling, own reflexes x0.125] lying on its side, nothing asked, after 6 s up on its legs (upright, above 0.16 m, 3-4 feet): 0/8; trunk heights 0.15, 0.15, 0.14, 0.15, 0.14, 0.14, 0.14, 0.15
+  FL_hip    range -1.05..+1.05 rad; babbling reached -1.05..+1.05 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  FL_thigh  range -1.57..+3.49 rad; babbling reached -1.57..+3.49 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  FL_calf   range -2.72..-0.84 rad; babbling reached -2.72..-0.84 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  FR_hip    range -1.05..+1.05 rad; babbling reached -1.05..+1.05 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  FR_thigh  range -1.57..+3.49 rad; babbling reached -1.57..+3.49 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  FR_calf   range -2.72..-0.84 rad; babbling reached -2.72..-0.84 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  RL_hip    range -1.05..+1.05 rad; babbling reached -1.05..+1.05 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  RL_thigh  range -0.52..+4.54 rad; babbling reached -0.52..+4.54 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  RL_calf   range -2.72..-0.84 rad; babbling reached -2.72..-0.84 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  RR_hip    range -1.05..+1.05 rad; babbling reached -1.05..+1.05 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  RR_thigh  range -0.52..+4.54 rad; babbling reached -0.52..+4.54 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  RR_calf   range -2.72..-0.84 rad; babbling reached -2.72..-0.84 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+[dog 1/2] saved this brain as brain_dog1.npz
+[dog 2/2] continuing the saved brain /kaggle/input/notebooks/karang1908/bio-bot-babble-stilltrial2/brain_dog2.npz (it has felt 150000 brain steps; skill synapses present)
+CPG check (driven, 9 s): 6.44 hand-overs/s, a full cycle every 0.62 s; share of time each neuron leads 26%/25%/24%/26%; silent 0%
+TURN EVAL as learned (30 fresh lives per side: varied set-down, +-0.1 wobble): left +26% +- 3% (SE), >=30% and up 6/30, up 77%; right +14% +- 1% (SE), >=30% and up 0/30, up 80%
+TURN EVAL rhythm synapses off (30 fresh lives per side: varied set-down, +-0.1 wobble): left +9% +- 1% (SE), >=30% and up 0/30, up 83%; right -5% +- 1% (SE), >=30% and up 0/30, up 90%
+TURN EVAL random, same size (30 fresh lives per side: varied set-down, +-0.1 wobble): left +7% +- 2% (SE), >=30% and up 1/30, up 93%; right -16% +- 2% (SE), >=30% and up 0/30, up 93%
+TURN EVAL nothing asked (30 fresh lives, same conditions): drifts +9% +- 1% (SE) of a left turn (+ is left), up 93%
+TURN EVAL retention, tilt 0.25 rad as asked (30 fresh lives each, same conditions): roll left +42% +- 4%, up 100%; roll right +49% +- 4%, up 100%; nose down +58% +- 7%, up 93%; nose up +60% +- 6%, up 87%
+[dog 2/2, after 30 min of babbling, own reflexes x0.125] set down standing, nothing asked, after 5 s: trunk 0.19 m, feet bearing weight 4/4, upright 1.00
+[dog 2/2, after 30 min of babbling, own reflexes x0.125] move one joint to one end: 17% of the way on average (0% of 24 reach 80%); other joints move 0.231 rad; still standing after 24/24
+[dog 2/2, after 30 min of babbling, own reflexes x0.125] tilt 0.25 rad as asked (roll left/right, nose down/up): +41%, +26%, +80%, +77% of the asked tilt
+[dog 2/2, after 30 min of babbling, own reflexes x0.125] more weight on one foot as asked (its share, before -> after 2 s): FL 26%->30%, FR 26%->15%, RL 24%->27%, RR 24%->32%
+[dog 2/2, after 30 min of babbling, own reflexes x0.125] lift one paw as asked (its force, before -> after 2 s): FL 42->37 N, FR 42->21 N, RL 39->25 N, RR 39->30 N
+[dog 2/2, after 30 min of babbling, own reflexes x0.125] turn as asked (0.5 rad/s for 3 s): left +21%, right +19% of the asked turn
+[dog 2/2, after 30 min of babbling, own reflexes x0.125] lying on its side, nothing asked, after 6 s up on its legs (upright, above 0.16 m, 3-4 feet): 0/8; trunk heights 0.16, 0.06, 0.15, 0.06, 0.15, 0.06, 0.16, 0.06
+  FL_hip    range -1.05..+1.05 rad; babbling reached -1.05..+1.05 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  FL_thigh  range -1.57..+3.49 rad; babbling reached -1.57..+3.49 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  FL_calf   range -2.72..-0.84 rad; babbling reached -2.72..-0.84 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  FR_hip    range -1.05..+1.05 rad; babbling reached -1.05..+1.05 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  FR_thigh  range -1.57..+3.49 rad; babbling reached -1.57..+3.49 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  FR_calf   range -2.72..-0.84 rad; babbling reached -2.72..-0.84 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  RL_hip    range -1.05..+1.05 rad; babbling reached -1.05..+1.05 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  RL_thigh  range -0.52..+4.54 rad; babbling reached -0.52..+4.54 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  RL_calf   range -2.72..-0.84 rad; babbling reached -2.72..-0.84 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  RR_hip    range -1.05..+1.05 rad; babbling reached -1.05..+1.05 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  RR_thigh  range -0.52..+4.54 rad; babbling reached -0.52..+4.54 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+  RR_calf   range -2.72..-0.84 rad; babbling reached -2.72..-0.84 (0%); limits felt (low/high, steps) 0/0; its motor neurons mapped to it 100%
+[dog 2/2] saved this brain as brain_dog2.npz
+VERDICT babbling: dog 1: body map right joint 100% (direction too 100%), ; dog 2: body map right joint 100% (direction too 100%),  (chance for the map: 8%)
