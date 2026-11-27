@@ -30,6 +30,11 @@ import numpy as np
 
 MENAGERIE_URL = "https://github.com/google-deepmind/mujoco_menagerie.git"
 MENAGERIE_COMMIT = "367e3d9884401dcf6f9c27fa69f118992539039f"
+GENOME_G1 = 20261127     # the G1's wiring: which copied neurons it reaches (grown when the humanoid arrives, 27 Nov)
+COPY_NOISE = 0.1         # a copied neuron's synapses: the template's, each x (1 + 0.1 N(0,1)), clipped to keep its sign
+SLOT_KEYS = ("sense", "motor", "drives", "push", "n_motors", "fibre_neuron", "fibre_gain", "fibre_col", "intention",
+             "mean", "var", "seen", "map", "Q", "Qc", "rest_sense", "rest_mean", "rest_baseline", "motor_baseline",
+             "reflex_scale", "turn_line", "walk_line", "cpg_f", "R", "reflex_cols")
 GENOME = 20261117        # the body's fixed wiring to the brain (which neuron drives which motor, which nerve goes where)
 BRAIN_DT = 0.02          # s: the brain updates 50 times a second
 ALPHA = 0.5              # how far a neuron moves toward its input each step (a 40 ms membrane time constant)
@@ -196,9 +201,36 @@ BRAIN_KEYS = ("map", "Q", "mean", "var", "seen", "motor_baseline", "rest_baselin
 
 
 def save_brain(brain, path):
-    """Everything it learned and its fixed wiring, so practice can continue on this exact brain."""
+    """Everything it learned and its fixed wiring, so practice can continue on this exact brain. A grown body's parts
+    are saved too, under its name (g1_...); the dog's stay under the plain names."""
+    active = brain.body_name
+    if brain.slots:
+        brain.use("go2")
     data = {k: np.asarray(getattr(brain, k)) for k in BRAIN_KEYS if getattr(brain, k, None) is not None}
+    for name, slot in (brain.slots or {}).items():
+        if name == "go2":
+            continue
+        data.update({f"{name}_{k}": np.asarray(slot[k]) for k in BRAIN_KEYS if slot.get(k) is not None})
+    if brain.slots:
+        brain.use(active)
     np.savez_compressed(path, **data)
+
+
+def load_body_parts(brain, path, name):
+    """After growing a body's periphery from its genome: check its wiring equals the saved one, then restore what it
+    learned. A brain without saved parts for that body starts them fresh (it has not met that body yet)."""
+    with np.load(path) as z:
+        keys = [k for k in z.files if k.startswith(name + "_")]
+        if not keys:
+            return False
+        slot = brain.slots[name]
+        for k in ("drives", "push", "fibre_neuron", "fibre_gain"):
+            if not np.array_equal(z[f"{name}_{k}"], slot[k]):
+                raise SystemExit(f"{path}: the {name}'s wiring '{k}' differs from this growth; refusing to continue a different brain")
+        for k in keys:
+            v = z[k]
+            slot[k[len(name) + 1:]] = v.item() if v.shape == () else v.copy()
+        return True
 
 
 def load_brain(brain, path):
@@ -460,6 +492,65 @@ class Brain:
             raise SystemExit(f"--cpg: the saved rhythm synapses have shape {self.Qc.shape}, expected "
                              f"{(len(self.motor), cols)} (one set per turning/walking direction); not re-initialising them")
         self.cpg_f = np.zeros(cols)
+
+    body_name = "go2"
+    slots = None
+
+    def grow_body(self, name, n_lines, n_motors, rng):
+        """A new body arrives: grow its own sensory and motor neurons by copying the fly's (Embodiogenesis §2.4),
+        appended after every existing neuron. Sensory copies take only their template's outgoing synapses (the new
+        nerves are their input); motor copies take only their template's incoming synapses (they drive the new body's
+        motors). Without that body plugged in, the sensory copies are silent and the motor copies drive nothing, so
+        nothing the brain already does changes. The new body gets its own wiring and its own learned parts."""
+        from scipy import sparse
+        if self.slots is None:
+            self.slots = {}
+        n_s, n_m = n_lines * NERVE_FIBRES, len(self.motor)
+        t_s = rng.choice(self.sense, n_s)                                  # templates: the fly's sensory neurons
+        t_m = self.motor.copy()                                            # and each motor neuron once
+        N0, N1 = self.N, self.N + n_s + n_m
+        new_s, new_m = np.arange(N0, N0 + n_s), np.arange(N0 + n_s, N1)
+        W = self.W.tocsc()
+        rows, cols, vals = [], [], []
+        for k, t in enumerate(t_s):                                       # outgoing synapses of each sensory template
+            a, b = W.indptr[t], W.indptr[t + 1]
+            rows.append(W.indices[a:b]); cols.append(np.full(b - a, new_s[k])); vals.append(W.data[a:b])
+        Wr = self.W.tocsr()
+        for k, t in enumerate(t_m):                                       # incoming synapses of each motor template
+            a, b = Wr.indptr[t], Wr.indptr[t + 1]
+            rows.append(np.full(b - a, new_m[k])); cols.append(Wr.indices[a:b]); vals.append(Wr.data[a:b])
+        rows, cols, vals = np.concatenate(rows), np.concatenate(cols), np.concatenate(vals)
+        vals = vals * np.clip(1.0 + COPY_NOISE * rng.standard_normal(len(vals)), 0.5, 1.5)
+        old = self.W.tocoo()
+        self.W = sparse.csr_matrix((np.concatenate([old.data, vals]), (np.concatenate([old.row, rows]),
+                                    np.concatenate([old.col, cols]))), shape=(N1, N1))
+        self.N = N1
+        self.v = np.concatenate([self.v, np.zeros(n_s + n_m)])
+        if self.adapt is not None:
+            self.adapt = np.concatenate([self.adapt, np.zeros(n_s + n_m)])
+        pick = rng.permutation(n_s).reshape(n_lines, NERVE_FIBRES)
+        slot = {k: None for k in SLOT_KEYS}
+        slot.update(sense=new_s, motor=new_m, drives=rng.integers(0, n_motors, n_m), push=rng.choice([-1.0, 1.0], n_m),
+                    n_motors=n_motors, fibre_neuron=new_s[pick], fibre_col=pick,
+                    fibre_gain=rng.uniform(0.5, 1.5, pick.shape) * np.where(np.arange(NERVE_FIBRES) % 2 == 0, 1.0, -1.0),
+                    intention=np.zeros(n_lines), mean=np.zeros(n_lines), var=np.ones(n_lines), seen=0,
+                    map=np.zeros((n_m, n_s)), reflex_scale=1.0,
+                    motor_baseline=None if self.motor_baseline is None else np.zeros(n_motors))
+        self.slots[name] = slot
+        self.grown = getattr(self, "grown", []) + [(name, n_s, n_m, int(len(vals)))]
+        return n_s, n_m, int(len(vals))
+
+    def use(self, name):
+        """Plug the brain into this body: its own neurons, wiring and learned parts become the active ones."""
+        if name == self.body_name:
+            return
+        if self.slots is None or name not in self.slots:
+            raise SystemExit(f"use('{name}'): this brain has not grown a periphery for that body")
+        self.slots[self.body_name] = {k: getattr(self, k, None) for k in SLOT_KEYS}
+        for k, v in self.slots[name].items():
+            setattr(self, k, v)
+        self.body_name = name
+        self.v[:] = 0.0
 
     def cpg_step(self, drive):
         u, a = self.cpg["u"], self.cpg["a"]
@@ -2093,6 +2184,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--grow_g1", action="store_true",
+                    help="grow the G1 humanoid's own sensory and motor neurons by copying (the dog stays unchanged)")
     ap.add_argument("--body", default="go2", choices=("go2", "g1"), help="which body: the Go2 dog or the G1 humanoid")
     ap.add_argument("--g1_stand", action="store_true", help="physics premise, no brain: can the G1 stay up with joints held?")
     ap.add_argument("--walk_feasibility", action="store_true",
@@ -2210,6 +2303,7 @@ def main():
         print("DONE", flush=True)
         return
     results = []
+    g1_body = None
     for dog in range(args.dogs):
         brain = Brain(core, len(body.feel()), len(body.joint), np.random.default_rng(GENOME))     # same genome
         if body.tone:
@@ -2239,6 +2333,16 @@ def main():
         else:
             explored = babble(body, brain, args.minutes, np.random.default_rng(1000 + dog), log, label, diag,
                               held=bool(args.held_babble))
+        if args.grow_g1:                                                  # the humanoid arrives: grow its periphery
+            g1 = g1_body or Body(fetch_model(Path(tempfile.gettempdir()), "unitree_g1"), held=False, tone=True,
+                                 leak=bool(args.leak), accel=bool(args.accel))
+            g1_body = g1
+            n_s, n_m, n_syn = brain.grow_body("g1", len(g1.feel()), len(g1.joint), np.random.default_rng(GENOME_G1))
+            log(f"[{label}] grew the G1's periphery by copying: {n_s} sensory neurons ({len(g1.feel())} nerves x "
+                f"{NERVE_FIBRES}), {n_m} motor neurons ({len(g1.joint)} motors), {n_syn} copied synapses; brain now "
+                f"{brain.N} neurons. The dog's neurons, wiring and learned parts are unchanged.")
+            if args.resume and load_body_parts(brain, found[0], "g1"):
+                log(f"[{label}] restored what it learned in the G1 from {found[0]}")
         diag_report = diagnose(body, brain, diag, log, label, out, dog + 1) if diag is not None else None
         ctx_report = ctx_diag(body, brain, log, label) if args.contexts else None
         scores = joint_scores(brain, body)
