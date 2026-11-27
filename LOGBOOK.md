@@ -7269,6 +7269,29 @@ rarely gives.
 **Status:** dog walking is parked. Fixing it means changing how the rhythm reaches the legs (a design question), not
 more practice. The owner's current priority is the humanoid (27 Nov).
 
+### 6.66 +240 min of G1 balance: dog 1's brain catches up, dog 2's plateaus (27 Nov)
+
+`babble-g1balance3` resumes g1balance2 for +240 min (5 s trials), then the same support check (the same 20 lives).
+
+| | no help: stayed up | no help: up at 10 s | help 0.25: up at 10 s |
+|---|---|---|---|
+| dog 1 brain, g1balance2 | 2.77 s | 0/20 | 9/20 |
+| dog 1 brain, g1balance3 | **4.82 ± 0.53 s** (+3.6 SE; median 4.45, max 10) | **1/20** | **18/20** (+3.1 SE) |
+| dog 2 brain, g1balance2 | 4.48 s | 1/20 | 18/20 |
+| dog 2 brain, g1balance3 | 3.65 ± 0.40 s (−1.3 SE, noise) | 0/20 | 19/20 |
+
+- **Practice:** the parent's help hovered at 0.14–0.25 throughout. The G1's skill synapses reach 0.05 × its map.
+- **Both brains:** a quarter of the help now keeps the G1 up in 90–95% of lives. Unhelped it lasts about 4–5 s, and
+  each brain has stood 10 s alone in a life. The brain alone (no wobble) stands 100%.
+- **Prediction (§6.64):** met for dog 1's brain (help 0.25 ≥ 15/20); not met for dog 2's brain (no-help mean > 6 s).
+  Dog 2's brain is flat this round.
+
+**Next (one variable):** the skill synapses are tiny (0.05 vs the trained dog's 0.4) while learning plateaus. A/B from
+the same brains and seeds:
+- `babble-g1balance4a`: +180 min at rate 1.2e-5.
+- `babble-g1balance4b`: +180 min at rate 3.6e-5 (3×).
+- Then the same support check.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
