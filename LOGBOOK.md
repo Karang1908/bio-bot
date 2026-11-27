@@ -7025,6 +7025,31 @@ this is the paired baseline for `--walk` runs.
 **Practice running:** `babble-walk1` resumes stilltrial2 for +180 min with its flags plus `accel walk`, mix tilt,
 weight, lift, joint, still ×2, turn ×2, walk ×2.
 
+### 6.57 First walking practice: not learned; the walking synapses random-walk (27 Nov)
+
+`babble-walk1` (`c86cb0a`): stilltrial2 brains +180 min, flags as stilltrial2 plus `accel walk`, mix tilt, weight,
+lift, joint, still ×2, turn ×2, walk ×2.
+
+| | practice walk median (raw, includes the −10% drift) at 60 / 120 / 180 min | walk synapses fwd / back at 180 min | turn synapses |
+|---|---|---|---|
+| dog 1 | −10 / −15 / −7% | 0.67 / 0.6x | 1.41 / 1.42 (unchanged) |
+| dog 2 | +10 / −13 / −4% | 0.71 / 0.66 | 1.34 / 1.49 (unchanged) |
+
+- **Not learned:** the walk scores stay at the baseline drift (−10%, §6.56).
+- **Walking synapses:** 0.67–0.71 × the map, the random-walk expectation for about 540 trials per direction
+  (0.03 · √540 ≈ 0.70). No directed learning.
+- **Turning:** protected by the separate caps (turning synapses unchanged). Single-life turns +23 / +19% (dog 1),
+  +17 / +27% (dog 2).
+- **Standing and tilt:** 0.18–0.19 m; single-life tilt dog 1 +83 / +72 / +106 / +80%, dog 2 +14 / +100 / +91 / +79%.
+  Practice still up 83–99%.
+
+**Reward premise (reasoned, not measured):** the accelerometer nerve is the exact finite difference of the trunk's
+velocity. Its running sum is the felt speed change, and its trial mean follows the distance covered (apart from
+trunk-frame rotation). So the dopamine should track walking.
+
+**Next: the physical premise.** Can random walk-forward rhythm synapses (1, 2, 4 × the map) move the dog forward at all?
+Run `babble-walkfeas1` (`6389fae`).
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
