@@ -48,6 +48,7 @@ HELD_AT = 0.6            # m: the trunk is held in the air at this height, as a 
 REPOSITION_S = 15.0      # s: on the ground, a parent sets the dog down somewhere new this often (as babies get moved)
 POSES = ("stand", "belly", "left_side", "right_side")
 FOOT_LOADED_N = 5.0      # N: a foot counts as bearing weight above this (the dog weighs ~150 N)
+G1_BABBLE_HELP = 1.0     # the G1 babbles in a parent's hands that carry its weight (it falls in ~2 s alone, §6.58)
 G1_UP_HEIGHT = 0.60      # m: the G1's pelvis above this counts as up (it stands at 0.79)
 STANDING_HEIGHT = 0.16   # m: trunk above this counts as up on its legs (measured: lying 0.07-0.14; with tone it stands at 0.19)
 # --tone: muscle tone. Each joint springs toward a set point (the Go2's standard stiffness and damping); the motor
@@ -711,8 +712,8 @@ def babble(body, brain, minutes, rng, log, label, diag=None, held=False):
     every = int(REPOSITION_S / BRAIN_DT)
     for t in range(steps):
         if not body.held and t % every == 0:
-            pose = POSES[rng.integers(len(POSES))]
-            body.support = 0.0
+            pose = POSES[rng.integers(len(POSES))] if body.kind == "go2" else "stand"
+            body.support = 0.0 if body.kind == "go2" else G1_BABBLE_HELP   # the G1 cannot stand yet: always held up
             if held and rng.random() < HELD_BABBLE_SHARE:
                 pose = "stand"
                 body.support = HELD_BABBLE_HELP
@@ -2184,6 +2185,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--g1_babble", type=float, default=0.0,
+                    help="with --grow_g1: minutes of babbling in the G1 (held up by a parent's hands)")
     ap.add_argument("--grow_g1", action="store_true",
                     help="grow the G1 humanoid's own sensory and motor neurons by copying (the dog stays unchanged)")
     ap.add_argument("--body", default="go2", choices=("go2", "g1"), help="which body: the Go2 dog or the G1 humanoid")
@@ -2343,6 +2346,13 @@ def main():
                 f"{brain.N} neurons. The dog's neurons, wiring and learned parts are unchanged.")
             if args.resume and load_body_parts(brain, found[0], "g1"):
                 log(f"[{label}] restored what it learned in the G1 from {found[0]}")
+            if args.g1_babble:                                            # the same brain, plugged into the humanoid
+                brain.use("g1")
+                brain.adapting, brain.adapt_var, brain.reflex = True, True, 0.0
+                g1_explored = babble(g1, brain, args.g1_babble, np.random.default_rng(1500 + dog), log, label + ", in the G1")
+                brain.adapting = False
+                brain.use("go2")
+                log(f"[{label}] back in the dog after babbling in the G1 (the G1's map and senses learned; the dog's untouched)")
         diag_report = diagnose(body, brain, diag, log, label, out, dog + 1) if diag is not None else None
         ctx_report = ctx_diag(body, brain, log, label) if args.contexts else None
         scores = joint_scores(brain, body)
