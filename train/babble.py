@@ -48,6 +48,8 @@ HELD_AT = 0.6            # m: the trunk is held in the air at this height, as a 
 REPOSITION_S = 15.0      # s: on the ground, a parent sets the dog down somewhere new this often (as babies get moved)
 POSES = ("stand", "belly", "left_side", "right_side")
 FOOT_LOADED_N = 5.0      # N: a foot counts as bearing weight above this (the dog weighs ~150 N)
+G1_TRIAL_S = 2.0         # s: a G1 balance trial (--g1_trial_s). Unhelped it falls in ~2 s, so a 2 s trial counted a
+                         # fall already under way as a success (g1balance1, §6.63)
 G1_HELP_START = 0.5      # balance practice starts with the parent carrying half (it always stays up at 0.5, §6.62)
 G1_BABBLE_HELP = 1.0     # the G1 babbles in a parent's hands that carry its weight (it falls in ~2 s alone, §6.58)
 G1_UP_HEIGHT = 0.60      # m: the G1's pelvis above this counts as up (it stands at 0.79)
@@ -2085,10 +2087,10 @@ def practice_g1_balance(body, brain, minutes, rng, log, label):
     if brain.Q is None:
         brain.Q = np.zeros((len(brain.motor), len(brain.sense)))
     map_size = float(np.linalg.norm(brain.map)) / brain.reflex_scale
-    T = int(SKILL_TRIAL_S / BRAIN_DT)
+    T = int(G1_TRIAL_S / BRAIN_DT)
     help_, recent, stats, window, history = G1_HELP_START, [], [0.0, 0.0, 0], [], []
     t0 = time.time()
-    for n in range(int(minutes * 60 / SKILL_TRIAL_S)):
+    for n in range(int(minutes * 60 / G1_TRIAL_S)):
         body.reset("stand")
         body.support = help_
         brain.fresh()
@@ -2121,12 +2123,12 @@ def practice_g1_balance(body, brain, minutes, rng, log, label):
         if len(recent) >= 10:                                             # the parent's judgement
             help_ = max(0.0, help_ * 0.9) if np.mean(recent) >= 0.8 else min(G1_HELP_START, help_ * 1.1 + 0.01)
             recent = []
-        if (n + 1) % int(5 * 60 / SKILL_TRIAL_S) == 0:
+        if (n + 1) % int(5 * 60 / G1_TRIAL_S) == 0:
             ups = [w[0] for w in window]
-            history.append({"minute": (n + 1) * SKILL_TRIAL_S / 60, "up": float(np.mean(ups)), "help": help_,
+            history.append({"minute": (n + 1) * G1_TRIAL_S / 60, "up": float(np.mean(ups)), "help": help_,
                             "tilt_felt": float(np.mean([w[2] for w in window])),
                             "Q_vs_map": float(np.linalg.norm(brain.Q)) / max(map_size, 1e-12)})
-            log(f"[{label}] G1 balance practice {(n + 1) * SKILL_TRIAL_S / 60:4.1f} min ({time.time() - t0:4.0f} s): up at the "
+            log(f"[{label}] G1 balance practice {(n + 1) * G1_TRIAL_S / 60:4.1f} min ({time.time() - t0:4.0f} s): up at the "
                 f"end {np.mean(ups):.0%}; parent's help now {help_:.2f} (mean {np.mean([w[1] for w in window]):.2f}); felt "
                 f"tilt {np.mean([w[2] for w in window]):.2f}; skill synapses {history[-1]['Q_vs_map']:.2f} of the map")
             window = []
@@ -2279,7 +2281,7 @@ def cpg_feasibility(body, brain, log, rng, scales=(0.0, 0.01, 0.03, 0.1, 0.3, 0.
 
 
 def main():
-    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS, CPG_WP, SKILL_VARY, CPG_WP_MEAN, SKILL_NO_Q_TURN, STILL_TURN, ACTIVE_REST, STILL_TRIAL, GROW_NERVES
+    global BABBLE_TAU, REFLEX_GAINS, TILT_XY_TOO, CTX_WINNER, CTX_GROW, CTX_SIGMA, CTX_SLOW, CTX_LEARN, SKILL_RATE, SKILL_NOISE, SKILL_LIFT, SKILL_MIX, SKILL_PER_TASK, SKILL_LEVEL, SKILL_CURRICULUM, SKILL_MAX, SKILL_LEVEL_JOINTS, CPG_WP, SKILL_VARY, CPG_WP_MEAN, SKILL_NO_Q_TURN, STILL_TURN, ACTIVE_REST, STILL_TRIAL, GROW_NERVES, G1_TRIAL_S
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0, help="minutes of babbling per dog")
     ap.add_argument("--dogs", type=int, default=3, help="independent dogs (same genome, own babbling)")
@@ -2313,6 +2315,7 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--g1_trial_s", type=float, default=2.0, help="length of a G1 balance trial (s)")
     ap.add_argument("--g1_balance", type=float, default=0.0,
                     help="with --grow_g1: minutes of balance practice in the G1 (reward, fading parent's help)")
     ap.add_argument("--g1_support", action="store_true",
@@ -2400,6 +2403,7 @@ def main():
     ACTIVE_REST = bool(args.active_rest)
     STILL_TRIAL = bool(args.still_trial)
     GROW_NERVES = bool(args.accel)
+    G1_TRIAL_S = float(args.g1_trial_s)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     ensure_packages()
@@ -2470,6 +2474,7 @@ def main():
         else:
             explored = babble(body, brain, args.minutes, np.random.default_rng(1000 + dog), log, label, diag,
                               held=bool(args.held_babble))
+        g1_results = {}
         if args.grow_g1:                                                  # the humanoid arrives: grow its periphery
             g1 = g1_body or Body(fetch_model(Path(tempfile.gettempdir()), "unitree_g1"), held=False, tone=True,
                                  leak=bool(args.leak), accel=bool(args.accel))
@@ -2489,11 +2494,12 @@ def main():
                 log(f"[{label}] back in the dog after babbling in the G1 (the G1's map and senses learned; the dog's untouched)")
             if args.g1_balance:                                           # learn to balance, hands fading
                 brain.use("g1")
-                practice_g1_balance(g1, brain, args.g1_balance, np.random.default_rng(1800 + dog), log, label + ", in the G1")
+                g1_results["balance"] = practice_g1_balance(g1, brain, args.g1_balance, np.random.default_rng(1800 + dog),
+                                                            log, label + ", in the G1")
                 brain.use("go2")
             if args.g1_support:                                           # how much help does it need?
                 brain.use("g1")
-                g1_support_check(g1, brain, log, np.random.default_rng(1700 + dog))
+                g1_results["support"] = g1_support_check(g1, brain, log, np.random.default_rng(1700 + dog))
                 brain.use("go2")
             if args.g1_reflex:                                            # can its new reflexes hold the G1 up?
                 brain.use("g1")
@@ -2568,7 +2574,7 @@ def main():
         log(f"[{label}] saved this brain as brain_dog{dog + 1}.npz")
         results.append({"dog": dog + 1, "map": acc, "per_joint": per_joint, "control_newborn": before, "control_after": after,
                         "ground_newborn": ground_before, "ground_after": ground_after, "diagnosis": diag_report,
-                        "reflex": reflex, "practice": practised, "contexts": ctx_report})
+                        "reflex": reflex, "practice": practised, "contexts": ctx_report, "g1": g1_results})
     reach = lambda rows: float(np.mean([np.clip(r_["reach"], -1, 1) for r_ in rows]))
     log("VERDICT babbling: " + "; ".join(
         f"dog {r_['dog']}: body map right joint {r_['map']['joint']:.0%} (direction too {r_['map']['both']:.0%}), "
