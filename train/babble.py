@@ -48,6 +48,7 @@ HELD_AT = 0.6            # m: the trunk is held in the air at this height, as a 
 REPOSITION_S = 15.0      # s: on the ground, a parent sets the dog down somewhere new this often (as babies get moved)
 POSES = ("stand", "belly", "left_side", "right_side")
 FOOT_LOADED_N = 5.0      # N: a foot counts as bearing weight above this (the dog weighs ~150 N)
+G1_HELP_START = 0.5      # balance practice starts with the parent carrying half (it always stays up at 0.5, §6.62)
 G1_BABBLE_HELP = 1.0     # the G1 babbles in a parent's hands that carry its weight (it falls in ~2 s alone, §6.58)
 G1_UP_HEIGHT = 0.60      # m: the G1's pelvis above this counts as up (it stands at 0.79)
 STANDING_HEIGHT = 0.16   # m: trunk above this counts as up on its legs (measured: lying 0.07-0.14; with tone it stands at 0.19)
@@ -635,7 +636,7 @@ class Brain:
         I = np.zeros(self.N)
         np.add.at(I, self.fibre_neuron.ravel(), (self.fibre_gain * zf[:, None]).ravel())
         I[self.motor] += motor_drive
-        if self.cpg is not None:                                         # driven by its own request to turn
+        if self.cpg is not None and self.turn_line is not None:          # driven by its own request to turn
             want = -self.intention[self.turn_line]
             wantw = -self.intention[self.walk_line] if self.walk_line is not None else 0.0
             rc = self.cpg_step(min(1.0, max(abs(want), abs(wantw)) / 0.25))
@@ -2070,6 +2071,69 @@ def g1_reflex_stand(body, brain, log, rng, gains=(0.0, 0.125, 0.25, 0.5, 1.0), l
     return out
 
 
+def practice_g1_balance(body, brain, minutes, rng, log, label):
+    """Balance in the G1, learned by reward with a parent's hands that fade. 2 s trials set down standing, +-0.1 motor
+    wobble, practice-level motor variation (the exploration). The skill synapses learn once per trial (node
+    perturbation, summed eligibility x 1/sqrt(T)) from the dopamine of staying level as felt over the whole trial,
+    standardised. The parent (teacher) sees whether it is still up: help x0.9 after a run of successes, x1.1 after
+    falls, between 0 and 0.5. Reflexes off (they topple it, §6.61). Nerve positions come from the body (2 feet)."""
+    J, nf = len(body.joint), len(body.feet)
+    grav = 4 * J + nf + np.arange(3)                                      # the inner ear's gravity lines
+    brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    brain.reflex = 0.0
+    settle_reflex(body, brain)
+    if brain.Q is None:
+        brain.Q = np.zeros((len(brain.motor), len(brain.sense)))
+    map_size = float(np.linalg.norm(brain.map)) / brain.reflex_scale
+    T = int(SKILL_TRIAL_S / BRAIN_DT)
+    help_, recent, stats, window, history = G1_HELP_START, [], [0.0, 0.0, 0], [], []
+    t0 = time.time()
+    for n in range(int(minutes * 60 / SKILL_TRIAL_S)):
+        body.reset("stand")
+        body.support = help_
+        brain.fresh()
+        noise = np.zeros(len(brain.motor))
+        e = np.zeros_like(brain.Q)
+        e_sum = np.zeros_like(brain.Q)
+        lev = []
+        for _ in range(T):
+            noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
+            xi = SKILL_NOISE * BABBLE_SIZE * noise
+            pre = brain.rates()[brain.sense] - brain.rest_sense
+            r = brain.step(body.feel(), xi)
+            body.step(np.clip(brain.command(r) + rng.uniform(-0.1, 0.1, J), -1.0, 1.0))
+            e *= SKILL_TRACE
+            e += np.outer(xi, pre)
+            e_sum += e
+            zf = brain.zscore(body.feel())
+            lev.append(float(np.sqrt(np.mean(zf[grav] ** 2))))
+        R = -float(np.mean(lev))                                          # felt level over the trial
+        if stats[2] > 10:
+            dz = float(np.clip((R - stats[0]) / np.sqrt(stats[1] + 1e-12), -3.0, 3.0))
+            brain.Q += SKILL_RATE * dz * e_sum / np.sqrt(T)
+            qn = float(np.linalg.norm(brain.Q))
+            if qn > SKILL_MAX * map_size:
+                brain.Q *= SKILL_MAX * map_size / qn
+        stats[0] += 0.05 * (R - stats[0]); stats[1] += 0.05 * ((R - stats[0]) ** 2 - stats[1]); stats[2] += 1
+        up = is_up(body)
+        window.append((up, help_, -R))
+        recent.append(up)
+        if len(recent) >= 10:                                             # the parent's judgement
+            help_ = max(0.0, help_ * 0.9) if np.mean(recent) >= 0.8 else min(G1_HELP_START, help_ * 1.1 + 0.01)
+            recent = []
+        if (n + 1) % int(5 * 60 / SKILL_TRIAL_S) == 0:
+            ups = [w[0] for w in window]
+            history.append({"minute": (n + 1) * SKILL_TRIAL_S / 60, "up": float(np.mean(ups)), "help": help_,
+                            "tilt_felt": float(np.mean([w[2] for w in window])),
+                            "Q_vs_map": float(np.linalg.norm(brain.Q)) / max(map_size, 1e-12)})
+            log(f"[{label}] G1 balance practice {(n + 1) * SKILL_TRIAL_S / 60:4.1f} min ({time.time() - t0:4.0f} s): up at the "
+                f"end {np.mean(ups):.0%}; parent's help now {help_:.2f} (mean {np.mean([w[1] for w in window]):.2f}); felt "
+                f"tilt {np.mean([w[2] for w in window]):.2f}; skill synapses {history[-1]['Q_vs_map']:.2f} of the map")
+            window = []
+    body.support = 0.0
+    return history
+
+
 def g1_support_check(body, brain, log, rng, supports=(0.0, 0.25, 0.5, 0.75, 1.0), lives=20, seconds=10.0):
     """How much of a parent's help does the G1 need to stay up with the brain plugged in (reflexes x0.125, +-0.1
     wobble, practice-level variation)? Plus: the brain alone, no wobble and no added variation, no help."""
@@ -2249,6 +2313,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--g1_balance", type=float, default=0.0,
+                    help="with --grow_g1: minutes of balance practice in the G1 (reward, fading parent's help)")
     ap.add_argument("--g1_support", action="store_true",
                     help="with --grow_g1: how much of a parent's help the G1 needs to stay up with the brain on")
     ap.add_argument("--g1_reflex", action="store_true",
@@ -2421,6 +2487,10 @@ def main():
                 brain.adapting = False
                 brain.use("go2")
                 log(f"[{label}] back in the dog after babbling in the G1 (the G1's map and senses learned; the dog's untouched)")
+            if args.g1_balance:                                           # learn to balance, hands fading
+                brain.use("g1")
+                practice_g1_balance(g1, brain, args.g1_balance, np.random.default_rng(1800 + dog), log, label + ", in the G1")
+                brain.use("go2")
             if args.g1_support:                                           # how much help does it need?
                 brain.use("g1")
                 g1_support_check(g1, brain, log, np.random.default_rng(1700 + dog))
