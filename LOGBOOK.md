@@ -7319,6 +7319,24 @@ statically stable, so it never mattered there.
 inner ear feels, under the same ±0.1 wobble, applied either through the set-point velocity (the brain's interface) or
 as direct set-point position offsets. Sweep gains and signs.
 
+### 6.68 Correction: the G1's set-point speed was 4 rad/s in every learning run, 9 in the no-brain check (28 Nov)
+
+Found while adding the fly: the G1 body built inside grown-brain runs (`--grow_g1`) never received `--set_speed`. That
+option set only the main (dog) body, so it used the default `SET_SPEED = 4.0` rad/s.
+- **Runs at 4 rad/s:** g1babble1, g1reflex1, g1support1, g1balance1–4.
+- **Run at 9 rad/s:** the no-brain check g1stand1 (`--body g1`, §6.58).
+
+**Consequences:**
+- The G1 learning comparisons (§6.60, §6.62–6.67) are all at 4 rad/s on the same lives; **they stand**.
+- **§6.61's claim** "the running brain makes it fall faster than no brain (1.3 s vs 2.2 s)" compared a 4 rad/s run with
+  a 9 rad/s run. **Not a valid comparison.** With the same ±0.1 wobble a slower set point moves less, so the no-brain
+  G1 at 4 rad/s would likely last longer than 2.2 s. The direction of the claim is plausible, but unverified as
+  recorded.
+- The reflex-strength trend in §6.61 (stronger reflexes fall faster) is within one setting and stands.
+
+**Fix (no behaviour change):** `G1_SET_SPEED = 4.0` is now set explicitly on the G1 inside grown runs. The fly is given
+`--set_speed` (9), as in its own check.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
