@@ -7089,6 +7089,30 @@ Balance is its first lesson.
 - **H2:** grow the G1 periphery by copying; check the dog stays bit-identical.
 - **H3:** G1 babbling with the parent's hands (support that fades), as the dog did.
 
+### 6.59 H2: the G1's periphery grown by copying; the dog is bit-identical (27 Nov)
+
+`8cca730`, `--grow_g1`; `Brain.grow_body`, genome `GENOME_G1 = 20261127`.
+- **Sensory neurons:** 2,032 grown (127 G1 nerves × 16), each copying a random fly sensory neuron's *outgoing*
+  synapses (× (1 + 0.1 N(0,1)), clipped to keep the sign). The G1's nerves are their input.
+- **Motor neurons:** 370 grown, one copy of each motor neuron's *incoming* synapses. They drive the G1's 29 motors
+  (new drives/push draw).
+- **Totals:** 136,910 copied synapses. The brain goes from 7,019 to 9,421 neurons; all new neurons are appended after
+  the existing ones.
+- **Per-body slots:** sense/motor sets, wiring, nerve calibration, map, Q, Qc and rest references. `use(name)` plugs
+  the brain into a body. The central connectome and the pattern generator are shared.
+- **Saving:** the G1's parts are saved as `g1_*` beside the dog's. Resuming regrows them from the genome, checks their
+  wiring equals the saved one, then restores what was learned.
+
+**Check `babble-growcheck1`:** CHECK-ALPHA brains (stilltrial2) with `--accel --grow_g1`, then `--turn_eval` with
+seeds 9100+, compared entry by entry with `babble-accelcheck1` (the same run without growth).
+- **Every number is bit-identical for both dogs** (0 differing entries): turning, drift, tilt, standing, every life.
+- This is as predicted: the grown sensory copies get no input without the G1 (silent), the motor copies drive nothing,
+  and the rebuilt matrix keeps every existing row's entries in order, adding exact zeros.
+
+**Next, H3 `babble-g1babble1` (`9efa861`, `--g1_babble 30`):** the same brain babbles 30 min in the G1, held up by a
+parent's hands (it cannot stand alone, §6.58). Then back in the dog for the same evaluation (expected bit-identical
+again).
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
