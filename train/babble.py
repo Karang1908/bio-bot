@@ -2070,6 +2070,40 @@ def g1_reflex_stand(body, brain, log, rng, gains=(0.0, 0.125, 0.25, 0.5, 1.0), l
     return out
 
 
+def g1_support_check(body, brain, log, rng, supports=(0.0, 0.25, 0.5, 0.75, 1.0), lives=20, seconds=10.0):
+    """How much of a parent's help does the G1 need to stay up with the brain plugged in (reflexes x0.125, +-0.1
+    wobble, practice-level variation)? Plus: the brain alone, no wobble and no added variation, no help."""
+    J = len(body.joint)
+    brain.reflex_scale = max(float(np.percentile(np.abs(line_scores(brain)), 99)), 1e-12)
+    brain.reflex = SKILL_REFLEX
+    settle_reflex(body, brain)
+    out = {}
+    for name, sup, noisy in [(f"help {x:g}", x, True) for x in supports] + [("brain alone, no wobble, no help", 0.0, False)]:
+        ups, times, heights = [], [], []
+        for _ in range(lives if noisy else 1):
+            body.reset("stand")
+            body.support = sup
+            brain.fresh()
+            noise = np.zeros(len(brain.motor))
+            stayed = seconds
+            for t in range(int(seconds / BRAIN_DT)):
+                if noisy:
+                    noise += BRAIN_DT / BABBLE_TAU * -noise + np.sqrt(2 * BRAIN_DT / BABBLE_TAU) * rng.standard_normal(len(noise))
+                r = brain.step(body.feel(), SKILL_NOISE * BABBLE_SIZE * noise)
+                cmd = brain.command(r)
+                body.step(np.clip(cmd + rng.uniform(-0.1, 0.1, J), -1.0, 1.0) if noisy else cmd)
+                if stayed == seconds and not is_up(body):
+                    stayed = (t + 1) * BRAIN_DT
+            ups.append(is_up(body)); times.append(stayed); heights.append(float(body.d.qpos[2]))
+        body.support = 0.0
+        out[name] = {"up": ups, "stayed_s": times, "height_end": heights, "up_frac": float(np.mean(ups)),
+                     "median_stayed_s": float(np.median(times))}
+        log(f"G1 SUPPORT {name} ({len(ups)} lives, {seconds:g} s, brain on, reflexes x{SKILL_REFLEX:g}): up at the end "
+            f"{np.mean(ups):.0%}; stayed up median {np.median(times):.2f} s; pelvis at the end median {np.median(heights):.2f} m")
+    brain.reflex = 0.0
+    return out
+
+
 def g1_stand_check(body, log, rng, lives=20, seconds=10.0):
     """Physics premise for the humanoid, no brain: can the G1 stay up with its joints only held (position servos at the
     set-down posture, leaky set points as for the dog)? (a) held still; (b) with the +-0.1 motor wobble on every
@@ -2215,6 +2249,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--g1_support", action="store_true",
+                    help="with --grow_g1: how much of a parent's help the G1 needs to stay up with the brain on")
     ap.add_argument("--g1_reflex", action="store_true",
                     help="with --grow_g1: can the brain's own reflexes from its G1 map keep the G1 standing (no hands)?")
     ap.add_argument("--g1_babble", type=float, default=0.0,
@@ -2385,6 +2421,10 @@ def main():
                 brain.adapting = False
                 brain.use("go2")
                 log(f"[{label}] back in the dog after babbling in the G1 (the G1's map and senses learned; the dog's untouched)")
+            if args.g1_support:                                           # how much help does it need?
+                brain.use("g1")
+                g1_support_check(g1, brain, log, np.random.default_rng(1700 + dog))
+                brain.use("go2")
             if args.g1_reflex:                                            # can its new reflexes hold the G1 up?
                 brain.use("g1")
                 g1_reflex_stand(g1, brain, log, np.random.default_rng(1600 + dog))
