@@ -10,7 +10,7 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-## 0. Current state: 26 Nov 2026 (this section overrides everything below it; newest update last)
+## 0. Current state: 27 Nov 2026 (this section overrides everything below it; newest update last)
 
 **Fresh start (owner, 17 Nov).** Body first, no goal tasks, no prediction. The old training code (`baby_dog.py`,
 fetch, PPO) is not the line of work any more. Everything now lives in one standalone script, **`train/babble.py`**,
@@ -141,6 +141,38 @@ runaway); posture neurons (§6.27–6.29); steering by test code (§6.18).
 - **Next step:** walking forward/back on request needs a felt forward motion. The body has no sense of linear motion
   (it senses joints, touch, gravity and turning). Planned: an accelerometer nerve, appended like the real Go2's IMU;
   append-only and keeping the existing draws. The owner was told and has not objected yet.
+
+**Update 27 Nov (verified, LOGBOOK §6.55–6.65). This is the current state:**
+- **CHECK-ALPHA (owner, 27 Nov):** `CHECK-ALPHA/` freezes the dog brain before the humanoid: code, README, SHA-256
+  hashes and evidence logs, committed. Its weights (stilltrial2 = the established dog best; walk1) and
+  `connectome/core_v2.npz` are on disk only (git-ignored) and on Kaggle.
+- **Dog:**
+  - Accelerometer nerves added (`--accel`, appended; behaviour unchanged, §6.55).
+  - Walking on request built (`--walk`) but not learned (§6.57). Its premise mostly fails: random walk-forward
+    rhythm synapses within the cap never move it forward (§6.65). Parked as a design question (how the rhythm reaches
+    the legs).
+- **Humanoid, the owner's current priority** ("take the exact same brain … and teach it the human robot"):
+  - **Body:** `--body g1` (Unitree G1, the same Menagerie commit; position servos as muscles). With no brain it stands
+    only as a statue and falls in about 2 s under the ±0.1 wobble (§6.58).
+  - **Growth:** `--grow_g1` grows the G1's own periphery by copying fly neurons (Embodiogenesis §2.4):
+    2,032 sensory + 370 motor neurons, giving 9,421 neurons. Per-body slots (`brain.use("g1")`); G1 parts are saved as
+    `g1_*`. **The dog stays bit-identical** (§6.59, checked again after G1 learning, §6.60).
+  - **Body map:** `--g1_babble 30` (held by a parent's hands) gives the G1 body map 100%/100% in under 10 min (§6.60).
+  - **Reflexes:** the G1's own reflexes make it fall faster, so balance must be learned (§6.61). It needs ≥ 0.5 of a
+    parent's help to stay up at first (§6.62).
+  - **Balance by reward:** `--g1_balance MIN --g1_trial_s 5`, fading help, trial-level felt-level dopamine (§6.63–6.64).
+    - After 180 min, dog 2's brain: help 0.25 → 18/20 up; no help 4.48 ± 0.47 s; 1/20 stood 10 s alone.
+    - Dog 1's brain: help 0.25 → 9/20; no help 2.77 s.
+  - **Best G1 brains:** `results/babble-g1balance2/brain_dog{1,2}.npz` (Kaggle source
+    `karang1908/bio-bot-babble-g1balance2`). They hold the dog parts (unchanged CHECK-ALPHA) plus `g1_*`.
+  - **Running:** `babble-g1balance3` (+240 min, same settings, launched 27 Nov ~15:05). Fetch it and compare its
+    `G1 SUPPORT` lines with §6.64. Prediction: dog 2 brain no-help mean > 6 s with ≥ 5/20 up; dog 1 brain help 0.25
+    ≥ 15/20.
+  - **Command for G1 work:** resume the latest G1 brain with `--set resume=1 dogs=2 ground=1 tone=1 leak=1 leak_s=0.5
+    set_speed=9 reflex=1 reflex_gains=0.125 skill_noise=0.05 skill_rate=0.000012 skill_max=0.5 accel=1 grow_g1=1
+    g1_balance=N g1_trial_s=5 g1_support=1`.
+- **Next after balance:** G1 standing without help, then G1 skills; then practice that alternates bodies (rehearse the
+  dog while learning the G1) and a test that the brain tells the two bodies apart.
 
 **Earlier next question:** how should weight shift be learned? A graded curriculum (small shifts first),
 larger structured exploration within those trials, or a different whole-body posture representation.
