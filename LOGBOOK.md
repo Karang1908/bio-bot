@@ -7183,6 +7183,42 @@ Also, does the brain alone (no wobble, no added variation) knock it over?
 - Then the same support check (paired, same seeds) to see whether less help is needed.
 - The pattern generator now runs only for a body that has a turn nerve (the G1 has none yet).
 
+### 6.63 The brain starts learning to balance the humanoid (27 Nov)
+
+`babble-g1balance1` (`bc385ba`, `--g1_balance 60`) uses the g1babble1 brains (G1 map restored).
+- **Practice:** 60 min of 2 s "stand still" trials in the G1, ±0.1 wobble, reflexes off.
+- **Learning:** the G1's skill synapses learn once per trial from the felt level over the trial.
+- **Help:** the parent's help fades when ≥ 80% of 10 trials end up.
+
+**Practice (dog 1 / dog 2 brain):**
+- Help faded 0.5 → **0.05 / 0.04**, with up at the end of 77–89% of trials.
+- Felt tilt 1.01 → 0.72 / 1.10 → 0.65.
+- The G1's skill synapses grew to only 0.02 × its map.
+
+**Support check, same seeds as before practice (§6.62), 20 lives × 10 s:**
+
+| | before (g1support1) | after (g1balance1) |
+|---|---|---|
+| no help: stayed up, median (dog 1 / dog 2 brain) | 1.26 / 1.42 s | **2.07 / 3.00 s** |
+| help 0.25: up at 10 s | 0/20, 0/20 | **5/20, 10/20** (Fisher p ≈ 0.05, < 0.001) |
+| help 0.25: stayed up, median | 2.12 / 2.21 s | **5.89 / 9.61 s** |
+| brain alone, no wobble, no help (1 life each) | fell at 1.96 / 2.30 s | **stands 10 s** (both) |
+
+**Verified:**
+- The same brain is learning to balance the humanoid: at a quarter of the help it now stays up in 25–50% of lives
+  (was 0%).
+- Its own resting output no longer tips the G1 over.
+- It does not stand without help yet (2–3 s).
+- The dog is unaffected by construction (only the G1's slot learns, §6.59–6.60).
+
+**Flaws noticed:**
+1. 2 s trials are about the unhelped fall time, so "up at the end" counted falls already under way as successes, and
+   the help faded faster than real balance improved.
+2. The support check's per-life data were not saved to `babble.json` (only log medians).
+3. Fix (`61fe4a1`): `--g1_trial_s` and G1 results saved.
+
+**Next `babble-g1balance2`:** resumes g1balance1 for +120 min with 5 s trials, then the same support check.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
