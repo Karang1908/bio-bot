@@ -43,6 +43,7 @@ HELD_AT = 0.6            # m: the trunk is held in the air at this height, as a 
 REPOSITION_S = 15.0      # s: on the ground, a parent sets the dog down somewhere new this often (as babies get moved)
 POSES = ("stand", "belly", "left_side", "right_side")
 FOOT_LOADED_N = 5.0      # N: a foot counts as bearing weight above this (the dog weighs ~150 N)
+G1_UP_HEIGHT = 0.60      # m: the G1's pelvis above this counts as up (it stands at 0.79)
 STANDING_HEIGHT = 0.16   # m: trunk above this counts as up on its legs (measured: lying 0.07-0.14; with tone it stands at 0.19)
 # --tone: muscle tone. Each joint springs toward a set point (the Go2's standard stiffness and damping); the motor
 # neurons move the set point; when the dog is set down, the set points take the posture it is in.
@@ -173,14 +174,21 @@ def ensure_packages():
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "mujoco==3.14.0", "scipy"])
 
 
-def fetch_go2(root: Path) -> Path:
+def fetch_model(root: Path, folder: str) -> Path:
     d = root / "mujoco_menagerie"
-    if not (d / "unitree_go2" / "scene.xml").exists():
+    if not (d / folder / "scene.xml").exists():
         run = lambda *a: subprocess.check_call(list(a))
-        run("git", "clone", "-q", "--filter=blob:none", "--no-checkout", MENAGERIE_URL, str(d))
-        run("git", "-C", str(d), "sparse-checkout", "set", "unitree_go2")
-        run("git", "-C", str(d), "checkout", "-q", MENAGERIE_COMMIT)
-    return d / "unitree_go2"
+        if not (d / ".git").exists():
+            run("git", "clone", "-q", "--filter=blob:none", "--no-checkout", MENAGERIE_URL, str(d))
+            run("git", "-C", str(d), "sparse-checkout", "set", folder)
+            run("git", "-C", str(d), "checkout", "-q", MENAGERIE_COMMIT)
+        else:
+            run("git", "-C", str(d), "sparse-checkout", "add", folder)
+    return d / folder
+
+
+def fetch_go2(root: Path) -> Path:
+    return fetch_model(root, "unitree_go2")
 
 
 BRAIN_KEYS = ("map", "Q", "mean", "var", "seen", "motor_baseline", "rest_baseline", "rest_mean", "rest_sense",
@@ -239,6 +247,7 @@ class Body:
         self.accel = accel                         # --accel: the IMU's accelerometer (trunk frame), appended nerves
         self._acc, self._v_prev = np.zeros(3), None
         self.mj = mujoco
+        self.kind = "g1" if (go2 / "g1.xml").exists() else "go2"         # --body g1: the humanoid
         self.m = mujoco.MjModel.from_xml_path(str(go2 / "scene.xml"))
         self.d = mujoco.MjData(self.m)
         self.subs = max(1, round(BRAIN_DT / self.m.opt.timestep))
@@ -253,8 +262,15 @@ class Body:
         self.leak = leak
         self.leak_s = TONE_LEAK_S
         self.set_speed = SET_SPEED
-        self.base = self.m.body("base").id
-        self.feet = [self.m.geom(f).id for f in ("FL", "FR", "RL", "RR")]
+        if self.kind == "g1":                       # position servos (kp 500): the servo is the muscle, ctrl its set point
+            self.base = self.m.body("pelvis").id
+            feet = [self.m.body(f).id for f in ("left_ankle_roll_link", "right_ankle_roll_link")]
+            self.feet = [{g for g in range(self.m.ngeom) if self.m.geom_bodyid[g] == b and self.m.geom_contype[g]} for b in feet]
+            self.key, self.stand_height, self.up_height, self.min_feet = "stand", 0.79, G1_UP_HEIGHT, 1
+        else:
+            self.base = self.m.body("base").id
+            self.feet = [{self.m.geom(f).id} for f in ("FL", "FR", "RL", "RR")]
+            self.key, self.stand_height, self.up_height, self.min_feet = "home", 0.27, STANDING_HEIGHT, 3
         self._force = np.zeros(6)
         self.support = 0.0                         # a parent's hands on the trunk: 0 (none) .. 1 (carries its weight)
         self.mass = float(self.m.body_subtreemass[self.base])
@@ -262,7 +278,7 @@ class Body:
 
     def reset(self, pose: str = "stand", rng=None):
         """Held: back in the parent's hands. On the ground: set down standing, on its belly, or on one side."""
-        self.mj.mj_resetDataKeyframe(self.m, self.d, self.m.keyframe("home").id)
+        self.mj.mj_resetDataKeyframe(self.m, self.d, self.m.keyframe(self.key).id)
         self.d.xfrc_applied[:] = 0.0                                     # no hands left on it from before
         self._acc, self._v_prev = np.zeros(3), None
         if self.held:
@@ -272,6 +288,8 @@ class Body:
             self.rest_q = self.target.copy()
             return
         q = self.d.qpos
+        if pose != "stand" and self.kind != "go2":
+            raise SystemExit(f"reset('{pose}'): only 'stand' is defined for the {self.kind}")
         if pose != "stand":
             q[self.qadr] = np.tile([0.0, 1.3, -2.6], 4)                 # legs folded
             q[2] = 0.14
@@ -309,7 +327,9 @@ class Body:
             self.d.ctrl[:] = np.clip(self.tmax * out, -self.tmax, self.tmax)
         for _ in range(self.subs):
             self.d.xfrc_applied[self.base] = self.hands() if self.support > 0 else 0.0
-            if self.tone:
+            if self.tone and self.kind == "g1":
+                self.d.ctrl[:] = self.target                             # the position servo pulls toward it
+            elif self.tone:
                 pull = TONE_KP * (self.target - self.d.qpos[self.qadr]) - TONE_KD * self.d.qvel[self.vadr]
                 self.d.ctrl[:] = np.clip(pull, -self.tmax, self.tmax)
             self.mj.mj_step(self.m, self.d)
@@ -330,9 +350,9 @@ class Body:
         mg = self.mass * 9.81
         kz = mg / SUPPORT_SAG
         cz = np.sqrt(kz * self.mass)
-        fz = np.clip(kz * (0.27 - self.d.qpos[2]) - cz * self.d.qvel[2], -mg, mg)
+        fz = np.clip(kz * (self.stand_height - self.d.qpos[2]) - cz * self.d.qvel[2], -mg, mg)
         R = self.d.xmat[self.base].reshape(3, 3)
-        kr = 2.0 * mg * 0.27                                   # twice the tipping torque per radian of tilt
+        kr = 2.0 * mg * self.stand_height                      # twice the tipping torque per radian of tilt
         cr = 2.0 * np.sqrt(kr * 0.1)
         w = R @ self.d.qvel[3:6]                               # trunk turning, world frame
         tq = kr * np.cross(R[:, 2], [0.0, 0.0, 1.0]) - cr * np.array([w[0], w[1], 0.0])
@@ -353,11 +373,11 @@ class Body:
         return np.concatenate(lines)
 
     def touch(self):
-        f = np.zeros(4)
+        f = np.zeros(len(self.feet))
         for i in range(self.d.ncon):
             c = self.d.contact[i]
             for k, g in enumerate(self.feet):
-                if c.geom1 == g or c.geom2 == g:
+                if c.geom1 in g or c.geom2 in g:
                     self.mj.mj_contactForce(self.m, self.d, i, self._force)
                     f[k] += abs(self._force[0])
         return f
@@ -1029,7 +1049,7 @@ def intend(body, brain, targets, seconds):
 
 
 def is_up(body):
-    return bool(-body.gravity()[2] > 0.8 and body.d.qpos[2] > STANDING_HEIGHT and (body.touch() > FOOT_LOADED_N).sum() >= 3)
+    return bool(-body.gravity()[2] > 0.8 and body.d.qpos[2] > body.up_height and (body.touch() > FOOT_LOADED_N).sum() >= body.min_feet)
 
 
 def reflex_tests(body, brain, log, label):
@@ -1928,6 +1948,35 @@ def cpg_trace(body, brain, log, rng, size=0.5, seconds=3.0):
     return out
 
 
+def g1_stand_check(body, log, rng, lives=20, seconds=10.0):
+    """Physics premise for the humanoid, no brain: can the G1 stay up with its joints only held (position servos at the
+    set-down posture, leaky set points as for the dog)? (a) held still; (b) with the +-0.1 motor wobble on every
+    command; (c) set down a little differently (+-0.05 rad per joint) and with the wobble. Per life: up at the end, how
+    long it stayed up, the pelvis height at the end."""
+    J = len(body.joint)
+    out = {}
+    for name, wobble, vary in (("held", False, 0.0), ("+-0.1 wobble", True, 0.0), ("varied set-down +-0.05, wobble", True, 0.05)):
+        ups, times, heights = [], [], []
+        for _ in range(lives if (wobble or vary) else 1):
+            body.reset("stand")
+            if vary:
+                body.d.qpos[body.qadr] += rng.uniform(-vary, vary, J)
+                body.mj.mj_forward(body.m, body.d)
+                body.target = body.angles()
+                body.rest_q = body.target.copy()
+            stayed = seconds
+            for t in range(int(seconds / BRAIN_DT)):
+                body.step(rng.uniform(-0.1, 0.1, J) if wobble else np.zeros(J))
+                if stayed == seconds and not is_up(body):
+                    stayed = (t + 1) * BRAIN_DT
+            ups.append(is_up(body)); times.append(stayed); heights.append(float(body.d.qpos[2]))
+        out[name] = {"up": ups, "stayed_s": times, "height_end": heights, "up_frac": float(np.mean(ups)),
+                     "median_stayed_s": float(np.median(times))}
+        log(f"G1 STAND {name} ({len(ups)} lives, {seconds:g} s, no brain): up at the end {np.mean(ups):.0%}; stayed up "
+            f"median {np.median(times):.2f} s (min {np.min(times):.2f}); pelvis at the end median {np.median(heights):.2f} m")
+    return out
+
+
 def walk_feasibility(body, brain, log, rng, scales=(0.0, 1.0, 2.0, 4.0), samples=100, seconds=3.0):
     """Premise check for walking, no learning: random synapses in the walk-forward set only (the learned turning sets
     kept), of each size (x the map), asked to walk forward for 3 s; distance along the starting heading as a share of
@@ -2044,6 +2093,8 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--body", default="go2", choices=("go2", "g1"), help="which body: the Go2 dog or the G1 humanoid")
+    ap.add_argument("--g1_stand", action="store_true", help="physics premise, no brain: can the G1 stay up with joints held?")
     ap.add_argument("--walk_feasibility", action="store_true",
                     help="with --walk: premise check, can random walk-forward rhythm synapses move the body forward at all?")
     ap.add_argument("--walk", action="store_true",
@@ -2129,8 +2180,10 @@ def main():
         print(msg, flush=True)
         lines_out.append(msg)
 
-    body = Body(fetch_go2(Path(tempfile.gettempdir())), held=not args.ground, tone=bool(args.tone), leak=bool(args.leak),
-                accel=bool(args.accel) and bool(args.ground))
+    if args.body == "g1" and not (args.ground and args.tone):
+        raise SystemExit("--body g1 needs --ground and --tone (its joints are position servos)")
+    body = Body(fetch_model(Path(tempfile.gettempdir()), "unitree_g1" if args.body == "g1" else "unitree_go2"),
+                held=not args.ground, tone=bool(args.tone), leak=bool(args.leak), accel=bool(args.accel) and bool(args.ground))
     body.leak_s = float(args.leak_s)
     body.set_speed = float(args.set_speed)
     core = load_core()
@@ -2141,9 +2194,15 @@ def main():
         if body.leak:
             where += (f", which relax back to the set-down posture over {body.leak_s:g} s (set points move up to "
                       f"{body.set_speed:g} rad/s, reach up to {body.set_speed * body.leak_s:g} rad)")
-    log(f"body: Go2, {len(body.joint)} joints ({', '.join(body.names)}); {where}; {len(body.feel())} nerves; "
+    log(f"body: {'G1' if body.kind == 'g1' else 'Go2'}, {len(body.joint)} joints ({', '.join(body.names)}); {where}; {len(body.feel())} nerves; "
         f"physics {body.subs} steps per brain step")
     log(f"brain: fly connectome, {len(core['role'])} neurons, {len(core['pre'])} connections; it is told nothing about the body")
+    if args.g1_stand:
+        res = g1_stand_check(body, log, np.random.default_rng(8))
+        (out / "g1_stand.json").write_text(json.dumps(res, indent=1))
+        (out / "babble_log.txt").write_text("\n".join(lines_out))
+        print("DONE", flush=True)
+        return
     if args.feasibility:
         feas = feasibility(body, log, np.random.default_rng(7))
         (out / "feasibility.json").write_text(json.dumps(feas, indent=1))
