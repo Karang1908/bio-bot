@@ -7337,6 +7337,47 @@ option set only the main (dog) body, so it used the default `SET_SPEED = 4.0` ra
 **Fix (no behaviour change):** `G1_SET_SPEED = 4.0` is now set explicitly on the G1 inside grown runs. The fly is given
 `--set_speed` (9), as in its own check.
 
+### 6.69 The fly: the same brain learns a third body's map; the dog and the G1 are bit-identical (28 Nov)
+
+**Owner, 28 Nov:** "now teach it the fly, the same brain."
+
+**Body (`4b519b9`, `e778e82`, `--body fly`):**
+- flybody (Menagerie, the same pinned commit), enlarged 100× by the project's own dimensional scaling (`world/scale.py`,
+  shipped in the job with `--embed`): length ×1 (cm → m at 100×), mass ×1000, time ×10, so a 1 ms step.
+  Gravity 9.81; fluid drag off (as in the world).
+- The brain drives its 56 position-servo joints: 42 leg, head, mouthparts, antennae. Wings, tendon-driven parts and
+  adhesion stay passive for now. Six feet (each leg's tarsus segments and claw); up means ≥ 3 feet bearing > 0.3 N.
+- **No-brain check `babble-flystand2`:** it stands 20/20 under the ±0.1 wobble and 20/20 with varied set-downs plus
+  wobble. Statically stable like the dog, unlike the G1.
+- `babble-flystand1` failed with `NameError: name 'tempfile' is not defined` (imported only inside `main`); fixed in
+  `e778e82`.
+
+**Growth (`5f513fa`, `--grow_fly`, genome `GENOME_FLY = 20261128`):**
+- After the G1's, so every earlier neuron keeps its index: 3,824 sensory copies (239 nerves × 16), 370 motor copies
+  (56 motors), 232,551 copied synapses. The brain now has 13,615 neurons.
+- Fly work runs before the G1 and dog checks, so those checks see any interference.
+
+**Verification, from g1balance4a with `--grow_g1 --g1_support --cpg --turn_eval` (seeds 9100+):**
+- **A** `babble-flygrowA`: no fly.
+- **B** `babble-flygrowB`: plus `--grow_fly --fly_babble 30`.
+- **The G1's support results and the dog's turn evaluation are bit-identical between A and B** for both brains (0 of
+  30 and 0 of 67 entries differ).
+
+**Fly babbling in B:**
+- The fly body map reaches right joint and right joint + direction **100% / 100% by 5 min** for both brains (chance
+  2% / 1%).
+- Limits felt 90 of 112. Range explored 102–107% (some joints pass their nominal limits; believed soft limits in
+  flybody, not checked).
+
+**Now:** one brain (the fly connectome plus grown periphery) has learned the body maps of three bodies (the dog, the G1,
+the fly). Learning each left the others exactly as they were.
+
+**Not yet:**
+- Fly skills (it stands passively).
+- G1 standing alone (§6.67).
+- Dog walking (§6.65).
+- Telling the bodies apart unaided (the body is switched by `use()`).
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
