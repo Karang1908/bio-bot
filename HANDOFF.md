@@ -194,6 +194,16 @@ runaway); posture neurons (§6.27–6.29); steering by test code (§6.18).
 - **Open:** fly skills; G1 standing alone; dog walking (parked, §6.65); telling the bodies apart unaided (the body is
   switched by `brain.use()`).
 
+**Update 28 Nov, later (verified, LOGBOOK §6.70). This overrides the "Latest brains" line above:**
+- **Four bodies, one brain:** dog, G1, fly and now the drone (Skydio X2, `--body drone`; rotors are the motors, with thrust
+  as their sense). The brain has 14,385 neurons. Drone body map 100%/100% by 30 min. Dog, G1 and fly are unchanged
+  (bit-identical results; identical fly arrays).
+- **Latest brains holding all four bodies:** `results/babble-dronegrowB/brain_dog{1,2}.npz` (Kaggle source
+  `karang1908/bio-bot-babble-dronegrowb`). To resume, add `--embed world/scale.py --set grow_g1=1 grow_fly=1
+  grow_drone=1` to the usual flags (growth order is fixed: G1, fly, drone).
+- **Open:** drone skills (hover/flight); fly skills; G1 standing alone; dog walking; telling the bodies apart unaided.
+  The owner will say what comes next.
+
 **Earlier next question:** how should weight shift be learned? A graded curriculum (small shifts first),
 larger structured exploration within those trials, or a different whole-body posture representation.
 
