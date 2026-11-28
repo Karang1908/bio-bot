@@ -7378,6 +7378,39 @@ the fly). Learning each left the others exactly as they were.
 - Dog walking (§6.65).
 - Telling the bodies apart unaided (the body is switched by `use()`).
 
+### 6.70 The drone: a fourth body's map learned by the same brain; dog, G1 and fly unchanged (28 Nov)
+
+**Owner, 28 Nov:** "teach it the drone as well."
+
+**Body (`2164fd1`, `--body drone`):** Skydio X2 (Menagerie, the same pinned commit): 4 thrust motors (0–13 N), free
+body, air drag on, 10 ms step.
+- **Motors:** each rotor is a motor for the brain, which moves its thrust set point with the same leaky set-point
+  muscle (relaxes to 0 thrust; full range in 0.5 s, `DRONE_SET_SPEED = 26` N/s).
+- **Senses per rotor:** felt thrust, its rate of change, effort, and a limit line that is always 0 (rotors have no
+  limits). Plus gravity, turning and the accelerometer. No feet.
+- **Caveat (stated before the run):** each rotor's thrust nerve reports almost exactly what was commanded, so this
+  body-map test is easier than for the jointed bodies.
+
+**Growth (`--grow_drone`, genome `GENOME_DRONE = 20261129`, after the fly):** 400 sensory copies (25 nerves × 16), 370
+motor copies (4 rotors), 61,502 copied synapses. The brain has 14,385 neurons.
+
+**Verification (from flygrowB):**
+- **A** `babble-dronegrowA`: grow_g1 + grow_fly.
+- **B** `babble-dronegrowB`: plus grow_drone + drone_babble 30. Then the G1 support check and the dog turn evaluation
+  (seeds 9100+).
+- **Results:** G1 and dog results are **bit-identical** for both brains (0 of 30, 0 of 67). The saved `fly_*` arrays
+  are identical (10 of 10).
+
+**Drone babbling (on the ground):**
+- Body map right rotor + direction: 77% (5 min) → 95% (10) → 98% (15) → **100% (30 min)** for dog 1's brain; 100% at
+  30 min for dog 2's (chance 25% / 12%).
+- Thrust range explored 71–76%; limits felt 0 of 8, as expected.
+- Slower than the fly (100% in 5 min) despite the easier sense. Believed (not measured): about 92 motor neurons per
+  rotor vs about 7 per fly joint.
+
+**Now:** one brain has learned the body maps of four bodies (dog, G1 humanoid, fly, drone). Learning each left every
+earlier body exactly as it was. No drone skills (hover, flight) yet.
+
 ## 7. Open problems and next steps
 
 **Superseded 2 Nov:** the current plan and gates are in `Embodiogenesis.md` §6 (Phase 0: sparse engine,
