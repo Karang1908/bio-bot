@@ -32,6 +32,7 @@ import numpy as np
 
 MENAGERIE_URL = "https://github.com/google-deepmind/mujoco_menagerie.git"
 MENAGERIE_COMMIT = "367e3d9884401dcf6f9c27fa69f118992539039f"
+GENOME_DRONE = 20261129  # the drone's wiring (grown after the fly's, 28 Nov)
 GENOME_FLY = 20261128    # the fly's wiring (grown after the G1's, 28 Nov)
 GENOME_G1 = 20261127     # the G1's wiring: which copied neurons it reaches (grown when the humanoid arrives, 27 Nov)
 COPY_NOISE = 0.1         # a copied neuron's synapses: the template's, each x (1 + 0.1 N(0,1)), clipped to keep its sign
@@ -57,6 +58,7 @@ G1_TRIAL_S = 2.0         # s: a G1 balance trial (--g1_trial_s). Unhelped it fal
                          # fall already under way as a success (g1balance1, §6.63)
 G1_HELP_START = 0.5      # balance practice starts with the parent carrying half (it always stays up at 0.5, §6.62)
 G1_BABBLE_HELP = 1.0     # the G1 babbles in a parent's hands that carry its weight (it falls in ~2 s alone, §6.58)
+DRONE_SET_SPEED = 26.0   # N/s: a fully driven pool moves a rotor's thrust set point across its 0-13 N range in 0.5 s
 FLY_FOOT_LOADED_N = 0.3  # N: the enlarged fly weighs ~10 N on six feet (~1.6 N each); a foot bears weight above this
 G1_UP_HEIGHT = 0.60      # m: the G1's pelvis above this counts as up (it stands at 0.79)
 STANDING_HEIGHT = 0.16   # m: trunk above this counts as up on its legs (measured: lying 0.07-0.14; with tone it stands at 0.19)
@@ -303,7 +305,8 @@ class Body:
         self.accel = accel                         # --accel: the IMU's accelerometer (trunk frame), appended nerves
         self._acc, self._v_prev = np.zeros(3), None
         self.mj = mujoco
-        self.kind = "fly" if (go2 / "fruitfly.xml").exists() else "g1" if (go2 / "g1.xml").exists() else "go2"
+        self.kind = ("fly" if (go2 / "fruitfly.xml").exists() else "g1" if (go2 / "g1.xml").exists()
+                     else "drone" if (go2 / "x2.xml").exists() else "go2")
         if self.kind == "fly":                     # flybody (cm-g-s) enlarged 100x by dimensional scaling, as in the
             sc = scale_module()                    # world (TechnicalDesign: ~1 kg, 1 ms step); fluid drag off
             spec = mujoco.MjSpec.from_file(str(go2 / "scene.xml"))
@@ -322,21 +325,34 @@ class Body:
                                  and self.m.actuator_biastype[a] == mujoco.mjtBias.mjBIAS_AFFINE])
         else:
             self.act = np.arange(self.m.nu)
-        self.joint = [int(self.m.actuator_trnid[a, 0]) for a in self.act]       # the joint each motor turns
-        self.qadr = np.array([self.m.jnt_qposadr[j] for j in self.joint])
-        self.vadr = np.array([self.m.jnt_dofadr[j] for j in self.joint])
-        self.lo, self.hi = self.m.jnt_range[self.joint, 0].copy(), self.m.jnt_range[self.joint, 1].copy()
-        self.tmax = self.m.actuator_ctrlrange[self.act, 1].copy()
-        unlimited = ~self.m.jnt_limited[self.joint].astype(bool)
-        self.lo[unlimited], self.hi[unlimited] = -np.pi, np.pi
-        self.names = [self.m.joint(j).name.replace("_joint", "") for j in self.joint]
+        if self.kind == "drone":                   # no joints: each rotor is a motor; its "position" is its thrust
+            self.joint = list(range(self.m.nu))
+            self.qadr = self.vadr = np.zeros(0, int)
+            self.lo, self.hi = np.zeros(self.m.nu), self.m.actuator_ctrlrange[:, 1].copy()
+            self.tmax = self.hi.copy()
+            self.names = [self.m.actuator(a).name for a in range(self.m.nu)]
+            self._thrust_prev, self._thrust_rate = np.zeros(self.m.nu), np.zeros(self.m.nu)
+        else:
+            self.joint = [int(self.m.actuator_trnid[a, 0]) for a in self.act]       # the joint each motor turns
+            self.qadr = np.array([self.m.jnt_qposadr[j] for j in self.joint])
+            self.vadr = np.array([self.m.jnt_dofadr[j] for j in self.joint])
+            self.lo, self.hi = self.m.jnt_range[self.joint, 0].copy(), self.m.jnt_range[self.joint, 1].copy()
+            self.tmax = self.m.actuator_ctrlrange[self.act, 1].copy()
+            unlimited = ~self.m.jnt_limited[self.joint].astype(bool)
+            self.lo[unlimited], self.hi[unlimited] = -np.pi, np.pi
+            self.names = [self.m.joint(j).name.replace("_joint", "") for j in self.joint]
         self.held = held
         self.tone = tone
         self.leak = leak
         self.leak_s = TONE_LEAK_S
         self.set_speed = SET_SPEED
         self.foot_loaded, self.floor = FOOT_LOADED_N, 0.0
-        if self.kind == "fly":                      # six feet (each leg's tarsus segments and claw); default pose stands
+        if self.kind == "drone":                    # rests on the ground with its rotors off; no feet
+            self.base = self.m.body("x2").id
+            self.feet = []
+            self.key, self.min_feet, self.stand_height, self.up_height = None, 0, 0.1, -1e9
+            self.set_speed = DRONE_SET_SPEED
+        elif self.kind == "fly":                      # six feet (each leg's tarsus segments and claw); default pose stands
             self.base = self.m.body("thorax").id
             legs = [f"T{i}_{s}" for i in (1, 2, 3) for s in ("left", "right")]
             self.feet = [{g for g in range(self.m.ngeom) if self.m.geom_contype[g] and
@@ -367,6 +383,8 @@ class Body:
             self.mj.mj_resetDataKeyframe(self.m, self.d, self.m.keyframe(self.key).id)
         self.d.xfrc_applied[:] = 0.0                                     # no hands left on it from before
         self._acc, self._v_prev = np.zeros(3), None
+        if self.kind == "drone":
+            self._thrust_prev, self._thrust_rate = np.zeros(self.m.nu), np.zeros(self.m.nu)
         if self.held:
             self.hold()
             self.mj.mj_forward(self.m, self.d)
@@ -415,12 +433,18 @@ class Body:
             self.d.xfrc_applied[self.base] = self.hands() if self.support > 0 else 0.0
             if self.tone and self.kind in ("g1", "fly"):
                 self.d.ctrl[self.act] = self.target                      # the position servo pulls toward it
+            elif self.tone and self.kind == "drone":
+                self.d.ctrl[:] = np.clip(self.target, 0.0, self.tmax)     # the rotors spin to their thrust set points
             elif self.tone:
                 pull = TONE_KP * (self.target - self.d.qpos[self.qadr]) - TONE_KD * self.d.qvel[self.vadr]
                 self.d.ctrl[:] = np.clip(pull, -self.tmax, self.tmax)
             self.mj.mj_step(self.m, self.d)
             if self.held:
                 self.hold()
+        if self.kind == "drone":                                          # how fast each rotor's thrust changed
+            thrust = self.d.actuator_force.copy()
+            self._thrust_rate = (thrust - self._thrust_prev) / BRAIN_DT
+            self._thrust_prev = thrust
         if self.accel:                                                    # how fast the trunk's own velocity changed
             v = self.trunk_velocity()
             self._acc = (v - self._v_prev) / BRAIN_DT
@@ -446,12 +470,24 @@ class Body:
         return self.support * np.array([0.0, 0.0, fz, tq[0], tq[1], tq[2]])
 
     def angles(self):
+        if self.kind == "drone":
+            return self.d.actuator_force.copy()                           # each rotor's thrust (N)
         return self.d.qpos[self.qadr].copy()
+
+    def limit_push(self):
+        """How hard each joint is pushed back at its limit (rotors have none)."""
+        if self.kind == "drone":
+            return np.zeros(len(self.joint))
+        return self.d.qfrc_constraint[self.vadr]
 
     def feel(self):
         """What the joints' own sense organs report: angle, speed, effort, and the push-back at a limit. On the
         ground also: the pressure under each foot, and the inner ear."""
-        joints = [self.d.qpos[self.qadr], self.d.qvel[self.vadr], self.d.actuator_force[self.act], self.d.qfrc_constraint[self.vadr]]
+        if self.kind == "drone":                                          # per rotor: thrust, its change, effort, no limit
+            thrust = self.d.actuator_force.copy()
+            joints = [thrust, self._thrust_rate, np.abs(thrust), np.zeros(len(thrust))]
+        else:
+            joints = [self.d.qpos[self.qadr], self.d.qvel[self.vadr], self.d.actuator_force[self.act], self.d.qfrc_constraint[self.vadr]]
         if self.held:
             return np.concatenate(joints)
         lines = [*joints, self.touch(), self.gravity(), self.d.qvel[3:6]]
@@ -806,7 +842,7 @@ def babble(body, brain, minutes, rng, log, label, diag=None, held=False):
         s_prev = s
         q = body.angles()
         seen_lo, seen_hi = np.minimum(seen_lo, q), np.maximum(seen_hi, q)
-        push = body.d.qfrc_constraint[body.vadr]
+        push = body.limit_push()
         limit_felt[:, 0] += (q < body.lo + 0.02) & (np.abs(push) > 1.0)
         limit_felt[:, 1] += (q > body.hi - 0.02) & (np.abs(push) > 1.0)
         if (t + 1) % int(5 * 60 / BRAIN_DT) == 0 or t == steps - 1:
@@ -2366,6 +2402,9 @@ def main():
                     help="with --cpg: measure, stage by stage, where the rhythm's signal goes on its way to the joints")
     ap.add_argument("--cpg_feasibility", action="store_true",
                     help="with --cpg: premise check, can random rhythm-to-motor synapses of each size turn the body at all?")
+    ap.add_argument("--grow_drone", action="store_true",
+                    help="with --grow_g1 --grow_fly: grow the drone's own sensory and motor neurons by copying, after the fly's")
+    ap.add_argument("--drone_babble", type=float, default=0.0, help="with --grow_drone: minutes of babbling in the drone")
     ap.add_argument("--grow_fly", action="store_true",
                     help="with --grow_g1: grow the fly's own sensory and motor neurons by copying, after the G1's")
     ap.add_argument("--fly_babble", type=float, default=0.0, help="with --grow_fly: minutes of babbling in the fly")
@@ -2380,7 +2419,7 @@ def main():
                     help="with --grow_g1: minutes of babbling in the G1 (held up by a parent's hands)")
     ap.add_argument("--grow_g1", action="store_true",
                     help="grow the G1 humanoid's own sensory and motor neurons by copying (the dog stays unchanged)")
-    ap.add_argument("--body", default="go2", choices=("go2", "g1", "fly"), help="which body: the Go2 dog, the G1 humanoid, the fly")
+    ap.add_argument("--body", default="go2", choices=("go2", "g1", "fly", "drone"), help="which body: the Go2 dog, the G1 humanoid, the fly")
     ap.add_argument("--g1_stand", action="store_true", help="physics premise, no brain: can the G1 stay up with joints held?")
     ap.add_argument("--walk_feasibility", action="store_true",
                     help="with --walk: premise check, can random walk-forward rhythm synapses move the body forward at all?")
@@ -2468,9 +2507,9 @@ def main():
         print(msg, flush=True)
         lines_out.append(msg)
 
-    if args.body in ("g1", "fly") and not (args.ground and args.tone):
+    if args.body in ("g1", "fly", "drone") and not (args.ground and args.tone):
         raise SystemExit(f"--body {args.body} needs --ground and --tone (its joints are position servos)")
-    folder = {"go2": "unitree_go2", "g1": "unitree_g1", "fly": "flybody"}[args.body]
+    folder = {"go2": "unitree_go2", "g1": "unitree_g1", "fly": "flybody", "drone": "skydio_x2"}[args.body]
     body = Body(fetch_model(Path(tempfile.gettempdir()), folder),
                 held=not args.ground, tone=bool(args.tone), leak=bool(args.leak), accel=bool(args.accel) and bool(args.ground))
     body.leak_s = float(args.leak_s)
@@ -2483,7 +2522,7 @@ def main():
         if body.leak:
             where += (f", which relax back to the set-down posture over {body.leak_s:g} s (set points move up to "
                       f"{body.set_speed:g} rad/s, reach up to {body.set_speed * body.leak_s:g} rad)")
-    log(f"body: {dict(go2='Go2', g1='G1', fly='fly (flybody x100)')[body.kind]}, {len(body.joint)} joints ({', '.join(body.names)}); {where}; {len(body.feel())} nerves; "
+    log(f"body: {dict(go2='Go2', g1='G1', fly='fly (flybody x100)', drone='drone (Skydio X2)')[body.kind]}, {len(body.joint)} joints ({', '.join(body.names)}); {where}; {len(body.feel())} nerves; "
         f"physics {body.subs} steps per brain step")
     log(f"brain: fly connectome, {len(core['role'])} neurons, {len(core['pre'])} connections; it is told nothing about the body")
     if args.g1_stand:
@@ -2499,7 +2538,7 @@ def main():
         print("DONE", flush=True)
         return
     results = []
-    g1_body = fly_body = None
+    g1_body = fly_body = drone_body = None
     for dog in range(args.dogs):
         brain = Brain(core, len(body.feel()), len(body.joint), np.random.default_rng(GENOME))     # same genome
         if body.tone:
@@ -2530,6 +2569,8 @@ def main():
             explored = babble(body, brain, args.minutes, np.random.default_rng(1000 + dog), log, label, diag,
                               held=bool(args.held_babble))
         g1_results = {}
+        if args.grow_drone and not args.grow_fly:
+            raise SystemExit("--grow_drone is grown after the fly (neuron order); use it with --grow_g1 --grow_fly")
         if args.grow_fly and not args.grow_g1:
             raise SystemExit("--grow_fly is grown after the G1 (neuron order); use it with --grow_g1")
         if args.grow_g1:                                                  # the humanoid arrives: grow its periphery
@@ -2561,6 +2602,24 @@ def main():
                     brain.adapting = False
                     brain.use("go2")
                     log(f"[{label}] back in the dog after babbling in the fly")
+            if args.grow_drone:                                           # the drone arrives (after the fly)
+                drone = drone_body or Body(fetch_model(Path(tempfile.gettempdir()), "skydio_x2"), held=False, tone=True,
+                                           leak=bool(args.leak), accel=bool(args.accel))
+                drone.leak_s = float(args.leak_s)
+                drone_body = drone
+                n_s, n_m, n_syn = brain.grow_body("drone", len(drone.feel()), len(drone.joint), np.random.default_rng(GENOME_DRONE))
+                log(f"[{label}] grew the drone's periphery by copying: {n_s} sensory neurons ({len(drone.feel())} nerves x "
+                    f"{NERVE_FIBRES}), {n_m} motor neurons ({len(drone.joint)} rotors), {n_syn} copied synapses; brain now "
+                    f"{brain.N} neurons. The dog's, the G1's and the fly's parts are unchanged.")
+                if args.resume and load_body_parts(brain, found[0], "drone"):
+                    log(f"[{label}] restored what it learned in the drone from {found[0]}")
+                if args.drone_babble:                                     # the same brain, plugged into the drone
+                    brain.use("drone")
+                    brain.adapting, brain.adapt_var, brain.reflex = True, True, 0.0
+                    babble(drone, brain, args.drone_babble, np.random.default_rng(3500 + dog), log, label + ", in the drone")
+                    brain.adapting = False
+                    brain.use("go2")
+                    log(f"[{label}] back in the dog after babbling in the drone")
             if args.g1_babble:                                            # the same brain, plugged into the humanoid
                 brain.use("g1")
                 brain.adapting, brain.adapt_var, brain.reflex = True, True, 0.0
