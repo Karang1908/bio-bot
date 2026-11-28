@@ -10,7 +10,7 @@ Read this file first, then:
 
 Everything below marked **verified** was measured. **Believed** means reasoned but not measured.
 
-## 0. Current state: 27 Nov 2026 (this section overrides everything below it; newest update last)
+## 0. Current state: 28 Nov 2026 (this section overrides everything below it; newest update last)
 
 **Fresh start (owner, 17 Nov).** Body first, no goal tasks, no prediction. The old training code (`baby_dog.py`,
 fetch, PPO) is not the line of work any more. Everything now lives in one standalone script, **`train/babble.py`**,
@@ -173,6 +173,26 @@ runaway); posture neurons (§6.27–6.29); steering by test code (§6.18).
     g1_balance=N g1_trial_s=5 g1_support=1`.
 - **Next after balance:** G1 standing without help, then G1 skills; then practice that alternates bodies (rehearse the
   dog while learning the G1) and a test that the brain tells the two bodies apart.
+
+**Update 28 Nov (verified, LOGBOOK §6.66–6.69). This overrides the "Best G1 brains" and "Running" lines above:**
+- **Three bodies, one brain.** The same brain (fly connectome plus grown periphery, 13,615 neurons) has learned the body
+  maps of the dog, the G1 humanoid and the fly. Learning each left the others bit-identical.
+- **Fly (owner, 28 Nov):**
+  - `--body fly`: flybody ×100 via `world/scale.py`, which must be shipped with `--embed world/scale.py`.
+  - `--grow_fly`, which must come with `--grow_g1` (neuron order); `--fly_babble N`.
+  - It stands passively. Body map 100%/100% in 5 min (§6.69).
+- **G1 balance has plateaued:** about 4–5 s unhelped; help 0.25 → 15–19/20 up. A 3× learning rate is worse (§6.67).
+  Next premise test (not started): is the set-point-velocity command interface unable to catch a falling biped?
+- **G1 set-point speed was 4 rad/s** in every G1 learning run (§6.68), now explicit as `G1_SET_SPEED`. §6.61's
+  brain-vs-no-brain comparison is not valid.
+- **Latest brains holding all three bodies:** `results/babble-flygrowB/brain_dog{1,2}.npz` (Kaggle source
+  `karang1908/bio-bot-babble-flygrowb`).
+  - **Dog parts:** CHECK-ALPHA, unchanged.
+  - **`g1_*` parts:** from g1balance4a.
+  - **`fly_*` parts:** fly babble only.
+  - **To resume:** `--embed world/scale.py --set ... grow_g1=1 grow_fly=1` (plus the usual flags).
+- **Open:** fly skills; G1 standing alone; dog walking (parked, §6.65); telling the bodies apart unaided (the body is
+  switched by `brain.use()`).
 
 **Earlier next question:** how should weight shift be learned? A graded curriculum (small shifts first),
 larger structured exploration within those trials, or a different whole-body posture representation.
